@@ -114,8 +114,8 @@ class MobileVaultImporterTest {
 
         assertTrue(script.contains("tmux has-session -t 'tr-prod'"))
         assertTrue(script.contains("exec tmux attach-session -d -t 'tr-prod'"))
-        assertTrue(script.contains("exec tmux new-session -s 'tr-prod' -c '/srv/app' 'uptime'"))
-        assertTrue(script.indexOf("exec tmux attach-session") < script.indexOf("'uptime'"))
+        assertTrue(script.contains("exec tmux new-session -s 'tr-prod' -c '/srv/app' -- \"\${SHELL:-/bin/sh}\" -lc 'uptime; exec \"\${SHELL:-/bin/sh}\" -l'"))
+        assertTrue(script.indexOf("exec tmux attach-session") < script.indexOf("uptime; exec"))
     }
 }
 

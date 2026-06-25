@@ -20,7 +20,8 @@ class TmuxBootstrap(private val host: MobileHost) {
                 append(" -c ${shellSingleQuote(it)}")
             }
             host.startupCommand?.takeIf { it.isNotBlank() }?.let {
-                append(" ${shellSingleQuote(it)}")
+                val shellCommand = "$it; exec \"${'$'}{SHELL:-/bin/sh}\" -l"
+                append(" -- \"${'$'}{SHELL:-/bin/sh}\" -lc ${shellSingleQuote(shellCommand)}")
             }
         }
 

@@ -69,12 +69,37 @@ class MobileHostViewModel(
         terminalBuffer.append("Connecting to ${host.username}@${host.host}:${host.port}")
 
         viewModelScope.launch {
-            runCatching { sshClient.connect(host, knownHost) }
+            runCatching {
+                sshClient.connect(host, knownHost) { bytes ->
+                    terminalBuffer.append(bytes.decodeToString())
+                }
+            }
                 .onSuccess { _connectionState.value = TerminalConnectionState.Connected }
                 .onFailure {
                     _connectionState.value = TerminalConnectionState.Failed(it.message ?: "Connection failed.")
                     terminalBuffer.append(it.message ?: "Connection failed.")
                 }
+        }
+    }
+
+    fun sendTerminalInput(input: String) {
+        viewModelScope.launch {
+            runCatching { sshClient.send("$input\n".encodeToByteArray()) }
+                .onFailure { terminalBuffer.append(it.message ?: "Unable to send input.") }
+        }
+    }
+
+    fun sendTerminalBytes(bytes: ByteArray) {
+        viewModelScope.launch {
+            runCatching { sshClient.send(bytes) }
+                .onFailure { terminalBuffer.append(it.message ?: "Unable to send input.") }
+        }
+    }
+
+    fun disconnect() {
+        viewModelScope.launch {
+            sshClient.disconnect()
+            _connectionState.value = TerminalConnectionState.Disconnected
         }
     }
 }

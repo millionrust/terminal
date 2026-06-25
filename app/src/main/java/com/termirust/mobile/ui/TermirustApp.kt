@@ -88,8 +88,13 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
         Text(selectedHost?.label ?: "No host selected", style = MaterialTheme.typography.headlineSmall)
         Text(state.label(), style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(8.dp))
-        Button(onClick = { viewModel.connectSelectedHost() }, enabled = selectedHost != null) {
-            Text("Connect")
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(onClick = { viewModel.connectSelectedHost() }, enabled = selectedHost != null) {
+                Text("Connect")
+            }
+            Button(onClick = { viewModel.disconnect() }, enabled = state != TerminalConnectionState.Disconnected) {
+                Text("Disconnect")
+            }
         }
         Spacer(modifier = Modifier.height(12.dp))
         LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
@@ -97,21 +102,51 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
                 Text(line.ifEmpty { " " }, fontFamily = FontFamily.Monospace)
             }
         }
-        AccessoryRow()
-        OutlinedTextField(
-            value = command,
-            onValueChange = { command = it },
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text("Command") },
-        )
+        AccessoryRow(onSend = viewModel::sendTerminalBytes)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+            OutlinedTextField(
+                value = command,
+                onValueChange = { command = it },
+                modifier = Modifier.weight(1f),
+                label = { Text("Command") },
+            )
+            Button(
+                onClick = {
+                    viewModel.sendTerminalInput(command)
+                    command = ""
+                },
+                enabled = command.isNotBlank() && state == TerminalConnectionState.Connected,
+            ) {
+                Text("Send")
+            }
+        }
     }
 }
 
 @Composable
-private fun AccessoryRow() {
+private fun AccessoryRow(onSend: (ByteArray) -> Unit) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-        listOf("Esc", "Tab", "Ctrl", "Alt", "←", "↓", "↑", "→", "/", "|", "-").forEach {
-            AssistChip(onClick = {}, label = { Text(it) })
+        listOf(
+            "Esc" to "\u001B",
+            "Tab" to "\t",
+            "Ctrl" to "",
+            "Alt" to "",
+            "←" to "\u001B[D",
+            "↓" to "\u001B[B",
+            "↑" to "\u001B[A",
+            "→" to "\u001B[C",
+            "/" to "/",
+            "|" to "|",
+            "-" to "-",
+        ).forEach { (label, bytes) ->
+            AssistChip(
+                onClick = {
+                    if (bytes.isNotEmpty()) {
+                        onSend(bytes.encodeToByteArray())
+                    }
+                },
+                label = { Text(label) },
+            )
         }
     }
 }
