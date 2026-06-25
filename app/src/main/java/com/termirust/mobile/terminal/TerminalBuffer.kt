@@ -2,12 +2,81 @@ package com.termirust.mobile.terminal
 
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import java.io.ByteArrayOutputStream
 import kotlin.math.max
 import kotlin.math.min
 
 class TerminalBuffer(private val maxLines: Int = 2_000) {
     private val _lines = MutableStateFlow<List<String>>(emptyList())
     val lines: StateFlow<List<String>> = _lines
+
+    private val transcript = ByteArrayOutputStream()
+    private val fallback = FallbackTerminalBuffer(maxLines)
+    private var nativeUnavailable = false
+    private var columns = 80
+    private var rows = 24
+
+    fun append(text: String) {
+        append(text.encodeToByteArray())
+    }
+
+    fun append(bytes: ByteArray) {
+        if (bytes.isEmpty()) {
+            return
+        }
+        if (renderWithNative(bytes)) {
+            return
+        }
+        fallback.append(bytes.decodeToString())
+        _lines.value = fallback.lines()
+    }
+
+    fun resize(columns: Int, rows: Int) {
+        val nextColumns = columns.coerceAtLeast(1)
+        val nextRows = rows.coerceAtLeast(1)
+        if (this.columns == nextColumns && this.rows == nextRows) {
+            return
+        }
+        this.columns = nextColumns
+        this.rows = nextRows
+        if (!nativeUnavailable) {
+            renderWithNative(ByteArray(0))
+        }
+    }
+
+    fun clear() {
+        transcript.reset()
+        nativeUnavailable = false
+        fallback.clear()
+        _lines.value = emptyList()
+    }
+
+    private fun renderWithNative(newBytes: ByteArray): Boolean {
+        if (nativeUnavailable) {
+            return false
+        }
+        if (newBytes.isNotEmpty()) {
+            transcript.write(newBytes)
+        }
+        val rendered = NativeMobileTerminal.renderUtf8OrNull(
+            input = transcript.toByteArray(),
+            columns = columns,
+            rows = rows,
+            scrollbackRows = maxLines,
+        )
+        if (rendered == null) {
+            nativeUnavailable = true
+            return false
+        }
+        _lines.value = rendered
+            .decodeToString()
+            .split('\n')
+            .ifEmpty { listOf("") }
+        return true
+    }
+}
+
+private class FallbackTerminalBuffer(private val maxLines: Int) {
     private val rows = mutableListOf<StringBuilder>()
     private var row = 0
     private var column = 0
@@ -28,14 +97,19 @@ class TerminalBuffer(private val maxLines: Int = 2_000) {
             }
             index += 1
         }
-        publish()
     }
 
     fun clear() {
         rows.clear()
         row = 0
         column = 0
-        _lines.value = emptyList()
+    }
+
+    fun lines(): List<String> {
+        trimScrollback()
+        return rows
+            .take(min(rows.size, maxLines))
+            .map { it.toString() }
     }
 
     private fun write(char: Char) {
@@ -129,12 +203,5 @@ class TerminalBuffer(private val maxLines: Int = 2_000) {
         val remove = rows.size - maxLines
         repeat(remove) { rows.removeAt(0) }
         row = max(0, row - remove)
-    }
-
-    private fun publish() {
-        trimScrollback()
-        _lines.value = rows
-            .take(min(rows.size, maxLines))
-            .map { it.toString() }
     }
 }

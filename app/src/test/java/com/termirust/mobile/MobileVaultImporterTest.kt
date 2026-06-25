@@ -187,7 +187,7 @@ class MobileVaultImporterTest {
     fun terminalBufferHandlesCommonTerminalRedrawSequences() {
         val buffer = TerminalBuffer()
 
-        buffer.append("progress 1\rprogress 2\n\u001B[31mred\u001B[0m\nabc\bZ")
+        buffer.append("progress 1\rprogress 2\r\n\u001B[31mred\u001B[0m\r\nabc\bZ")
 
         assertEquals(listOf("progress 2", "red", "abZ"), buffer.lines.value)
     }
