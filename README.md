@@ -31,9 +31,21 @@ Not finished yet:
 
 ## Build
 
-This machine did not have Gradle or the Android SDK command-line tools installed when the scaffold was created. On a normal Android Studio setup:
+On a normal Android Studio setup, use the project Gradle wrapper once one is generated:
 
 ```bash
 ./gradlew testDebugUnitTest
 ./gradlew assembleDebug
+```
+
+This workspace was also verified with the cached local Gradle distribution:
+
+```bash
+ANDROID_HOME=/Users/jacob/Library/Android/sdk \
+ANDROID_SDK_ROOT=/Users/jacob/Library/Android/sdk \
+/Users/jacob/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.13/bin/gradle testDebugUnitTest --no-daemon
+
+ANDROID_HOME=/Users/jacob/Library/Android/sdk \
+ANDROID_SDK_ROOT=/Users/jacob/Library/Android/sdk \
+/Users/jacob/.gradle/wrapper/dists/gradle-8.13-bin/5xuhj0ry160q40clulazy9h7d/gradle-8.13/bin/gradle assembleDebug --no-daemon
 ```
