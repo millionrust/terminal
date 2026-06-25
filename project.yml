@@ -28,7 +28,7 @@ targets:
         product: NIOPosix
       - package: swift-crypto
         product: Crypto
-      - framework: ../../terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework
+      - framework: Frameworks/TermiRustMobileCrypto.xcframework
         embed: false
     settings:
       base:

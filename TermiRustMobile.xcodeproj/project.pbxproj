@@ -47,7 +47,7 @@
 		2ACD1DD632FE87CA985233FC /* TermiRustMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermiRustMobileApp.swift; sourceTree = "<group>"; };
 		4022DC3DBB1883F4FAAF5D22 /* HostListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListViewModel.swift; sourceTree = "<group>"; };
 		6DBD05A37D69F9631D1396BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
-		6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = TermiRustMobileCrypto.xcframework; path = ../../terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework; sourceTree = "<group>"; };
+		6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = TermiRustMobileCrypto.xcframework; path = Frameworks/TermiRustMobileCrypto.xcframework; sourceTree = "<group>"; };
 		76237639D6037947840EF355 /* KeychainSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSecretStore.swift; sourceTree = "<group>"; };
 		79B01326772388C06F4F275E /* MobileSSHSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSSHSession.swift; sourceTree = "<group>"; };
 		7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporterTests.swift; sourceTree = "<group>"; };
@@ -491,7 +491,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"../../terminal/dist/mobile/ios\"",
+					"\"Frameworks\"",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
@@ -515,7 +515,7 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				FRAMEWORK_SEARCH_PATHS = (
 					"$(inherited)",
-					"\"../../terminal/dist/mobile/ios\"",
+					"\"Frameworks\"",
 				);
 				GENERATE_INFOPLIST_FILE = YES;
 				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
