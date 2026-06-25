@@ -9,6 +9,8 @@ import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.TmuxBootstrap
 import com.termirust.mobile.terminal.TerminalBuffer
+import com.termirust.mobile.terminal.TerminalGrid
+import com.termirust.mobile.terminal.estimateTerminalGrid
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -197,6 +199,22 @@ class MobileVaultImporterTest {
         buffer.append("before\n\u001B[2J\u001B[Hafter")
 
         assertEquals(listOf("after"), buffer.lines.value)
+    }
+
+    @Test
+    fun terminalGridEstimationUsesTerminalSizeAndFont() {
+        assertEquals(
+            TerminalGrid(columns = 92, rows = 31),
+            estimateTerminalGrid(widthPx = 800, heightPx = 600, fontSizeSp = 14, density = 1f),
+        )
+        assertEquals(
+            TerminalGrid(columns = 46, rows = 15),
+            estimateTerminalGrid(widthPx = 800, heightPx = 600, fontSizeSp = 28, density = 1f),
+        )
+        assertEquals(
+            TerminalGrid(columns = 20, rows = 6),
+            estimateTerminalGrid(widthPx = 1, heightPx = 1, fontSizeSp = 14, density = 1f),
+        )
     }
 }
 

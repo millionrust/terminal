@@ -142,6 +142,13 @@ class MobileHostViewModel(
         }
     }
 
+    fun resizeTerminal(columns: Int, rows: Int) {
+        viewModelScope.launch {
+            runCatching { sshClient.resize(columns, rows) }
+                .onFailure { terminalBuffer.append(it.message ?: "Unable to resize terminal.") }
+        }
+    }
+
     fun disconnect() {
         viewModelScope.launch {
             sshClient.disconnect()

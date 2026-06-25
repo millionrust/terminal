@@ -10,12 +10,14 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -23,15 +25,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.compose.foundation.text.selection.SelectionContainer
 import com.termirust.mobile.MobileHostViewModel
 import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.ssh.TerminalConnectionState
+import com.termirust.mobile.terminal.estimateTerminalGrid
 
 @Composable
 fun TermirustApp(
@@ -122,6 +126,32 @@ private fun TerminalPane(
     var credential by remember(selectedHost?.id) { mutableStateOf("") }
     var terminalFontSize by remember { mutableStateOf(14) }
     var pendingMultilinePaste by remember { mutableStateOf<String?>(null) }
+    var terminalWidthPx by remember { mutableStateOf(0) }
+    var terminalHeightPx by remember { mutableStateOf(0) }
+    val density = LocalDensity.current
+    val terminalGrid = remember(
+        terminalWidthPx,
+        terminalHeightPx,
+        terminalFontSize,
+        density.density,
+    ) {
+        if (terminalWidthPx > 0 && terminalHeightPx > 0) {
+            estimateTerminalGrid(
+                widthPx = terminalWidthPx,
+                heightPx = terminalHeightPx,
+                fontSizeSp = terminalFontSize,
+                density = density.density,
+            )
+        } else {
+            null
+        }
+    }
+
+    LaunchedEffect(terminalGrid, state) {
+        if (terminalGrid != null && state == TerminalConnectionState.Connected) {
+            viewModel.resizeTerminal(terminalGrid.columns, terminalGrid.rows)
+        }
+    }
 
     fun sendCommandWithPasteGuard(force: Boolean = false) {
         val value = command
@@ -174,7 +204,15 @@ private fun TerminalPane(
                 label = { Text("A+") },
             )
         }
-        SelectionContainer(modifier = Modifier.weight(1f).fillMaxWidth()) {
+        SelectionContainer(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .onSizeChanged { size ->
+                    terminalWidthPx = size.width
+                    terminalHeightPx = size.height
+                },
+        ) {
             LazyColumn(modifier = Modifier.fillMaxSize()) {
                 items(lines) { line ->
                     Text(
