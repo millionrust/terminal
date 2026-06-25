@@ -11,25 +11,31 @@ struct TerminalSessionView: View {
     @State private var lastSentTerminalGrid: TerminalGrid?
 
     var body: some View {
-        ZStack {
-            Color.mobileBackground.ignoresSafeArea()
-            VStack(spacing: 0) {
-                sessionHeader
-                credentialPanel
-                terminalSurface
-                terminalControls
-                if pendingMultilinePaste == input, !input.isEmpty {
-                    pasteWarning
+        GeometryReader { proxy in
+            let compact = proxy.size.width < 700
+            ZStack {
+                Color.mobileBackground.ignoresSafeArea()
+                VStack(spacing: 0) {
+                    sessionHeader
+                    credentialPanel
+                    terminalSurface
+                    terminalControls
+                    if pendingMultilinePaste == input, !input.isEmpty {
+                        pasteWarning
+                    }
+                    inputRow
                 }
-                inputRow
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .background(.white)
+                .clipShape(RoundedRectangle(cornerRadius: compact ? 0 : 18, style: .continuous))
+                .overlay {
+                    if !compact {
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.panelBorder)
+                    }
+                }
+                .padding(compact ? 0 : 12)
             }
-            .background(.white)
-            .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: 18, style: .continuous)
-                    .stroke(Color.panelBorder)
-            )
-            .padding(12)
         }
         .navigationTitle(host.label)
         .navigationBarTitleDisplayMode(.inline)
