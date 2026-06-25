@@ -1,0 +1,124 @@
+package com.termirust.mobile.ui
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.material3.AssistChip
+import androidx.compose.material3.Button
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.unit.dp
+import com.termirust.mobile.MobileHostViewModel
+import com.termirust.mobile.data.MobileHost
+import com.termirust.mobile.ssh.TerminalConnectionState
+
+@Composable
+fun TermirustApp(viewModel: MobileHostViewModel) {
+    MaterialTheme {
+        Surface(modifier = Modifier.fillMaxSize()) {
+            Row(modifier = Modifier.fillMaxSize()) {
+                HostList(viewModel = viewModel, modifier = Modifier.weight(0.42f))
+                TerminalPane(viewModel = viewModel, modifier = Modifier.weight(0.58f))
+            }
+        }
+    }
+}
+
+@Composable
+private fun HostList(viewModel: MobileHostViewModel, modifier: Modifier = Modifier) {
+    val vault by viewModel.vault.collectAsState()
+    val status by viewModel.status.collectAsState()
+    Column(modifier = modifier.padding(16.dp)) {
+        Text("TermiRust", style = MaterialTheme.typography.headlineMedium)
+        Spacer(modifier = Modifier.height(12.dp))
+        Button(onClick = { /* Hook Android document picker here. */ }) {
+            Text("Import Mobile Vault")
+        }
+        status?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(it, style = MaterialTheme.typography.bodySmall)
+        }
+        Spacer(modifier = Modifier.height(16.dp))
+        LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            items(vault?.hosts.orEmpty(), key = { it.id }) { host ->
+                HostRow(host = host, onClick = { viewModel.selectHost(host) })
+            }
+        }
+    }
+}
+
+@Composable
+private fun HostRow(host: MobileHost, onClick: () -> Unit) {
+    Surface(onClick = onClick, tonalElevation = 1.dp, shape = MaterialTheme.shapes.medium) {
+        Column(modifier = Modifier.fillMaxWidth().padding(12.dp)) {
+            Text(host.label, style = MaterialTheme.typography.titleMedium)
+            Text("${host.username}@${host.host}:${host.port}", style = MaterialTheme.typography.bodySmall)
+            if (host.persistentSession.enabled) {
+                AssistChip(onClick = {}, label = { Text(host.persistentSession.sessionName ?: "tmux") })
+            }
+        }
+    }
+}
+
+@Composable
+private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Modifier) {
+    val selectedHost by viewModel.selectedHost.collectAsState()
+    val lines by viewModel.terminalBuffer.lines.collectAsState()
+    val state by viewModel.connectionState.collectAsState()
+    var command by remember { mutableStateOf("") }
+
+    Column(modifier = modifier.padding(16.dp)) {
+        Text(selectedHost?.label ?: "No host selected", style = MaterialTheme.typography.headlineSmall)
+        Text(state.label(), style = MaterialTheme.typography.bodySmall)
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(onClick = { viewModel.connectSelectedHost() }, enabled = selectedHost != null) {
+            Text("Connect")
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            items(lines) { line ->
+                Text(line.ifEmpty { " " }, fontFamily = FontFamily.Monospace)
+            }
+        }
+        AccessoryRow()
+        OutlinedTextField(
+            value = command,
+            onValueChange = { command = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Command") },
+        )
+    }
+}
+
+@Composable
+private fun AccessoryRow() {
+    Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+        listOf("Esc", "Tab", "Ctrl", "Alt", "←", "↓", "↑", "→", "/", "|", "-").forEach {
+            AssistChip(onClick = {}, label = { Text(it) })
+        }
+    }
+}
+
+private fun TerminalConnectionState.label(): String = when (this) {
+    TerminalConnectionState.Connected -> "Connected"
+    TerminalConnectionState.Connecting -> "Connecting"
+    TerminalConnectionState.Disconnected -> "Disconnected"
+    is TerminalConnectionState.Failed -> message
+}
