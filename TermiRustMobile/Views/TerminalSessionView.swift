@@ -7,23 +7,42 @@ struct TerminalSessionView: View {
     @State private var credential = ""
     @State private var terminalFontSize: CGFloat = 14
     @State private var pendingMultilinePaste: String?
+    @State private var terminalGrid: TerminalGrid?
+    @State private var lastSentTerminalGrid: TerminalGrid?
 
     var body: some View {
         VStack(spacing: 0) {
             header
             Divider()
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: 2) {
-                    ForEach(Array(viewModel.terminalBuffer.lines.enumerated()), id: \.offset) { _, line in
-                        Text(line.isEmpty ? " " : line)
-                            .font(.system(size: terminalFontSize, design: .monospaced))
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .textSelection(.enabled)
+            GeometryReader { proxy in
+                ScrollView {
+                    LazyVStack(alignment: .leading, spacing: 2) {
+                        ForEach(Array(viewModel.terminalBuffer.lines.enumerated()), id: \.offset) { _, line in
+                            Text(line.isEmpty ? " " : line)
+                                .font(.system(size: terminalFontSize, design: .monospaced))
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                                .textSelection(.enabled)
+                        }
                     }
+                    .padding(12)
                 }
-                .padding(12)
+                .background(Color(.systemBackground))
+                .onAppear {
+                    updateTerminalGrid(size: proxy.size)
+                }
+                .onChange(of: proxy.size) { _, newSize in
+                    updateTerminalGrid(size: newSize)
+                }
+                .onChange(of: terminalFontSize) { _, _ in
+                    updateTerminalGrid(size: proxy.size)
+                }
+                .onChange(of: viewModel.connectionState) { _, newState in
+                    if newState != .connected {
+                        lastSentTerminalGrid = nil
+                    }
+                    updateTerminalGrid(size: proxy.size, forceResize: newState == .connected)
+                }
             }
-            .background(Color(.systemBackground))
             terminalControls
             accessoryRow
             inputRow
@@ -206,6 +225,21 @@ struct TerminalSessionView: View {
         viewModel.sendTerminalInput(input)
         input = ""
         pendingMultilinePaste = nil
+    }
+
+    private func updateTerminalGrid(size: CGSize, forceResize: Bool = false) {
+        let grid = estimateTerminalGrid(size: size, fontSize: terminalFontSize)
+        if terminalGrid != grid {
+            terminalGrid = grid
+        }
+        guard viewModel.connectionState == .connected else {
+            return
+        }
+        guard forceResize || lastSentTerminalGrid != grid else {
+            return
+        }
+        lastSentTerminalGrid = grid
+        viewModel.resizeTerminal(columns: grid.columns, rows: grid.rows)
     }
 
     private var accessoryKeys: [(label: String, bytes: Data?)] {

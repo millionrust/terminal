@@ -177,6 +177,21 @@ final class MobileVaultImporterTests: XCTestCase {
         }
     }
 
+    func testTerminalGridEstimationUsesTerminalSizeAndFont() {
+        XCTAssertEqual(
+            estimateTerminalGrid(size: CGSize(width: 800, height: 600), fontSize: 14),
+            TerminalGrid(columns: 92, rows: 31)
+        )
+        XCTAssertEqual(
+            estimateTerminalGrid(size: CGSize(width: 800, height: 600), fontSize: 28),
+            TerminalGrid(columns: 46, rows: 15)
+        )
+        XCTAssertEqual(
+            estimateTerminalGrid(size: CGSize(width: 1, height: 1), fontSize: 14),
+            TerminalGrid(columns: 20, rows: 6)
+        )
+    }
+
     @MainActor
     func testTerminalBufferHandlesCommonTerminalRedrawSequences() {
         let buffer = TerminalBuffer()

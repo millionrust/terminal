@@ -15,6 +15,7 @@
 		20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */; };
 		304086417473B388F4742CBB /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79858D8548840C07D779517 /* MobileVaultImporter.swift */; };
 		37E4220D6E3FCC19C5F77C3A /* OpenSSHPrivateKeyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909BACBBFFB76FA023EBDB9A /* OpenSSHPrivateKeyParser.swift */; };
+		5D22C51CF4953ECA53DF4274 /* TerminalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A85EB62200FB06A4581F84 /* TerminalGrid.swift */; };
 		7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A094D79B3532C27E003F0B33 /* HostListView.swift */; };
 		81AAE37D864D4860FB6C07F5 /* MobileSSHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B01326772388C06F4F275E /* MobileSSHSession.swift */; };
 		968B6E9F01DA1A92575E0A35 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = 003E451655DE70492275F55A /* Crypto */; };
@@ -42,6 +43,7 @@
 /* Begin PBXFileReference section */
 		02FF10C3A8E721D4D7A47CD8 /* TmuxBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxBootstrap.swift; sourceTree = "<group>"; };
 		12A4A57E7A9697AA99669AD5 /* NativeMobileVaultDecryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMobileVaultDecryptor.swift; sourceTree = "<group>"; };
+		24A85EB62200FB06A4581F84 /* TerminalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalGrid.swift; sourceTree = "<group>"; };
 		2ACD1DD632FE87CA985233FC /* TermiRustMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermiRustMobileApp.swift; sourceTree = "<group>"; };
 		4022DC3DBB1883F4FAAF5D22 /* HostListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListViewModel.swift; sourceTree = "<group>"; };
 		6DBD05A37D69F9631D1396BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -180,6 +182,7 @@
 			isa = PBXGroup;
 			children = (
 				9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */,
+				24A85EB62200FB06A4581F84 /* TerminalGrid.swift */,
 			);
 			path = Terminal;
 			sourceTree = "<group>";
@@ -307,6 +310,7 @@
 				37E4220D6E3FCC19C5F77C3A /* OpenSSHPrivateKeyParser.swift in Sources */,
 				043371456089E6BDC08EABE5 /* TermiRustMobileApp.swift in Sources */,
 				20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */,
+				5D22C51CF4953ECA53DF4274 /* TerminalGrid.swift in Sources */,
 				C76442BB1B07263ECDCD9DB2 /* TerminalSessionView.swift in Sources */,
 				F644B10232A8B844230B5959 /* TmuxBootstrap.swift in Sources */,
 			);
