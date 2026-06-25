@@ -52,11 +52,27 @@ class MainActivity : ComponentActivity() {
                         .onFailure { viewModel.reportStatus(it.message ?: "Unable to import selected vault file.") }
                 }
             }
+            val keyPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+                if (uri != null) {
+                    runCatching {
+                        requireNotNull(context.contentResolver.openInputStream(uri)) {
+                            "Unable to open selected private key file."
+                        }.use { input -> input.bufferedReader().readText() }
+                    }
+                        .onSuccess { key ->
+                            viewModel.saveCredentialForSelectedHost(key)
+                        }
+                        .onFailure { viewModel.reportStatus(it.message ?: "Unable to import selected private key file.") }
+                }
+            }
             TermirustApp(
                 viewModel = viewModel,
                 onImportVault = { passphrase ->
                     pendingVaultPassphrase = passphrase
                     vaultPicker.launch(arrayOf("application/json", "application/octet-stream", "text/*", "*/*"))
+                },
+                onImportCredentialFile = {
+                    keyPicker.launch(arrayOf("application/x-pem-file", "application/octet-stream", "text/*", "*/*"))
                 },
             )
         }

@@ -37,6 +37,7 @@ import com.termirust.mobile.ssh.TerminalConnectionState
 fun TermirustApp(
     viewModel: MobileHostViewModel,
     onImportVault: (String) -> Unit,
+    onImportCredentialFile: () -> Unit,
 ) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
@@ -46,7 +47,11 @@ fun TermirustApp(
                     onImportVault = onImportVault,
                     modifier = Modifier.weight(0.42f),
                 )
-                TerminalPane(viewModel = viewModel, modifier = Modifier.weight(0.58f))
+                TerminalPane(
+                    viewModel = viewModel,
+                    onImportCredentialFile = onImportCredentialFile,
+                    modifier = Modifier.weight(0.58f),
+                )
             }
         }
     }
@@ -105,7 +110,11 @@ private fun HostRow(host: MobileHost, onClick: () -> Unit) {
 }
 
 @Composable
-private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Modifier) {
+private fun TerminalPane(
+    viewModel: MobileHostViewModel,
+    onImportCredentialFile: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val selectedHost by viewModel.selectedHost.collectAsState()
     val lines by viewModel.terminalBuffer.lines.collectAsState()
     val state by viewModel.connectionState.collectAsState()
@@ -142,6 +151,7 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
                     viewModel.deleteCredentialForSelectedHost()
                     credential = ""
                 },
+                onImportCredentialFile = onImportCredentialFile,
             )
             Spacer(modifier = Modifier.height(8.dp))
         }
@@ -222,6 +232,7 @@ private fun CredentialEditor(
     onCredentialChange: (String) -> Unit,
     onSave: () -> Unit,
     onDelete: () -> Unit,
+    onImportCredentialFile: () -> Unit,
 ) {
     val secretRef = host.auth.secretRef
     val label = when (host.auth.kind) {
@@ -259,6 +270,14 @@ private fun CredentialEditor(
                 enabled = !secretRef.isNullOrBlank(),
             ) {
                 Text("Remove")
+            }
+            if (host.auth.kind == MobileAuthKind.PrivateKey) {
+                Button(
+                    onClick = onImportCredentialFile,
+                    enabled = !secretRef.isNullOrBlank(),
+                ) {
+                    Text("Import Key File")
+                }
             }
         }
     }

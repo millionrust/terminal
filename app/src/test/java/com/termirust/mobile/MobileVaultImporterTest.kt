@@ -118,6 +118,35 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun privateKeyCredentialSaveUsesExportedSecretReference() {
+        val host = MobileHost(
+            id = "profile-1",
+            label = "Prod",
+            host = "prod.example.com",
+            port = 22,
+            username = "ubuntu",
+            auth = MobileAuthMetadata(
+                kind = MobileAuthKind.PrivateKey,
+                secretRef = "secret-prod-key",
+            ),
+            knownHostEndpoint = "prod.example.com:22",
+        )
+        val privateKey = """
+            -----BEGIN OPENSSH PRIVATE KEY-----
+            key-body
+            -----END OPENSSH PRIVATE KEY-----
+        """.trimIndent()
+        val store = FakeSecretStore()
+        val viewModel = MobileHostViewModel(secretStore = store)
+
+        viewModel.selectHost(host)
+        viewModel.saveCredentialForSelectedHost(privateKey)
+
+        assertEquals(privateKey, store.saved["secret-prod-key"])
+        assertEquals("Credential saved for Prod.", viewModel.status.value)
+    }
+
+    @Test
     fun tmuxBootstrapDoesNotRunStartupCommandOnAttachPath() {
         val host = MobileHost(
             id = "profile-1",
