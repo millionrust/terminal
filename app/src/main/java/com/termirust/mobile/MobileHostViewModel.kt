@@ -47,6 +47,16 @@ class MobileHostViewModel(
             .onFailure { _status.value = it.message }
     }
 
+    fun importEncryptedVault(bytes: ByteArray, passphrase: CharArray) {
+        runCatching { importer.importEncryptedVault(bytes, passphrase) }
+            .onSuccess {
+                _vault.value = it
+                _selectedHost.value = it.hosts.firstOrNull()
+                _status.value = null
+            }
+            .onFailure { _status.value = it.message }
+    }
+
     fun selectHost(host: MobileHost) {
         _selectedHost.value = host
     }
