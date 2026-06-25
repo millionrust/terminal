@@ -18,7 +18,8 @@ struct TmuxBootstrap {
             create += " -c \(shellSingleQuote(startupDirectory))"
         }
         if let startupCommand = host.startupCommand, !startupCommand.isEmpty {
-            create += " \(shellSingleQuote(startupCommand))"
+            let shellCommand = "\(startupCommand); exec \"${SHELL:-/bin/sh}\" -l"
+            create += " -- \"${SHELL:-/bin/sh}\" -lc \(shellSingleQuote(shellCommand))"
         }
 
         return """

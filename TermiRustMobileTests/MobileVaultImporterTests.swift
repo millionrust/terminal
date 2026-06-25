@@ -102,9 +102,9 @@ final class MobileVaultImporterTests: XCTestCase {
 
         XCTAssertTrue(script.contains("tmux has-session -t 'tr-prod'"))
         XCTAssertTrue(script.contains("exec tmux attach-session -d -t 'tr-prod'"))
-        XCTAssertTrue(script.contains("exec tmux new-session -s 'tr-prod' -c '/srv/app' 'uptime'"))
+        XCTAssertTrue(script.contains("exec tmux new-session -s 'tr-prod' -c '/srv/app' -- \"${SHELL:-/bin/sh}\" -lc 'uptime; exec \"${SHELL:-/bin/sh}\" -l'"))
         let attachIndex = try XCTUnwrap(script.range(of: "exec tmux attach-session")?.lowerBound)
-        let startupIndex = try XCTUnwrap(script.range(of: "'uptime'")?.lowerBound)
+        let startupIndex = try XCTUnwrap(script.range(of: "uptime; exec")?.lowerBound)
         XCTAssertLessThan(script.distance(from: script.startIndex, to: attachIndex), script.distance(from: script.startIndex, to: startupIndex))
     }
 }
