@@ -1,6 +1,6 @@
 import Foundation
 
-enum MobileVaultImportError: Error, LocalizedError {
+enum MobileVaultImportError: Error, Equatable, LocalizedError {
     case unsupportedSchema(Int)
     case encryptedVaultRequiresSharedCrypto
     case invalidVault
@@ -17,8 +17,17 @@ enum MobileVaultImportError: Error, LocalizedError {
     }
 }
 
+protocol MobileVaultDecrypting {
+    func decrypt(encryptedVaultData: Data, passphrase: String) throws -> Data
+}
+
 struct MobileVaultImporter {
     private let decoder = JSONDecoder()
+    private let decryptor: MobileVaultDecrypting?
+
+    init(decryptor: MobileVaultDecrypting? = nil) {
+        self.decryptor = decryptor
+    }
 
     func inspectEncryptedEnvelope(_ data: Data) throws -> EncryptedMobileVaultEnvelope {
         let envelope = try decoder.decode(EncryptedMobileVaultEnvelope.self, from: data)
@@ -38,7 +47,10 @@ struct MobileVaultImporter {
 
     func importEncryptedVaultData(_ data: Data, passphrase: String) throws -> MobileVaultExport {
         _ = try inspectEncryptedEnvelope(data)
-        _ = passphrase
-        throw MobileVaultImportError.encryptedVaultRequiresSharedCrypto
+        guard let decryptor else {
+            throw MobileVaultImportError.encryptedVaultRequiresSharedCrypto
+        }
+        let plaintext = try decryptor.decrypt(encryptedVaultData: data, passphrase: passphrase)
+        return try importPlaintextVaultData(plaintext)
     }
 }

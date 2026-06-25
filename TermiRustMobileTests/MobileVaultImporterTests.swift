@@ -2,49 +2,78 @@ import XCTest
 @testable import TermiRustMobile
 
 final class MobileVaultImporterTests: XCTestCase {
-    func testPlaintextVaultDecodesPersistentTmuxHost() throws {
-        let data = Data("""
-        {
-          "schema_version": 1,
-          "export_id": "export-1",
-          "created_at_millis": 1,
-          "updated_at_millis": 1,
-          "source_device_id": "desktop-1",
-          "vaults": [],
-          "hosts": [{
-            "id": "profile-1",
-            "label": "Prod",
-            "vault_id": null,
-            "group": "Ops",
-            "tags": ["prod"],
-            "host": "prod.example.com",
-            "port": 22,
-            "username": "ubuntu",
-            "auth": {"kind": "private_key", "identity_id": "identity-1", "secret_ref": null},
-            "jump_host_id": null,
-            "startup_directory": "/srv/app",
-            "startup_command": "uptime",
-            "start_in_files": false,
-            "persistent_session": {"enabled": true, "session_name": "tr-prod", "detach_others": false},
-            "terminal_scrollback_rows": 20000,
-            "color_tag": null,
-            "environment": [],
-            "known_host_endpoint": "prod.example.com:22"
-          }],
-          "groups": [],
-          "tags": [],
-          "identities": [],
-          "known_hosts": [{"endpoint": "prod.example.com:22", "public_key": "ssh-ed25519 AAAA", "algorithm": null, "fingerprint": null}],
-          "sync": {"revision": null, "last_synced_at_millis": null},
-          "devices": []
-        }
-        """.utf8)
+    private let encryptedEnvelopeData = Data("""
+    {
+      "version": 1,
+      "schema_version": 1,
+      "cipher": "AES-256-GCM-SIV",
+      "kdf": "Argon2id(m=19456,t=3,p=1)",
+      "salt": "salt",
+      "nonce": "nonce",
+      "ciphertext": "ciphertext"
+    }
+    """.utf8)
 
-        let vault = try MobileVaultImporter().importPlaintextVaultData(data)
+    private let plaintextVaultData = Data("""
+    {
+      "schema_version": 1,
+      "export_id": "export-1",
+      "created_at_millis": 1,
+      "updated_at_millis": 1,
+      "source_device_id": "desktop-1",
+      "vaults": [],
+      "hosts": [{
+        "id": "profile-1",
+        "label": "Prod",
+        "vault_id": null,
+        "group": "Ops",
+        "tags": ["prod"],
+        "host": "prod.example.com",
+        "port": 22,
+        "username": "ubuntu",
+        "auth": {"kind": "private_key", "identity_id": "identity-1", "secret_ref": null},
+        "jump_host_id": null,
+        "startup_directory": "/srv/app",
+        "startup_command": "uptime",
+        "start_in_files": false,
+        "persistent_session": {"enabled": true, "session_name": "tr-prod", "detach_others": false},
+        "terminal_scrollback_rows": 20000,
+        "color_tag": null,
+        "environment": [],
+        "known_host_endpoint": "prod.example.com:22"
+      }],
+      "groups": [],
+      "tags": [],
+      "identities": [],
+      "known_hosts": [{"endpoint": "prod.example.com:22", "public_key": "ssh-ed25519 AAAA", "algorithm": null, "fingerprint": null}],
+      "sync": {"revision": null, "last_synced_at_millis": null},
+      "devices": []
+    }
+    """.utf8)
+
+    func testPlaintextVaultDecodesPersistentTmuxHost() throws {
+        let vault = try MobileVaultImporter().importPlaintextVaultData(plaintextVaultData)
 
         XCTAssertEqual(vault.schemaVersion, 1)
         XCTAssertEqual(vault.hosts.first?.persistentSession.sessionName, "tr-prod")
         XCTAssertEqual(vault.knownHosts.first?.endpoint, "prod.example.com:22")
+    }
+
+    func testEncryptedVaultRequiresSharedCryptoDecryptor() throws {
+        XCTAssertThrowsError(
+            try MobileVaultImporter().importEncryptedVaultData(encryptedEnvelopeData, passphrase: "hunter2")
+        ) { error in
+            XCTAssertEqual(error as? MobileVaultImportError, .encryptedVaultRequiresSharedCrypto)
+        }
+    }
+
+    func testEncryptedVaultUsesInjectedDecryptor() throws {
+        let importer = MobileVaultImporter(decryptor: FixtureDecryptor(plaintext: plaintextVaultData))
+
+        let vault = try importer.importEncryptedVaultData(encryptedEnvelopeData, passphrase: "hunter2")
+
+        XCTAssertEqual(vault.hosts.first?.host, "prod.example.com")
+        XCTAssertEqual(vault.hosts.first?.persistentSession.sessionName, "tr-prod")
     }
 
     func testTmuxBootstrapDoesNotRunStartupCommandOnAttachPath() throws {
@@ -77,5 +106,15 @@ final class MobileVaultImporterTests: XCTestCase {
         let attachIndex = try XCTUnwrap(script.range(of: "exec tmux attach-session")?.lowerBound)
         let startupIndex = try XCTUnwrap(script.range(of: "'uptime'")?.lowerBound)
         XCTAssertLessThan(script.distance(from: script.startIndex, to: attachIndex), script.distance(from: script.startIndex, to: startupIndex))
+    }
+}
+
+private struct FixtureDecryptor: MobileVaultDecrypting {
+    let plaintext: Data
+
+    func decrypt(encryptedVaultData: Data, passphrase: String) throws -> Data {
+        XCTAssertFalse(encryptedVaultData.isEmpty)
+        XCTAssertEqual(passphrase, "hunter2")
+        return plaintext
     }
 }

@@ -50,6 +50,17 @@ final class HostListViewModel: ObservableObject {
         }
     }
 
+    func importEncryptedVault(from url: URL, passphrase: String) {
+        do {
+            let data = try Data(contentsOf: url)
+            vault = try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase)
+            selectedHost = hosts.first
+            importError = nil
+        } catch {
+            importError = error.localizedDescription
+        }
+    }
+
     func saveCredential(_ secret: String, for host: MobileHost) {
         do {
             try secretStore.saveSecret(secret, account: host.id)
