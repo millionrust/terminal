@@ -10,15 +10,21 @@ import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
+interface MobileSecretStore {
+    fun saveSecret(account: String, secret: String)
+    fun readSecret(account: String): String?
+    fun deleteSecret(account: String)
+}
+
 class KeystoreSecretStore(
     private val context: Context,
     private val alias: String = "termirust-mobile-secrets",
-) {
+) : MobileSecretStore {
     private val prefs by lazy {
         context.getSharedPreferences("termirust-mobile-secrets", Context.MODE_PRIVATE)
     }
 
-    fun saveSecret(account: String, secret: String) {
+    override fun saveSecret(account: String, secret: String) {
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey())
         val ciphertext = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
@@ -26,7 +32,7 @@ class KeystoreSecretStore(
         prefs.edit().putString(account, payload).apply()
     }
 
-    fun readSecret(account: String): String? {
+    override fun readSecret(account: String): String? {
         val payload = prefs.getString(account, null) ?: return null
         val parts = payload.split(":")
         if (parts.size != 2) return null
@@ -37,7 +43,7 @@ class KeystoreSecretStore(
         return cipher.doFinal(ciphertext).toString(Charsets.UTF_8)
     }
 
-    fun deleteSecret(account: String) {
+    override fun deleteSecret(account: String) {
         prefs.edit().remove(account).apply()
     }
 

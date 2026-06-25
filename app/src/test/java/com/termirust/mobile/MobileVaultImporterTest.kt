@@ -6,6 +6,7 @@ import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobilePersistentSession
 import com.termirust.mobile.data.MobileVaultDecryptor
 import com.termirust.mobile.data.MobileVaultImporter
+import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.TmuxBootstrap
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -92,6 +93,30 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun credentialSaveUsesExportedSecretReference() {
+        val host = MobileHost(
+            id = "profile-1",
+            label = "Prod",
+            host = "prod.example.com",
+            port = 22,
+            username = "ubuntu",
+            auth = MobileAuthMetadata(
+                kind = MobileAuthKind.Password,
+                secretRef = "secret-prod-password",
+            ),
+            knownHostEndpoint = "prod.example.com:22",
+        )
+        val store = FakeSecretStore()
+        val viewModel = MobileHostViewModel(secretStore = store)
+
+        viewModel.selectHost(host)
+        viewModel.saveCredentialForSelectedHost("super-secret")
+
+        assertEquals("super-secret", store.saved["secret-prod-password"])
+        assertEquals("Credential saved for Prod.", viewModel.status.value)
+    }
+
+    @Test
     fun tmuxBootstrapDoesNotRunStartupCommandOnAttachPath() {
         val host = MobileHost(
             id = "profile-1",
@@ -126,5 +151,19 @@ private class FixtureDecryptor(
         assertTrue(encryptedVault.isNotEmpty())
         assertEquals("hunter2", passphrase.concatToString())
         return plaintext
+    }
+}
+
+private class FakeSecretStore : MobileSecretStore {
+    val saved = mutableMapOf<String, String>()
+
+    override fun saveSecret(account: String, secret: String) {
+        saved[account] = secret
+    }
+
+    override fun readSecret(account: String): String? = saved[account]
+
+    override fun deleteSecret(account: String) {
+        saved.remove(account)
     }
 }

@@ -26,7 +26,7 @@ class MainActivity : ComponentActivity() {
                         secretStore.readSecret(reference)?.toCharArray()
                     },
                 )
-                MobileHostViewModelFactory(sshClient)
+                MobileHostViewModelFactory(secretStore, sshClient)
             }
             val viewModel: MobileHostViewModel = viewModel(factory = factory)
             TermirustApp(viewModel = viewModel)
@@ -35,12 +35,16 @@ class MainActivity : ComponentActivity() {
 }
 
 private class MobileHostViewModelFactory(
+    private val secretStore: KeystoreSecretStore,
     private val sshClient: DirectSshSessionClient,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
         if (modelClass.isAssignableFrom(MobileHostViewModel::class.java)) {
-            return MobileHostViewModel(sshClient = sshClient) as T
+            return MobileHostViewModel(
+                sshClient = sshClient,
+                secretStore = secretStore,
+            ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class ${modelClass.name}")
     }

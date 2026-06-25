@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobileVaultExport
 import com.termirust.mobile.data.MobileVaultImporter
+import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.DirectSshSessionClient
 import com.termirust.mobile.ssh.MobileSshSessionClient
 import com.termirust.mobile.ssh.TerminalConnectionState
@@ -16,6 +17,7 @@ import kotlinx.coroutines.launch
 class MobileHostViewModel(
     private val importer: MobileVaultImporter = MobileVaultImporter(),
     private val sshClient: MobileSshSessionClient = DirectSshSessionClient(),
+    private val secretStore: MobileSecretStore? = null,
 ) : ViewModel() {
     private val _vault = MutableStateFlow<MobileVaultExport?>(null)
     val vault: StateFlow<MobileVaultExport?> = _vault
@@ -59,6 +61,46 @@ class MobileHostViewModel(
 
     fun selectHost(host: MobileHost) {
         _selectedHost.value = host
+    }
+
+    fun saveCredentialForSelectedHost(secret: String) {
+        val host = _selectedHost.value ?: return
+        val reference = host.auth.secretRef
+        if (reference.isNullOrBlank()) {
+            _status.value = "This host does not declare a mobile secret reference."
+            return
+        }
+        if (secret.isBlank()) {
+            _status.value = "Enter the SSH credential before saving."
+            return
+        }
+        val store = secretStore
+        if (store == null) {
+            _status.value = "Secure credential storage is unavailable in this build."
+            return
+        }
+
+        runCatching { store.saveSecret(reference, secret) }
+            .onSuccess { _status.value = "Credential saved for ${host.label}." }
+            .onFailure { _status.value = it.message }
+    }
+
+    fun deleteCredentialForSelectedHost() {
+        val host = _selectedHost.value ?: return
+        val reference = host.auth.secretRef
+        if (reference.isNullOrBlank()) {
+            _status.value = "This host does not declare a mobile secret reference."
+            return
+        }
+        val store = secretStore
+        if (store == null) {
+            _status.value = "Secure credential storage is unavailable in this build."
+            return
+        }
+
+        runCatching { store.deleteSecret(reference) }
+            .onSuccess { _status.value = "Credential removed for ${host.label}." }
+            .onFailure { _status.value = it.message }
     }
 
     fun connectSelectedHost() {

@@ -24,8 +24,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import com.termirust.mobile.MobileHostViewModel
+import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.ssh.TerminalConnectionState
 
@@ -83,11 +85,28 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
     val lines by viewModel.terminalBuffer.lines.collectAsState()
     val state by viewModel.connectionState.collectAsState()
     var command by remember { mutableStateOf("") }
+    var credential by remember(selectedHost?.id) { mutableStateOf("") }
 
     Column(modifier = modifier.padding(16.dp)) {
         Text(selectedHost?.label ?: "No host selected", style = MaterialTheme.typography.headlineSmall)
         Text(state.label(), style = MaterialTheme.typography.bodySmall)
         Spacer(modifier = Modifier.height(8.dp))
+        selectedHost?.let { host ->
+            CredentialEditor(
+                host = host,
+                credential = credential,
+                onCredentialChange = { credential = it },
+                onSave = {
+                    viewModel.saveCredentialForSelectedHost(credential)
+                    credential = ""
+                },
+                onDelete = {
+                    viewModel.deleteCredentialForSelectedHost()
+                    credential = ""
+                },
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             Button(onClick = { viewModel.connectSelectedHost() }, enabled = selectedHost != null) {
                 Text("Connect")
@@ -118,6 +137,55 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
                 enabled = command.isNotBlank() && state == TerminalConnectionState.Connected,
             ) {
                 Text("Send")
+            }
+        }
+    }
+}
+
+@Composable
+private fun CredentialEditor(
+    host: MobileHost,
+    credential: String,
+    onCredentialChange: (String) -> Unit,
+    onSave: () -> Unit,
+    onDelete: () -> Unit,
+) {
+    val secretRef = host.auth.secretRef
+    val label = when (host.auth.kind) {
+        MobileAuthKind.Password -> "SSH password"
+        MobileAuthKind.PrivateKey -> "Private key PEM"
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(
+            if (secretRef.isNullOrBlank()) {
+                "No mobile secret reference exported for this host."
+            } else {
+                "Credential secret_ref: $secretRef"
+            },
+            style = MaterialTheme.typography.bodySmall,
+        )
+        OutlinedTextField(
+            value = credential,
+            onValueChange = onCredentialChange,
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text(label) },
+            minLines = if (host.auth.kind == MobileAuthKind.PrivateKey) 3 else 1,
+            visualTransformation = PasswordVisualTransformation(),
+            enabled = !secretRef.isNullOrBlank(),
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Button(
+                onClick = onSave,
+                enabled = !secretRef.isNullOrBlank() && credential.isNotBlank(),
+            ) {
+                Text("Save Credential")
+            }
+            Button(
+                onClick = onDelete,
+                enabled = !secretRef.isNullOrBlank(),
+            ) {
+                Text("Remove")
             }
         }
     }

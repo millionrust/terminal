@@ -19,6 +19,7 @@ Implemented:
 - Plaintext fixture import for unit tests, encrypted envelope inspection, and an injected shared-crypto decryptor path for production vault files.
 - `NativeMobileVaultDecryptor` JNI adapter for the Rust shared crypto library once `libtermirust_mobile_ffi.so` is copied into `app/src/main/jniLibs/`.
 - Android Keystore-backed secret storage.
+- Selected-host credential entry that saves password/private-key material into Keystore-backed storage under the exported `secret_ref`.
 - Tmux bootstrap script generation.
 - SSHJ-backed direct SSH session wiring with pinned known-host verification, Keystore-backed `secret_ref` lookup, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
 - JVM unit tests for schema decode and tmux bootstrap behavior.
@@ -26,7 +27,7 @@ Implemented:
 Not finished yet:
 
 - Making `NativeMobileVaultDecryptor` the default import decryptor after the shared Rust `.so` files are shipped with the app.
-- UI for entering/importing per-host password or private-key secrets into Android Keystore-backed storage.
+- Importing private-key files directly into the credential field.
 - Real terminal emulator integration.
 - Android document picker integration for vault import.
 
