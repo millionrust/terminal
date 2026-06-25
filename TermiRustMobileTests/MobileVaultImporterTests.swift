@@ -142,6 +142,24 @@ final class MobileVaultImporterTests: XCTestCase {
         let startupIndex = try XCTUnwrap(script.range(of: "uptime; exec")?.lowerBound)
         XCTAssertLessThan(script.distance(from: script.startIndex, to: attachIndex), script.distance(from: script.startIndex, to: startupIndex))
     }
+
+    @MainActor
+    func testTerminalBufferHandlesCommonTerminalRedrawSequences() {
+        let buffer = TerminalBuffer()
+
+        buffer.append("progress 1\rprogress 2\n\u{1B}[31mred\u{1B}[0m\nabc\u{8}Z")
+
+        XCTAssertEqual(buffer.lines, ["progress 2", "red", "abZ"])
+    }
+
+    @MainActor
+    func testTerminalBufferClearsScreenOnAnsiClear() {
+        let buffer = TerminalBuffer()
+
+        buffer.append("before\n\u{1B}[2J\u{1B}[Hafter")
+
+        XCTAssertEqual(buffer.lines, ["after"])
+    }
 }
 
 private struct FixtureDecryptor: MobileVaultDecrypting {
