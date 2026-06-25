@@ -1,7 +1,18 @@
 import XCTest
+@preconcurrency import NIOSSH
 @testable import TermiRustMobile
 
 final class MobileVaultImporterTests: XCTestCase {
+    private let fixtureEd25519PrivateKey = """
+    -----BEGIN OPENSSH PRIVATE KEY-----
+    b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+    QyNTUxOQAAACDXdpIxO9R+jxlETproGCGcxOE4SjX6r+jU8UIg2K5ULgAAAJgxZY5/MWWO
+    fwAAAAtzc2gtZWQyNTUxOQAAACDXdpIxO9R+jxlETproGCGcxOE4SjX6r+jU8UIg2K5ULg
+    AAAECEhzF5gu5ZhIg/P8PEq/33+dXN8wUMwtU7zIlgJLfC2Nd2kjE71H6PGUROmugYIZzE
+    4ThKNfqv6NTxQiDYrlQuAAAAD2NsYXdAak1hYy5sb2NhbAECAwQFBg==
+    -----END OPENSSH PRIVATE KEY-----
+    """
+
     private let encryptedEnvelopeData = Data("""
     {
       "version": 1,
@@ -141,6 +152,21 @@ final class MobileVaultImporterTests: XCTestCase {
         let attachIndex = try XCTUnwrap(script.range(of: "exec tmux attach-session")?.lowerBound)
         let startupIndex = try XCTUnwrap(script.range(of: "uptime; exec")?.lowerBound)
         XCTAssertLessThan(script.distance(from: script.startIndex, to: attachIndex), script.distance(from: script.startIndex, to: startupIndex))
+    }
+
+    func testOpenSSHEd25519PrivateKeyParserExportsExpectedPublicKey() throws {
+        let privateKey = try OpenSSHPrivateKeyParser.parse(fixtureEd25519PrivateKey)
+
+        XCTAssertEqual(
+            String(openSSHPublicKey: privateKey.publicKey),
+            "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINd2kjE71H6PGUROmugYIZzE4ThKNfqv6NTxQiDYrlQu"
+        )
+    }
+
+    func testOpenSSHPrivateKeyParserRejectsInvalidPEM() {
+        XCTAssertThrowsError(try OpenSSHPrivateKeyParser.parse("not a key")) { error in
+            XCTAssertEqual(error as? OpenSSHPrivateKeyParserError, .invalidPEM)
+        }
     }
 
     @MainActor

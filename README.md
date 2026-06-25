@@ -20,14 +20,14 @@ Implemented:
 - `NativeMobileVaultDecryptor` Swift adapter for the Rust shared crypto XCFramework.
 - Keychain wrapper using `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`.
 - Tmux bootstrap script generation.
-- SwiftNIO SSH password-auth transport with pinned known-host verification, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
+- SwiftNIO SSH password and unencrypted OpenSSH Ed25519 private-key transport with pinned known-host verification, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
 - Transcript-level terminal buffering for common redraw/control sequences such as carriage return, backspace, ANSI SGR, line erase, cursor movement, and clear screen.
 - Unit tests for schema decode and tmux bootstrap behavior.
 
 Not finished yet:
 
 - Shipping the generated Rust XCFramework with release builds. The app target expects it at `../../terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework` relative to this folder.
-- SwiftNIO private-key auth parsing/import.
+- Encrypted private-key passphrase prompts and RSA/ECDSA private-key parsing.
 - Full terminal emulator integration. SwiftTerm is the right candidate, but this Xcode install is missing the Metal Toolchain needed to build SwiftTerm. Re-enable SwiftTerm after installing it with `xcodebuild -downloadComponent MetalToolchain` or through Xcode Settings > Components.
 
 ## Build

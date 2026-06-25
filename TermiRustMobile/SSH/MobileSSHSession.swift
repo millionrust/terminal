@@ -7,7 +7,6 @@ enum MobileSSHError: Error, LocalizedError {
     case missingCredential(MobileAuthKind)
     case hostKeyNotPinned
     case hostKeyMismatch
-    case privateKeyAuthNotSupportedYet
     case invalidChannelType
 
     var errorDescription: String? {
@@ -18,8 +17,6 @@ enum MobileSSHError: Error, LocalizedError {
             return "No known-host pin exists for this endpoint."
         case .hostKeyMismatch:
             return "Host key mismatch. Connection blocked."
-        case .privateKeyAuthNotSupportedYet:
-            return "Private key SSH auth is not wired in the iOS SwiftNIO client yet. Use a password-backed mobile secret for this prototype."
         case .invalidChannelType:
             return "The SSH server opened an unexpected channel type."
         }
@@ -66,20 +63,18 @@ final class DirectSSHSessionClient: MobileSSHConnecting, @unchecked Sendable {
             throw MobileSSHError.hostKeyNotPinned
         }
 
-        guard host.auth.kind == .password else {
-            throw MobileSSHError.privateKeyAuthNotSupportedYet
-        }
         guard let secretRef = host.auth.secretRef,
-              let password = try secretStore?.readSecret(account: secretRef),
-              !password.isEmpty else {
+              let credential = try secretStore?.readSecret(account: secretRef),
+              !credential.isEmpty else {
             throw MobileSSHError.missingCredential(host.auth.kind)
         }
+        let authDelegate = try AuthenticationDelegateBox(authenticationDelegate(for: host, credential: credential))
 
         try await runBlocking {
             try self.connectBlocking(
                 host: host,
                 knownHost: knownHost,
-                password: password,
+                userAuthDelegate: authDelegate,
                 onOutput: onOutput
             )
         }
@@ -129,7 +124,7 @@ final class DirectSSHSessionClient: MobileSSHConnecting, @unchecked Sendable {
     private func connectBlocking(
         host: MobileHost,
         knownHost: MobileKnownHost,
-        password: String,
+        userAuthDelegate: AuthenticationDelegateBox,
         onOutput: @escaping @Sendable (Data) -> Void
     ) throws {
         let group = MultiThreadedEventLoopGroup(numberOfThreads: 1)
@@ -144,10 +139,7 @@ final class DirectSSHSessionClient: MobileSSHConnecting, @unchecked Sendable {
                         let ssh = NIOSSHHandler(
                             role: .client(
                                 .init(
-                                    userAuthDelegate: SimplePasswordDelegate(
-                                        username: host.username,
-                                        password: password
-                                    ),
+                                    userAuthDelegate: userAuthDelegate.delegate,
                                     serverAuthDelegate: hostKeyDelegate
                                 )
                             ),
@@ -216,6 +208,19 @@ final class DirectSSHSessionClient: MobileSSHConnecting, @unchecked Sendable {
         channel.pipeline.triggerUserOutboundEvent(shell, promise: nil)
     }
 
+    private func authenticationDelegate(
+        for host: MobileHost,
+        credential: String
+    ) throws -> NIOSSHClientUserAuthenticationDelegate {
+        switch host.auth.kind {
+        case .password:
+            return SimplePasswordDelegate(username: host.username, password: credential)
+        case .privateKey:
+            let privateKey = try OpenSSHPrivateKeyParser.parse(credential)
+            return SinglePrivateKeyDelegate(username: host.username, privateKey: privateKey)
+        }
+    }
+
     private func currentChildChannel() throws -> Channel {
         lock.lock()
         defer { lock.unlock() }
@@ -223,6 +228,38 @@ final class DirectSSHSessionClient: MobileSSHConnecting, @unchecked Sendable {
             throw MobileSSHError.missingCredential(.password)
         }
         return childChannel
+    }
+}
+
+private final class AuthenticationDelegateBox: @unchecked Sendable {
+    let delegate: NIOSSHClientUserAuthenticationDelegate
+
+    init(_ delegate: NIOSSHClientUserAuthenticationDelegate) {
+        self.delegate = delegate
+    }
+}
+
+private final class SinglePrivateKeyDelegate: NIOSSHClientUserAuthenticationDelegate, @unchecked Sendable {
+    private var authRequest: NIOSSHUserAuthenticationOffer?
+
+    init(username: String, privateKey: NIOSSHPrivateKey) {
+        self.authRequest = NIOSSHUserAuthenticationOffer(
+            username: username,
+            serviceName: "",
+            offer: .privateKey(.init(privateKey: privateKey))
+        )
+    }
+
+    func nextAuthenticationType(
+        availableMethods: NIOSSHAvailableUserAuthenticationMethods,
+        nextChallengePromise: EventLoopPromise<NIOSSHUserAuthenticationOffer?>
+    ) {
+        guard let authRequest, availableMethods.contains(.publicKey) else {
+            nextChallengePromise.succeed(nil)
+            return
+        }
+        self.authRequest = nil
+        nextChallengePromise.succeed(authRequest)
     }
 }
 

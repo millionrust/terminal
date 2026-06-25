@@ -69,11 +69,7 @@ struct TerminalSessionView: View {
             Text(credentialHelp)
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            SecureField(credentialLabel, text: $credential)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-                .disabled(host.auth.secretRef?.isEmpty ?? true)
+            credentialInput
             HStack {
                 Button("Save Credential") {
                     viewModel.saveCredential(credential, for: host)
@@ -91,6 +87,25 @@ struct TerminalSessionView: View {
         }
         .padding(.horizontal)
         .padding(.bottom, 8)
+    }
+
+    @ViewBuilder
+    private var credentialInput: some View {
+        if host.auth.kind == .privateKey {
+            TextField(credentialLabel, text: $credential, axis: .vertical)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .lineLimit(4...10)
+                .font(.system(.caption, design: .monospaced))
+                .disabled(host.auth.secretRef?.isEmpty ?? true)
+        } else {
+            SecureField(credentialLabel, text: $credential)
+                .textFieldStyle(.roundedBorder)
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .disabled(host.auth.secretRef?.isEmpty ?? true)
+        }
     }
 
     private var credentialLabel: String {
