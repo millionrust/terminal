@@ -196,7 +196,7 @@ final class MobileVaultImporterTests: XCTestCase {
     func testTerminalBufferHandlesCommonTerminalRedrawSequences() {
         let buffer = TerminalBuffer()
 
-        buffer.append("progress 1\rprogress 2\n\u{1B}[31mred\u{1B}[0m\nabc\u{8}Z")
+        buffer.append("progress 1\rprogress 2\r\n\u{1B}[31mred\u{1B}[0m\r\nabc\u{8}Z")
 
         XCTAssertEqual(buffer.lines, ["progress 2", "red", "abZ"])
     }

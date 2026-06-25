@@ -119,6 +119,7 @@ final class HostListViewModel: ObservableObject {
     }
 
     func resizeTerminal(columns: Int, rows: Int) {
+        terminalBuffer.resize(columns: columns, rows: rows)
         Task {
             do {
                 try await sshClient.resize(columns: columns, rows: rows)
@@ -149,7 +150,7 @@ final class HostListViewModel: ObservableObject {
             do {
                 try await sshClient.connect(host: host, knownHost: knownHost) { [weak self] data in
                     Task { @MainActor in
-                        self?.terminalBuffer.append(String(decoding: data, as: UTF8.self))
+                        self?.terminalBuffer.append(data)
                     }
                 }
                 connectionState = .connected
