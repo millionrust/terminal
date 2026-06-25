@@ -110,9 +110,8 @@ fun TermirustApp(
             } else {
                 Column(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .padding(12.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                        .fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     CompactHeader(viewModel = viewModel, onImportVault = onImportVault)
                     CompactHostStrip(viewModel = viewModel)
@@ -120,6 +119,7 @@ fun TermirustApp(
                         viewModel = viewModel,
                         onImportCredentialFile = onImportCredentialFile,
                         modifier = Modifier.weight(1f),
+                        framed = false,
                     )
                 }
             }
@@ -326,6 +326,7 @@ private fun SessionPanel(
     viewModel: MobileHostViewModel,
     onImportCredentialFile: () -> Unit,
     modifier: Modifier = Modifier,
+    framed: Boolean = true,
 ) {
     val selectedHost by viewModel.selectedHost.collectAsState()
     val lines by viewModel.terminalBuffer.lines.collectAsState()
@@ -362,12 +363,7 @@ private fun SessionPanel(
         pendingMultilinePaste = null
     }
 
-    Card(
-        modifier = modifier.fillMaxSize(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        border = BorderStroke(1.dp, PanelBorder),
-        shape = RoundedCornerShape(18.dp),
-    ) {
+    val content: @Composable () -> Unit = {
         Column(modifier = Modifier.fillMaxSize()) {
             SessionHeader(
                 host = selectedHost,
@@ -423,6 +419,24 @@ private fun SessionPanel(
                 },
                 onSend = { sendCommandWithPasteGuard() },
             )
+        }
+    }
+
+    if (framed) {
+        Card(
+            modifier = modifier.fillMaxSize(),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            border = BorderStroke(1.dp, PanelBorder),
+            shape = RoundedCornerShape(18.dp),
+        ) {
+            content()
+        }
+    } else {
+        Surface(
+            modifier = modifier.fillMaxSize(),
+            color = Color.White,
+        ) {
+            content()
         }
     }
 }
