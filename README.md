@@ -17,6 +17,7 @@ Implemented:
 - Jetpack Compose host list and terminal detail scaffold.
 - Versioned mobile vault models using kotlinx.serialization.
 - Plaintext fixture import for unit tests, encrypted envelope inspection, and an injected shared-crypto decryptor path for production vault files.
+- `NativeMobileVaultDecryptor` JNI adapter for the Rust shared crypto library once `libtermirust_mobile_ffi.so` is copied into `app/src/main/jniLibs/`.
 - Android Keystore-backed secret storage.
 - Tmux bootstrap script generation.
 - SSHJ dependency is declared as the direct SSH transport foundation.
@@ -24,7 +25,7 @@ Implemented:
 
 Not finished yet:
 
-- Linking the production Rust vault crypto library into the app target. The import path is ready through `MobileVaultDecryptor`; the remaining work is packaging the shared Rust decryptor through JNI/UniFFI.
+- Making `NativeMobileVaultDecryptor` the default import decryptor after the shared Rust `.so` files are shipped with the app.
 - Full SSHJ session/channel/PTTY wiring.
 - Real terminal emulator integration.
 - Android document picker integration for vault import.
