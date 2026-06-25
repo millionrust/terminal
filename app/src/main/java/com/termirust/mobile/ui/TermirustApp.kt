@@ -26,6 +26,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.text.selection.SelectionContainer
 import com.termirust.mobile.MobileHostViewModel
 import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileHost
@@ -109,6 +111,19 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
     val state by viewModel.connectionState.collectAsState()
     var command by remember { mutableStateOf("") }
     var credential by remember(selectedHost?.id) { mutableStateOf("") }
+    var terminalFontSize by remember { mutableStateOf(14) }
+    var pendingMultilinePaste by remember { mutableStateOf<String?>(null) }
+
+    fun sendCommandWithPasteGuard(force: Boolean = false) {
+        val value = command
+        if (!force && value.lineSequence().take(2).count() > 1) {
+            pendingMultilinePaste = value
+            return
+        }
+        viewModel.sendTerminalInput(value)
+        command = ""
+        pendingMultilinePaste = null
+    }
 
     Column(modifier = modifier.padding(16.dp)) {
         Text(selectedHost?.label ?: "No host selected", style = MaterialTheme.typography.headlineSmall)
@@ -139,24 +154,59 @@ private fun TerminalPane(viewModel: MobileHostViewModel, modifier: Modifier = Mo
             }
         }
         Spacer(modifier = Modifier.height(12.dp))
-        LazyColumn(modifier = Modifier.weight(1f).fillMaxWidth()) {
-            items(lines) { line ->
-                Text(line.ifEmpty { " " }, fontFamily = FontFamily.Monospace)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            AssistChip(
+                onClick = { terminalFontSize = (terminalFontSize - 1).coerceAtLeast(10) },
+                label = { Text("A-") },
+            )
+            AssistChip(
+                onClick = { terminalFontSize = (terminalFontSize + 1).coerceAtMost(24) },
+                label = { Text("A+") },
+            )
+        }
+        SelectionContainer(modifier = Modifier.weight(1f).fillMaxWidth()) {
+            LazyColumn(modifier = Modifier.fillMaxSize()) {
+                items(lines) { line ->
+                    Text(
+                        line.ifEmpty { " " },
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = terminalFontSize.sp,
+                    )
+                }
             }
         }
         AccessoryRow(onSend = viewModel::sendTerminalBytes)
+        if (pendingMultilinePaste == command && command.isNotEmpty()) {
+            Text(
+                "Multiline paste detected. Tap Confirm Paste to send it.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Button(onClick = { sendCommandWithPasteGuard(force = true) }) {
+                    Text("Confirm Paste")
+                }
+                Button(onClick = { pendingMultilinePaste = null }) {
+                    Text("Cancel")
+                }
+            }
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
             OutlinedTextField(
                 value = command,
-                onValueChange = { command = it },
+                onValueChange = {
+                    command = it
+                    if (pendingMultilinePaste != it) {
+                        pendingMultilinePaste = null
+                    }
+                },
                 modifier = Modifier.weight(1f),
                 label = { Text("Command") },
+                minLines = 1,
+                maxLines = 4,
             )
             Button(
-                onClick = {
-                    viewModel.sendTerminalInput(command)
-                    command = ""
-                },
+                onClick = { sendCommandWithPasteGuard() },
                 enabled = command.isNotBlank() && state == TerminalConnectionState.Connected,
             ) {
                 Text("Send")
