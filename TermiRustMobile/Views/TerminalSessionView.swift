@@ -5,6 +5,8 @@ struct TerminalSessionView: View {
     let host: MobileHost
     @State private var input = ""
     @State private var credential = ""
+    @State private var terminalFontSize: CGFloat = 14
+    @State private var pendingMultilinePaste: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -14,13 +16,15 @@ struct TerminalSessionView: View {
                 LazyVStack(alignment: .leading, spacing: 2) {
                     ForEach(Array(viewModel.terminalBuffer.lines.enumerated()), id: \.offset) { _, line in
                         Text(line.isEmpty ? " " : line)
-                            .font(.system(.body, design: .monospaced))
+                            .font(.system(size: terminalFontSize, design: .monospaced))
                             .frame(maxWidth: .infinity, alignment: .leading)
+                            .textSelection(.enabled)
                     }
                 }
                 .padding(12)
             }
             .background(Color(.systemBackground))
+            terminalControls
             accessoryRow
             inputRow
         }
@@ -105,6 +109,24 @@ struct TerminalSessionView: View {
         return "No mobile secret reference exported for this host."
     }
 
+    private var terminalControls: some View {
+        HStack(spacing: 8) {
+            Button("A-") {
+                terminalFontSize = max(10, terminalFontSize - 1)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            Button("A+") {
+                terminalFontSize = min(24, terminalFontSize + 1)
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            Spacer()
+        }
+        .padding(.horizontal)
+        .padding(.top, 8)
+    }
+
     private var accessoryRow: some View {
         ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
@@ -124,19 +146,51 @@ struct TerminalSessionView: View {
     }
 
     private var inputRow: some View {
-        HStack {
-            TextField("Command", text: $input)
-                .textFieldStyle(.roundedBorder)
-                .textInputAutocapitalization(.never)
-                .autocorrectionDisabled()
-            Button("Send") {
-                viewModel.sendTerminalInput(input)
-                input = ""
+        VStack(alignment: .leading, spacing: 8) {
+            if pendingMultilinePaste == input, !input.isEmpty {
+                Text("Multiline paste detected. Tap Confirm Paste to send it.")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                HStack {
+                    Button("Confirm Paste") {
+                        sendInput(force: true)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    Button("Cancel") {
+                        pendingMultilinePaste = nil
+                    }
+                    .buttonStyle(.bordered)
+                }
             }
-            .buttonStyle(.borderedProminent)
-            .disabled(input.isEmpty || viewModel.connectionState != .connected)
+            HStack {
+                TextField("Command", text: $input, axis: .vertical)
+                    .textFieldStyle(.roundedBorder)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                    .lineLimit(1...4)
+                    .onChange(of: input) { _, newValue in
+                        if pendingMultilinePaste != newValue {
+                            pendingMultilinePaste = nil
+                        }
+                    }
+                Button("Send") {
+                    sendInput()
+                }
+                .buttonStyle(.borderedProminent)
+                .disabled(input.isEmpty || viewModel.connectionState != .connected)
+            }
         }
         .padding()
+    }
+
+    private func sendInput(force: Bool = false) {
+        if !force && input.contains("\n") {
+            pendingMultilinePaste = input
+            return
+        }
+        viewModel.sendTerminalInput(input)
+        input = ""
+        pendingMultilinePaste = nil
     }
 
     private var accessoryKeys: [(label: String, bytes: Data?)] {
