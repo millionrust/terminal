@@ -20,7 +20,7 @@ Implemented:
 - `NativeMobileVaultDecryptor` JNI adapter for the Rust shared crypto library once `libtermirust_mobile_ffi.so` is copied into `app/src/main/jniLibs/`.
 - Android Keystore-backed secret storage.
 - Tmux bootstrap script generation.
-- SSHJ-backed direct SSH session wiring with pinned known-host verification, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
+- SSHJ-backed direct SSH session wiring with pinned known-host verification, Keystore-backed `secret_ref` lookup, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
 - JVM unit tests for schema decode and tmux bootstrap behavior.
 
 Not finished yet:
