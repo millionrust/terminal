@@ -32,11 +32,18 @@ import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.ssh.TerminalConnectionState
 
 @Composable
-fun TermirustApp(viewModel: MobileHostViewModel) {
+fun TermirustApp(
+    viewModel: MobileHostViewModel,
+    onImportVault: (String) -> Unit,
+) {
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize()) {
             Row(modifier = Modifier.fillMaxSize()) {
-                HostList(viewModel = viewModel, modifier = Modifier.weight(0.42f))
+                HostList(
+                    viewModel = viewModel,
+                    onImportVault = onImportVault,
+                    modifier = Modifier.weight(0.42f),
+                )
                 TerminalPane(viewModel = viewModel, modifier = Modifier.weight(0.58f))
             }
         }
@@ -44,14 +51,30 @@ fun TermirustApp(viewModel: MobileHostViewModel) {
 }
 
 @Composable
-private fun HostList(viewModel: MobileHostViewModel, modifier: Modifier = Modifier) {
+private fun HostList(
+    viewModel: MobileHostViewModel,
+    onImportVault: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val vault by viewModel.vault.collectAsState()
     val status by viewModel.status.collectAsState()
+    var vaultPassphrase by remember { mutableStateOf("") }
     Column(modifier = modifier.padding(16.dp)) {
         Text("TermiRust", style = MaterialTheme.typography.headlineMedium)
         Spacer(modifier = Modifier.height(12.dp))
-        Button(onClick = { /* Hook Android document picker here. */ }) {
-            Text("Import Mobile Vault")
+        OutlinedTextField(
+            value = vaultPassphrase,
+            onValueChange = { vaultPassphrase = it },
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Vault passphrase") },
+            visualTransformation = PasswordVisualTransformation(),
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+        Button(
+            onClick = { onImportVault(vaultPassphrase) },
+            enabled = vaultPassphrase.isNotBlank(),
+        ) {
+            Text("Import Encrypted Vault")
         }
         status?.let {
             Spacer(modifier = Modifier.height(8.dp))

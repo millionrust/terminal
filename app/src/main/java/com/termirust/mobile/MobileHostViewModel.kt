@@ -33,6 +33,10 @@ class MobileHostViewModel(
 
     val terminalBuffer = TerminalBuffer()
 
+    fun reportStatus(message: String) {
+        _status.value = message
+    }
+
     fun importPlaintextFixture(bytes: ByteArray) {
         runCatching { importer.importPlaintextFixture(bytes) }
             .onSuccess {
