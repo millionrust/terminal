@@ -11,12 +11,14 @@
 		043371456089E6BDC08EABE5 /* TermiRustMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACD1DD632FE87CA985233FC /* TermiRustMobileApp.swift */; };
 		0842825D1B1A44C19B1E4509 /* TermiRustMobileCrypto.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */; };
 		11B42406FC878DBE6DBDCD09 /* MobileVaultImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */; };
+		12A5A4F3F309524684539EEF /* NIOCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8F7C73A723AFCB7818FF79FB /* NIOCore */; };
 		20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */; };
 		304086417473B388F4742CBB /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79858D8548840C07D779517 /* MobileVaultImporter.swift */; };
 		7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A094D79B3532C27E003F0B33 /* HostListView.swift */; };
 		81AAE37D864D4860FB6C07F5 /* MobileSSHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B01326772388C06F4F275E /* MobileSSHSession.swift */; };
 		99EB986DA9ED3C19DFFB95F0 /* KeychainSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76237639D6037947840EF355 /* KeychainSecretStore.swift */; };
 		9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = A430BDF58539E9AB20C42A19 /* NIOSSH */; };
+		A8904D00FF0F1BC603301077 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = B719687746D6E74C57ECB3D9 /* NIOPosix */; };
 		C76442BB1B07263ECDCD9DB2 /* TerminalSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819CC38B1DACD94EE1C5A9CC /* TerminalSessionView.swift */; };
 		DB197538F8008F5ADF7AE8E1 /* NativeMobileVaultDecryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A4A57E7A9697AA99669AD5 /* NativeMobileVaultDecryptor.swift */; };
 		E22EA4959B1A3AA8EFA705EC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DBD05A37D69F9631D1396BC /* ContentView.swift */; };
@@ -59,6 +61,8 @@
 			buildActionMask = 2147483647;
 			files = (
 				9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */,
+				12A5A4F3F309524684539EEF /* NIOCore in Frameworks */,
+				A8904D00FF0F1BC603301077 /* NIOPosix in Frameworks */,
 				0842825D1B1A44C19B1E4509 /* TermiRustMobileCrypto.xcframework in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -201,6 +205,8 @@
 			name = TermiRustMobile;
 			packageProductDependencies = (
 				A430BDF58539E9AB20C42A19 /* NIOSSH */,
+				8F7C73A723AFCB7818FF79FB /* NIOCore */,
+				B719687746D6E74C57ECB3D9 /* NIOPosix */,
 			);
 			productName = TermiRustMobile;
 			productReference = A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */;
@@ -245,6 +251,7 @@
 			mainGroup = F43FBAFBB30FB25D5F3E2967;
 			minimizedProjectReferenceProxies = 1;
 			packageReferences = (
+				A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */,
 				40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
 			);
 			preferredProjectObjectVersion = 77;
@@ -543,13 +550,31 @@
 				minimumVersion = 0.13.0;
 			};
 		};
+		A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.81.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
+		8F7C73A723AFCB7818FF79FB /* NIOCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOCore;
+		};
 		A430BDF58539E9AB20C42A19 /* NIOSSH */ = {
 			isa = XCSwiftPackageProductDependency;
 			package = 40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
 			productName = NIOSSH;
+		};
+		B719687746D6E74C57ECB3D9 /* NIOPosix */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOPosix;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

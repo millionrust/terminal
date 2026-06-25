@@ -2,10 +2,14 @@ import SwiftUI
 
 @main
 struct TermiRustMobileApp: App {
-    @StateObject private var viewModel = HostListViewModel(
-        vaultImporter: MobileVaultImporter(decryptor: NativeMobileVaultDecryptor()),
-        secretStore: KeychainSecretStore(service: "com.termirust.mobile")
-    )
+    @StateObject private var viewModel: HostListViewModel = {
+        let secretStore = KeychainSecretStore(service: "com.termirust.mobile")
+        return HostListViewModel(
+            vaultImporter: MobileVaultImporter(decryptor: NativeMobileVaultDecryptor()),
+            secretStore: secretStore,
+            sshClient: DirectSSHSessionClient(secretStore: secretStore)
+        )
+    }()
 
     var body: some Scene {
         WindowGroup {

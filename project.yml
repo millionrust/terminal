@@ -4,6 +4,9 @@ options:
   deploymentTarget:
     iOS: "17.0"
 packages:
+  swift-nio:
+    url: https://github.com/apple/swift-nio.git
+    from: 2.81.0
   swift-nio-ssh:
     url: https://github.com/apple/swift-nio-ssh.git
     from: 0.13.0
@@ -16,6 +19,10 @@ targets:
     dependencies:
       - package: swift-nio-ssh
         product: NIOSSH
+      - package: swift-nio
+        product: NIOCore
+      - package: swift-nio
+        product: NIOPosix
       - framework: ../../terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework
         embed: false
     settings:

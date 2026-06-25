@@ -4,15 +4,19 @@ import UniformTypeIdentifiers
 struct HostListView: View {
     @ObservedObject var viewModel: HostListViewModel
     @State private var showingImporter = false
+    @State private var vaultPassphrase = ""
 
     var body: some View {
         List(selection: $viewModel.selectedHost) {
             Section("Vault") {
+                SecureField("Vault passphrase", text: $vaultPassphrase)
+                    .textContentType(.password)
                 Button {
                     showingImporter = true
                 } label: {
-                    Label("Import Mobile Vault", systemImage: "square.and.arrow.down")
+                    Label("Import Encrypted Vault", systemImage: "square.and.arrow.down")
                 }
+                .disabled(vaultPassphrase.isEmpty)
             }
 
             if let error = viewModel.importError {
@@ -50,7 +54,8 @@ struct HostListView: View {
             guard case .success(let urls) = result, let url = urls.first else {
                 return
             }
-            viewModel.inspectEncryptedVault(from: url)
+            viewModel.importEncryptedVault(from: url, passphrase: vaultPassphrase)
+            vaultPassphrase = ""
         }
     }
 }

@@ -76,6 +76,41 @@ final class MobileVaultImporterTests: XCTestCase {
         XCTAssertEqual(vault.hosts.first?.persistentSession.sessionName, "tr-prod")
     }
 
+    @MainActor
+    func testCredentialSaveUsesExportedSecretReference() throws {
+        let host = MobileHost(
+            id: "profile-1",
+            label: "Prod",
+            vaultId: nil,
+            group: "Ops",
+            tags: [],
+            host: "prod.example.com",
+            port: 22,
+            username: "ubuntu",
+            auth: MobileAuthMetadata(kind: .password, identityId: nil, secretRef: "secret-prod-password"),
+            jumpHostId: nil,
+            startupDirectory: nil,
+            startupCommand: nil,
+            startInFiles: false,
+            persistentSession: MobilePersistentSession(enabled: false, sessionName: nil, detachOthers: false),
+            terminalScrollbackRows: nil,
+            colorTag: nil,
+            environment: [],
+            knownHostEndpoint: "prod.example.com:22"
+        )
+        let store = FixtureSecretStore()
+        let viewModel = HostListViewModel(
+            vaultImporter: MobileVaultImporter(),
+            secretStore: store,
+            sshClient: FixtureSSHClient()
+        )
+
+        viewModel.saveCredential("super-secret", for: host)
+
+        XCTAssertEqual(store.saved["secret-prod-password"], "super-secret")
+        XCTAssertEqual(viewModel.importError, "Credential saved for Prod.")
+    }
+
     func testTmuxBootstrapDoesNotRunStartupCommandOnAttachPath() throws {
         let host = MobileHost(
             id: "profile-1",
@@ -117,4 +152,34 @@ private struct FixtureDecryptor: MobileVaultDecrypting {
         XCTAssertEqual(passphrase, "hunter2")
         return plaintext
     }
+}
+
+private final class FixtureSecretStore: SecretStoring {
+    var saved: [String: String] = [:]
+
+    func saveSecret(_ secret: String, account: String) throws {
+        saved[account] = secret
+    }
+
+    func readSecret(account: String) throws -> String? {
+        saved[account]
+    }
+
+    func deleteSecret(account: String) throws {
+        saved.removeValue(forKey: account)
+    }
+}
+
+private final class FixtureSSHClient: MobileSSHConnecting, @unchecked Sendable {
+    func connect(
+        host: MobileHost,
+        knownHost: MobileKnownHost?,
+        onOutput: @escaping @Sendable (Data) -> Void
+    ) async throws {}
+
+    func send(_ bytes: Data) async throws {}
+
+    func resize(columns: Int, rows: Int) async throws {}
+
+    func disconnect() async {}
 }

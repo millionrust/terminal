@@ -63,11 +63,77 @@ final class HostListViewModel: ObservableObject {
 
     func saveCredential(_ secret: String, for host: MobileHost) {
         do {
-            try secretStore.saveSecret(secret, account: host.id)
-            importError = nil
+            guard let secretRef = host.auth.secretRef, !secretRef.isEmpty else {
+                importError = "This host does not declare a mobile secret reference."
+                return
+            }
+            guard !secret.isEmpty else {
+                importError = "Enter the SSH credential before saving."
+                return
+            }
+            try secretStore.saveSecret(secret, account: secretRef)
+            importError = "Credential saved for \(host.label)."
         } catch {
             importError = error.localizedDescription
         }
+    }
+
+    func deleteCredential(for host: MobileHost) {
+        do {
+            guard let secretRef = host.auth.secretRef, !secretRef.isEmpty else {
+                importError = "This host does not declare a mobile secret reference."
+                return
+            }
+            try secretStore.deleteSecret(account: secretRef)
+            importError = "Credential removed for \(host.label)."
+        } catch {
+            importError = error.localizedDescription
+        }
+    }
+
+    func sendTerminalInput(_ input: String) {
+        Task {
+            do {
+                try await sshClient.send(Data((input + "\n").utf8))
+            } catch {
+                terminalBuffer.append(error.localizedDescription)
+            }
+        }
+    }
+
+    func sendTerminalBytes(_ bytes: Data) {
+        Task {
+            do {
+                try await sshClient.send(bytes)
+            } catch {
+                terminalBuffer.append(error.localizedDescription)
+            }
+        }
+    }
+
+    func disconnect() {
+        Task {
+            await sshClient.disconnect()
+            connectionState = .disconnected
+        }
+    }
+
+    func resizeTerminal(columns: Int, rows: Int) {
+        Task {
+            do {
+                try await sshClient.resize(columns: columns, rows: rows)
+            } catch {
+                terminalBuffer.append(error.localizedDescription)
+            }
+        }
+    }
+
+    func reportStatus(_ message: String) {
+        importError = message
+    }
+
+    func credentialReference(for host: MobileHost) -> String? {
+        host.auth.secretRef
     }
 
     func connectSelectedHost() {
@@ -81,7 +147,11 @@ final class HostListViewModel: ObservableObject {
 
         Task {
             do {
-                try await sshClient.connect(host: host, knownHost: knownHost)
+                try await sshClient.connect(host: host, knownHost: knownHost) { [weak self] data in
+                    Task { @MainActor in
+                        self?.terminalBuffer.append(String(decoding: data, as: UTF8.self))
+                    }
+                }
                 connectionState = .connected
             } catch {
                 connectionState = .failed(error.localizedDescription)
