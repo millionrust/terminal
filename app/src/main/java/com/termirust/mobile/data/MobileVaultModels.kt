@@ -125,9 +125,9 @@ data class MobileSyncMetadata(
 
 @Serializable
 data class MobileDeviceRecord(
-    val id: String,
+    @SerialName("device_id") val deviceId: String,
     val label: String,
-    val platform: String,
+    val platform: String? = null,
     @SerialName("public_key") val publicKey: String? = null,
     @SerialName("revoked_at_millis") val revokedAtMillis: ULong? = null,
 )

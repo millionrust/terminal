@@ -59,7 +59,13 @@ class MobileVaultImporterTest {
           "identities": [],
           "known_hosts": [{"endpoint": "prod.example.com:22", "public_key": "ssh-ed25519 AAAA", "algorithm": null, "fingerprint": null}],
           "sync": {"revision": null, "last_synced_at_millis": null},
-          "devices": []
+          "devices": [{
+            "device_id": "desktop-1",
+            "label": "TermiRust Desktop",
+            "platform": "desktop",
+            "public_key": null,
+            "revoked_at_millis": null
+          }]
         }
     """.trimIndent().encodeToByteArray()
 
@@ -70,6 +76,8 @@ class MobileVaultImporterTest {
         assertEquals(1, vault.schemaVersion)
         assertEquals("tr-prod", vault.hosts.first().persistentSession.sessionName)
         assertEquals("prod.example.com:22", vault.knownHosts.first().endpoint)
+        assertEquals("desktop-1", vault.devices.first().deviceId)
+        assertEquals("desktop", vault.devices.first().platform)
     }
 
     @Test
