@@ -8,6 +8,7 @@ import com.termirust.mobile.data.MobileVaultDecryptor
 import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.TmuxBootstrap
+import com.termirust.mobile.terminal.TerminalBuffer
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -141,6 +142,24 @@ class MobileVaultImporterTest {
         assertTrue(script.contains("exec tmux attach-session -d -t 'tr-prod'"))
         assertTrue(script.contains("exec tmux new-session -s 'tr-prod' -c '/srv/app' -- \"\${SHELL:-/bin/sh}\" -lc 'uptime; exec \"\${SHELL:-/bin/sh}\" -l'"))
         assertTrue(script.indexOf("exec tmux attach-session") < script.indexOf("uptime; exec"))
+    }
+
+    @Test
+    fun terminalBufferHandlesCommonTerminalRedrawSequences() {
+        val buffer = TerminalBuffer()
+
+        buffer.append("progress 1\rprogress 2\n\u001B[31mred\u001B[0m\nabc\bZ")
+
+        assertEquals(listOf("progress 2", "red", "abZ"), buffer.lines.value)
+    }
+
+    @Test
+    fun terminalBufferClearsScreenOnAnsiClear() {
+        val buffer = TerminalBuffer()
+
+        buffer.append("before\n\u001B[2J\u001B[Hafter")
+
+        assertEquals(listOf("after"), buffer.lines.value)
     }
 }
 

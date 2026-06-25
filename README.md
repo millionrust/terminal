@@ -23,12 +23,13 @@ Implemented:
 - Selected-host credential entry that saves password/private-key material into Keystore-backed storage under the exported `secret_ref`.
 - Tmux bootstrap script generation.
 - SSHJ-backed direct SSH session wiring with pinned known-host verification, Keystore-backed `secret_ref` lookup, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
+- Transcript-level terminal buffering for common redraw/control sequences such as carriage return, backspace, ANSI SGR, line erase, cursor movement, and clear screen.
 - JVM unit tests for schema decode and tmux bootstrap behavior.
 
 Not finished yet:
 
 - Importing private-key files directly into the credential field.
-- Real terminal emulator integration.
+- Full terminal emulator integration with complete VT parsing, styling, selection, and alternate screen support.
 
 ## Build
 
