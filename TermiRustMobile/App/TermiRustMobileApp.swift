@@ -3,7 +3,7 @@ import SwiftUI
 @main
 struct TermiRustMobileApp: App {
     @StateObject private var viewModel = HostListViewModel(
-        vaultImporter: MobileVaultImporter(),
+        vaultImporter: MobileVaultImporter(decryptor: NativeMobileVaultDecryptor()),
         secretStore: KeychainSecretStore(service: "com.termirust.mobile")
     )
 

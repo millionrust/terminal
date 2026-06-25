@@ -16,6 +16,8 @@ targets:
     dependencies:
       - package: swift-nio-ssh
         product: NIOSSH
+      - framework: ../../terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.termirust.mobile
