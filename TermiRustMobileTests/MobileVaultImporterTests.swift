@@ -58,7 +58,13 @@ final class MobileVaultImporterTests: XCTestCase {
       "identities": [],
       "known_hosts": [{"endpoint": "prod.example.com:22", "public_key": "ssh-ed25519 AAAA", "algorithm": null, "fingerprint": null}],
       "sync": {"revision": null, "last_synced_at_millis": null},
-      "devices": []
+      "devices": [{
+        "device_id": "desktop-1",
+        "label": "TermiRust Desktop",
+        "platform": "desktop",
+        "public_key": null,
+        "revoked_at_millis": null
+      }]
     }
     """.utf8)
 
@@ -68,6 +74,8 @@ final class MobileVaultImporterTests: XCTestCase {
         XCTAssertEqual(vault.schemaVersion, 1)
         XCTAssertEqual(vault.hosts.first?.persistentSession.sessionName, "tr-prod")
         XCTAssertEqual(vault.knownHosts.first?.endpoint, "prod.example.com:22")
+        XCTAssertEqual(vault.devices.first?.deviceId, "desktop-1")
+        XCTAssertEqual(vault.devices.first?.platform, "desktop")
     }
 
     func testEncryptedVaultRequiresSharedCryptoDecryptor() throws {

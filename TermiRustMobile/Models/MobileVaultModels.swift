@@ -189,14 +189,16 @@ struct MobileSyncMetadata: Codable, Hashable {
 }
 
 struct MobileDeviceRecord: Codable, Hashable, Identifiable {
-    let id: String
+    var id: String { deviceId }
+
+    let deviceId: String
     let label: String
-    let platform: String
+    let platform: String?
     let publicKey: String?
     let revokedAtMillis: UInt64?
 
     enum CodingKeys: String, CodingKey {
-        case id
+        case deviceId = "device_id"
         case label
         case platform
         case publicKey = "public_key"
