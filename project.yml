@@ -1,0 +1,39 @@
+name: TermiRustMobile
+options:
+  minimumXcodeGenVersion: 2.42.0
+  deploymentTarget:
+    iOS: "17.0"
+packages:
+  swift-nio-ssh:
+    url: https://github.com/apple/swift-nio-ssh.git
+    from: 0.13.0
+targets:
+  TermiRustMobile:
+    type: application
+    platform: iOS
+    sources:
+      - TermiRustMobile
+    dependencies:
+      - package: swift-nio-ssh
+        product: NIOSSH
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.termirust.mobile
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
+        SWIFT_VERSION: 6.0
+        IPHONEOS_DEPLOYMENT_TARGET: 17.0
+  TermiRustMobileTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - TermiRustMobileTests
+    dependencies:
+      - target: TermiRustMobile
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.termirust.mobile.tests
+        GENERATE_INFOPLIST_FILE: YES
+        SWIFT_VERSION: 6.0
+        IPHONEOS_DEPLOYMENT_TARGET: 17.0

@@ -1,0 +1,533 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		024F40527C1D093776F9191D /* HostListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4022DC3DBB1883F4FAAF5D22 /* HostListViewModel.swift */; };
+		043371456089E6BDC08EABE5 /* TermiRustMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2ACD1DD632FE87CA985233FC /* TermiRustMobileApp.swift */; };
+		11B42406FC878DBE6DBDCD09 /* MobileVaultImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */; };
+		20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */; };
+		304086417473B388F4742CBB /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79858D8548840C07D779517 /* MobileVaultImporter.swift */; };
+		7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A094D79B3532C27E003F0B33 /* HostListView.swift */; };
+		81AAE37D864D4860FB6C07F5 /* MobileSSHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B01326772388C06F4F275E /* MobileSSHSession.swift */; };
+		99EB986DA9ED3C19DFFB95F0 /* KeychainSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76237639D6037947840EF355 /* KeychainSecretStore.swift */; };
+		9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = A430BDF58539E9AB20C42A19 /* NIOSSH */; };
+		C76442BB1B07263ECDCD9DB2 /* TerminalSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 819CC38B1DACD94EE1C5A9CC /* TerminalSessionView.swift */; };
+		E22EA4959B1A3AA8EFA705EC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DBD05A37D69F9631D1396BC /* ContentView.swift */; };
+		F644B10232A8B844230B5959 /* TmuxBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02FF10C3A8E721D4D7A47CD8 /* TmuxBootstrap.swift */; };
+		FD8083E0DF133F4E81AE4E18 /* MobileVaultModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F376C5C2345ABA90522EF515 /* MobileVaultModels.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A92951BD9AE8B1006667B9A5 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = B7DD9FE9A058D582F64E8172 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8BB149ECB3860B51DED20059;
+			remoteInfo = TermiRustMobile;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		02FF10C3A8E721D4D7A47CD8 /* TmuxBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxBootstrap.swift; sourceTree = "<group>"; };
+		2ACD1DD632FE87CA985233FC /* TermiRustMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermiRustMobileApp.swift; sourceTree = "<group>"; };
+		4022DC3DBB1883F4FAAF5D22 /* HostListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListViewModel.swift; sourceTree = "<group>"; };
+		6DBD05A37D69F9631D1396BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		76237639D6037947840EF355 /* KeychainSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSecretStore.swift; sourceTree = "<group>"; };
+		79B01326772388C06F4F275E /* MobileSSHSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSSHSession.swift; sourceTree = "<group>"; };
+		7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporterTests.swift; sourceTree = "<group>"; };
+		819CC38B1DACD94EE1C5A9CC /* TerminalSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionView.swift; sourceTree = "<group>"; };
+		9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalBuffer.swift; sourceTree = "<group>"; };
+		A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TermiRustMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A094D79B3532C27E003F0B33 /* HostListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListView.swift; sourceTree = "<group>"; };
+		A79858D8548840C07D779517 /* MobileVaultImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporter.swift; sourceTree = "<group>"; };
+		F376C5C2345ABA90522EF515 /* MobileVaultModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultModels.swift; sourceTree = "<group>"; };
+		FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermiRustMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		423E281E7D6930835019380B /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		27968F7F33507C14763BACD9 /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				F376C5C2345ABA90522EF515 /* MobileVaultModels.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		31E357C43FC18557569973DC /* TermiRustMobile */ = {
+			isa = PBXGroup;
+			children = (
+				A8D916484C3231E4D32433F7 /* App */,
+				27968F7F33507C14763BACD9 /* Models */,
+				EC9DBEFEDB2E8B1CBB849940 /* Security */,
+				38B90CC6928D45E5B687C873 /* SSH */,
+				DDC8BC0ACA2E6A7A544D5C7D /* Terminal */,
+				50DA47110E51091E83B5D67C /* Vault */,
+				90503CA0EA235468D73BC7C5 /* ViewModels */,
+				D608800CECA100CFC262B74C /* Views */,
+			);
+			path = TermiRustMobile;
+			sourceTree = "<group>";
+		};
+		38B90CC6928D45E5B687C873 /* SSH */ = {
+			isa = PBXGroup;
+			children = (
+				79B01326772388C06F4F275E /* MobileSSHSession.swift */,
+				02FF10C3A8E721D4D7A47CD8 /* TmuxBootstrap.swift */,
+			);
+			path = SSH;
+			sourceTree = "<group>";
+		};
+		50DA47110E51091E83B5D67C /* Vault */ = {
+			isa = PBXGroup;
+			children = (
+				A79858D8548840C07D779517 /* MobileVaultImporter.swift */,
+			);
+			path = Vault;
+			sourceTree = "<group>";
+		};
+		5DBDBA063676A27697E38797 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */,
+				FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		90503CA0EA235468D73BC7C5 /* ViewModels */ = {
+			isa = PBXGroup;
+			children = (
+				4022DC3DBB1883F4FAAF5D22 /* HostListViewModel.swift */,
+			);
+			path = ViewModels;
+			sourceTree = "<group>";
+		};
+		A8D916484C3231E4D32433F7 /* App */ = {
+			isa = PBXGroup;
+			children = (
+				2ACD1DD632FE87CA985233FC /* TermiRustMobileApp.swift */,
+			);
+			path = App;
+			sourceTree = "<group>";
+		};
+		CCC1708406BAB5C307C75403 /* TermiRustMobileTests */ = {
+			isa = PBXGroup;
+			children = (
+				7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */,
+			);
+			path = TermiRustMobileTests;
+			sourceTree = "<group>";
+		};
+		D608800CECA100CFC262B74C /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				6DBD05A37D69F9631D1396BC /* ContentView.swift */,
+				A094D79B3532C27E003F0B33 /* HostListView.swift */,
+				819CC38B1DACD94EE1C5A9CC /* TerminalSessionView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		DDC8BC0ACA2E6A7A544D5C7D /* Terminal */ = {
+			isa = PBXGroup;
+			children = (
+				9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */,
+			);
+			path = Terminal;
+			sourceTree = "<group>";
+		};
+		EC9DBEFEDB2E8B1CBB849940 /* Security */ = {
+			isa = PBXGroup;
+			children = (
+				76237639D6037947840EF355 /* KeychainSecretStore.swift */,
+			);
+			path = Security;
+			sourceTree = "<group>";
+		};
+		F43FBAFBB30FB25D5F3E2967 = {
+			isa = PBXGroup;
+			children = (
+				31E357C43FC18557569973DC /* TermiRustMobile */,
+				CCC1708406BAB5C307C75403 /* TermiRustMobileTests */,
+				5DBDBA063676A27697E38797 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		8BB149ECB3860B51DED20059 /* TermiRustMobile */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 7E4AD54C0634FBD1183B200A /* Build configuration list for PBXNativeTarget "TermiRustMobile" */;
+			buildPhases = (
+				E0EDCAE263F46408B4AA28C7 /* Sources */,
+				423E281E7D6930835019380B /* Frameworks */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = TermiRustMobile;
+			packageProductDependencies = (
+				A430BDF58539E9AB20C42A19 /* NIOSSH */,
+			);
+			productName = TermiRustMobile;
+			productReference = A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */;
+			productType = "com.apple.product-type.application";
+		};
+		FCA0E6EC4D0EC7F65956EBCA /* TermiRustMobileTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 03F761B885A4B9E7F7645407 /* Build configuration list for PBXNativeTarget "TermiRustMobileTests" */;
+			buildPhases = (
+				D7EA32D6C23AED2059018C91 /* Sources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				B9ADD38D5A3B67FBF20A782F /* PBXTargetDependency */,
+			);
+			name = TermiRustMobileTests;
+			packageProductDependencies = (
+			);
+			productName = TermiRustMobileTests;
+			productReference = FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		B7DD9FE9A058D582F64E8172 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1430;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = 9933BC238D154EF00583C036 /* Build configuration list for PBXProject "TermiRustMobile" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+			);
+			mainGroup = F43FBAFBB30FB25D5F3E2967;
+			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
+			);
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 5DBDBA063676A27697E38797 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				8BB149ECB3860B51DED20059 /* TermiRustMobile */,
+				FCA0E6EC4D0EC7F65956EBCA /* TermiRustMobileTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		D7EA32D6C23AED2059018C91 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				11B42406FC878DBE6DBDCD09 /* MobileVaultImporterTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		E0EDCAE263F46408B4AA28C7 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				E22EA4959B1A3AA8EFA705EC /* ContentView.swift in Sources */,
+				7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */,
+				024F40527C1D093776F9191D /* HostListViewModel.swift in Sources */,
+				99EB986DA9ED3C19DFFB95F0 /* KeychainSecretStore.swift in Sources */,
+				81AAE37D864D4860FB6C07F5 /* MobileSSHSession.swift in Sources */,
+				304086417473B388F4742CBB /* MobileVaultImporter.swift in Sources */,
+				FD8083E0DF133F4E81AE4E18 /* MobileVaultModels.swift in Sources */,
+				043371456089E6BDC08EABE5 /* TermiRustMobileApp.swift in Sources */,
+				20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */,
+				C76442BB1B07263ECDCD9DB2 /* TerminalSessionView.swift in Sources */,
+				F644B10232A8B844230B5959 /* TmuxBootstrap.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		B9ADD38D5A3B67FBF20A782F /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 8BB149ECB3860B51DED20059 /* TermiRustMobile */;
+			targetProxy = A92951BD9AE8B1006667B9A5 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		3CF418A3191FE17977AE000C /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.termirust.mobile.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TermiRustMobile.app/TermiRustMobile";
+			};
+			name = Release;
+		};
+		4D157F7FEA7E25B34537CC39 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		64A8133D5269BA5FA1732BAA /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@loader_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.termirust.mobile.tests;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/TermiRustMobile.app/TermiRustMobile";
+			};
+			name = Debug;
+		};
+		A91F8FED36AFECD8F212E89E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		CF64E1BB608060F3BE27A85F /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.termirust.mobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		ECDA52149C18485223533C09 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_IDENTITY = "iPhone Developer";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone = "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight";
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = com.termirust.mobile;
+				SDKROOT = iphoneos;
+				SWIFT_VERSION = 6.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		03F761B885A4B9E7F7645407 /* Build configuration list for PBXNativeTarget "TermiRustMobileTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				64A8133D5269BA5FA1732BAA /* Debug */,
+				3CF418A3191FE17977AE000C /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		7E4AD54C0634FBD1183B200A /* Build configuration list for PBXNativeTarget "TermiRustMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				ECDA52149C18485223533C09 /* Debug */,
+				CF64E1BB608060F3BE27A85F /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		9933BC238D154EF00583C036 /* Build configuration list for PBXProject "TermiRustMobile" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				4D157F7FEA7E25B34537CC39 /* Debug */,
+				A91F8FED36AFECD8F212E89E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio-ssh.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.13.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A430BDF58539E9AB20C42A19 /* NIOSSH */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
+			productName = NIOSSH;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = B7DD9FE9A058D582F64E8172 /* Project object */;
+}
