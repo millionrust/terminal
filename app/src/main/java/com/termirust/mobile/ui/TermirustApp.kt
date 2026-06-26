@@ -90,7 +90,7 @@ fun TermirustApp(
         ) {
             val wide = maxWidth >= 900.dp
             val outerPadding = if (wide) 20.dp else 0.dp
-            val panelSpacing = if (wide) 18.dp else 8.dp
+            val panelSpacing = if (wide) 18.dp else 0.dp
             val hostPanelWidth = (maxWidth * 0.34f).coerceIn(340.dp, 460.dp)
             if (wide) {
                 Row(
@@ -116,7 +116,7 @@ fun TermirustApp(
                 Column(
                     modifier = Modifier
                         .fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(0.dp),
                 ) {
                     CompactHeader(
                         viewModel = viewModel,
@@ -299,7 +299,10 @@ private fun CompactHostStrip(viewModel: MobileHostViewModel, modifier: Modifier 
     }
 
     LazyRow(
-        modifier = modifier.padding(horizontal = 14.dp),
+        modifier = modifier
+            .height(52.dp)
+            .background(Color.White)
+            .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         items(hosts, key = { it.id }) { host ->
