@@ -7,6 +7,7 @@ import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobilePersistentSession
 import com.termirust.mobile.data.MobileVaultDecryptor
 import com.termirust.mobile.data.MobileVaultImporter
+import com.termirust.mobile.data.passphraseUtf8Bytes
 import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.TmuxBootstrap
 import com.termirust.mobile.terminal.TerminalBuffer
@@ -238,6 +239,12 @@ class MobileVaultImporterTest {
         assertEquals("prod.example.com", vault.hosts.first().host)
         assertEquals("tr-prod", vault.hosts.first().persistentSession.sessionName)
         assertTrue(passphrase.all { it == '\u0000' })
+    }
+
+    @Test
+    fun nativeDecryptorPassphraseEncodingUsesUtf8Bytes() {
+        assertEquals("hunter2".encodeToByteArray().toList(), passphraseUtf8Bytes("hunter2".toCharArray()).toList())
+        assertEquals("päss 🔐".encodeToByteArray().toList(), passphraseUtf8Bytes("päss 🔐".toCharArray()).toList())
     }
 
     @Test
