@@ -288,3 +288,23 @@ struct MobileDeviceVaultKey: Codable, Hashable, Identifiable {
         case revokedAtMillis = "revoked_at_millis"
     }
 }
+
+struct MobileDevicePairingRequest: Codable, Hashable {
+    let schemaVersion: Int
+    let requestId: String
+    let deviceId: String
+    let label: String
+    let platform: String
+    let publicKey: String?
+    let createdAtMillis: UInt64
+
+    enum CodingKeys: String, CodingKey {
+        case schemaVersion = "schema_version"
+        case requestId = "request_id"
+        case deviceId = "device_id"
+        case label
+        case platform
+        case publicKey = "public_key"
+        case createdAtMillis = "created_at_millis"
+    }
+}

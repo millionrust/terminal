@@ -108,6 +108,28 @@ final class MobileVaultImporterTests: XCTestCase {
     }
 
     @MainActor
+    func testViewModelGeneratesPairingRequestJson() throws {
+        let viewModel = HostListViewModel(
+            vaultImporter: MobileVaultImporter(),
+            secretStore: FixtureSecretStore(),
+            sshClient: FixtureSSHClient(),
+            localDeviceId: "ios-1"
+        )
+
+        let request = try viewModel.pairingRequestText(label: "Jacob iPhone", nowMillis: 42)
+        let object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: Data(request.utf8)) as? [String: Any]
+        )
+
+        XCTAssertEqual(object["schema_version"] as? Int, 1)
+        XCTAssertEqual(object["request_id"] as? String, "pair-ios-1-42")
+        XCTAssertEqual(object["device_id"] as? String, "ios-1")
+        XCTAssertEqual(object["label"] as? String, "Jacob iPhone")
+        XCTAssertEqual(object["platform"] as? String, "ios")
+        XCTAssertEqual(object["created_at_millis"] as? Int, 42)
+    }
+
+    @MainActor
     func testViewModelRejectsVaultWhenLocalDeviceIsRevoked() throws {
         var object = try XCTUnwrap(
             JSONSerialization.jsonObject(with: plaintextVaultData) as? [String: Any]

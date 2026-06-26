@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct HostListView: View {
@@ -69,6 +70,13 @@ struct HostListView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(vaultPassphrase.isEmpty)
+            Button {
+                copyPairingRequest()
+            } label: {
+                Label("Copy Pairing Request", systemImage: "doc.on.doc")
+                    .frame(maxWidth: .infinity)
+            }
+            .buttonStyle(.bordered)
             if viewModel.hasStoredEncryptedVault {
                 HStack(spacing: 8) {
                     Button("Unlock Saved Vault") {
@@ -85,6 +93,15 @@ struct HostListView: View {
             }
         }
         .mobilePanel()
+    }
+
+    private func copyPairingRequest() {
+        do {
+            UIPasteboard.general.string = try viewModel.pairingRequestText()
+            viewModel.reportStatus("Pairing request copied. Import it on desktop to authorize this device.")
+        } catch {
+            viewModel.reportStatus(error.localizedDescription)
+        }
     }
 
     @ViewBuilder

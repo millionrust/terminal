@@ -37,6 +37,35 @@ final class HostListViewModel: ObservableObject {
         vault?.hosts ?? []
     }
 
+    var localDeviceIdForDisplay: String {
+        localDeviceId.isEmpty ? "Unavailable" : localDeviceId
+    }
+
+    func pairingRequestText(
+        label: String = "iOS Device",
+        nowMillis: UInt64 = currentUnixMillis()
+    ) throws -> String {
+        guard !localDeviceId.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+            throw MobilePairingRequestError.missingDeviceId
+        }
+        let request = MobileDevicePairingRequest(
+            schemaVersion: mobileVaultSchemaVersion,
+            requestId: "pair-\(localDeviceId)-\(nowMillis)",
+            deviceId: localDeviceId,
+            label: label,
+            platform: "ios",
+            publicKey: nil,
+            createdAtMillis: nowMillis
+        )
+        let encoder = JSONEncoder()
+        encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        let data = try encoder.encode(request)
+        guard let text = String(data: data, encoding: .utf8) else {
+            throw MobilePairingRequestError.encodingFailed
+        }
+        return text
+    }
+
     func importPlaintextFixture(from url: URL) {
         do {
             let data = try Data(contentsOf: url)
@@ -208,4 +237,22 @@ final class HostListViewModel: ObservableObject {
             }
         }
     }
+}
+
+enum MobilePairingRequestError: Error, LocalizedError {
+    case missingDeviceId
+    case encodingFailed
+
+    var errorDescription: String? {
+        switch self {
+        case .missingDeviceId:
+            return "This mobile device does not have a pairing identity yet."
+        case .encodingFailed:
+            return "Unable to encode the mobile pairing request."
+        }
+    }
+}
+
+private func currentUnixMillis() -> UInt64 {
+    UInt64(Date().timeIntervalSince1970 * 1000)
 }
