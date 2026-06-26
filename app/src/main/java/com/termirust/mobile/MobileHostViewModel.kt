@@ -97,6 +97,10 @@ class MobileHostViewModel(
             _status.value = "This device has been revoked for the imported mobile vault ($localDeviceId). Import blocked."
             return false
         }
+        if (_vault.value?.let { imported.isOlderThan(it) } == true) {
+            _status.value = "Imported vault is older than the currently loaded vault. Import blocked to avoid overwriting newer mobile state."
+            return false
+        }
         _vault.value = imported
         _selectedHost.value = imported.hosts.firstOrNull()
         _status.value = null

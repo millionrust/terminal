@@ -39,6 +39,15 @@ data class MobileVaultExport(
     fun sourceDeviceRevoked(): Boolean =
         sourceDeviceRecord()?.revokedAtMillis != null
 
+    fun isOlderThan(other: MobileVaultExport): Boolean {
+        val revision = sync.revision
+        val otherRevision = other.sync.revision
+        if (revision != null && otherRevision != null && revision != otherRevision) {
+            return revision < otherRevision
+        }
+        return updatedAtMillis < other.updatedAtMillis
+    }
+
     fun isDeviceRevoked(deviceId: String): Boolean {
         val trimmed = deviceId.trim()
         if (trimmed.isEmpty()) {

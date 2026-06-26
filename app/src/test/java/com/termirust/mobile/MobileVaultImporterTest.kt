@@ -148,6 +148,24 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun viewModelRejectsOlderVaultOverLoadedVault() {
+        val viewModel = MobileHostViewModel()
+        val currentVault = vaultFixture(updatedAtMillis = 10UL, revision = 2UL)
+        val staleVault = vaultFixture(updatedAtMillis = 5UL, revision = 1UL)
+
+        viewModel.importPlaintextFixture(currentVault)
+        assertEquals(10UL, viewModel.vault.value?.updatedAtMillis)
+
+        viewModel.importPlaintextFixture(staleVault)
+
+        assertEquals(10UL, viewModel.vault.value?.updatedAtMillis)
+        assertEquals(
+            "Imported vault is older than the currently loaded vault. Import blocked to avoid overwriting newer mobile state.",
+            viewModel.status.value,
+        )
+    }
+
+    @Test
     fun viewModelResolvesSelectedHostKnownHostPin() {
         val viewModel = MobileHostViewModel()
 
@@ -156,6 +174,15 @@ class MobileVaultImporterTest {
         val host = viewModel.selectedHost.value!!
         assertEquals("prod.example.com:22", viewModel.knownHostFor(host)?.endpoint)
     }
+
+    private fun vaultFixture(updatedAtMillis: ULong, revision: ULong): ByteArray =
+        plaintextVault.decodeToString()
+            .replace("\"updated_at_millis\": 1", "\"updated_at_millis\": $updatedAtMillis")
+            .replace(
+                "\"sync\": {\"revision\": null, \"last_synced_at_millis\": null}",
+                "\"sync\": {\"revision\": $revision, \"last_synced_at_millis\": null}",
+            )
+            .encodeToByteArray()
 
     @Test
     fun plaintextVaultRejectsRevokedSourceDevice() {
