@@ -5,6 +5,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @ObservedObject var viewModel: HostListViewModel
     @State private var showingImporter = false
+    @State private var showingVaultSheet = false
     @State private var vaultPassphrase = ""
 
     var body: some View {
@@ -49,6 +50,23 @@ struct ContentView: View {
             }
             viewModel.importEncryptedVault(from: url, passphrase: vaultPassphrase)
         }
+        .sheet(isPresented: $showingVaultSheet) {
+            NavigationStack {
+                vaultControls
+                    .padding(16)
+                    .background(Color.mobileBackground.ignoresSafeArea())
+                    .navigationTitle("Vault")
+                    .navigationBarTitleDisplayMode(.inline)
+                    .toolbar {
+                        ToolbarItem(placement: .topBarTrailing) {
+                            Button("Done") {
+                                showingVaultSheet = false
+                            }
+                        }
+                    }
+            }
+            .presentationDetents([.medium, .large])
+        }
         .tint(.blue)
     }
 
@@ -62,6 +80,44 @@ struct ContentView: View {
     }
 
     private var compactHeader: some View {
+        HStack(spacing: 10) {
+            ZStack {
+                RoundedRectangle(cornerRadius: 10, style: .continuous)
+                    .fill(Color.terminalBackground)
+                    .frame(width: 34, height: 34)
+                Text(">")
+                    .font(.headline.weight(.bold))
+                    .foregroundStyle(.white)
+            }
+            VStack(alignment: .leading, spacing: 1) {
+                Text("TermiRust")
+                    .font(.headline.weight(.bold))
+                Text(viewModel.hosts.isEmpty ? "Import vault to begin" : "\(viewModel.hosts.count) hosts available")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
+            Spacer()
+            Button {
+                showingVaultSheet = true
+            } label: {
+                Label("Vault", systemImage: "lock.doc")
+                    .labelStyle(.titleAndIcon)
+            }
+            .buttonStyle(.bordered)
+        }
+        .padding(.horizontal, 14)
+        .padding(.vertical, 10)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(.white)
+        .overlay(alignment: .bottom) {
+            Rectangle()
+                .fill(Color.panelBorder)
+                .frame(height: 1)
+        }
+    }
+
+    private var vaultControls: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 10) {
                 ZStack {
@@ -123,11 +179,11 @@ struct ContentView: View {
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(.white)
-        .overlay(alignment: .bottom) {
-            Rectangle()
-                .fill(Color.panelBorder)
-                .frame(height: 1)
-        }
+        .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 18, style: .continuous)
+                .stroke(Color.panelBorder)
+        )
     }
 
     @ViewBuilder
