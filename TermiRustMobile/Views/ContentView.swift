@@ -9,32 +9,42 @@ struct ContentView: View {
     @State private var vaultPassphrase = ""
 
     var body: some View {
-        GeometryReader { proxy in
-            let wide = proxy.size.width >= 900
-            let panelSpacing: CGFloat = wide ? 1 : 0
-            let hostPanelWidth = min(max(proxy.size.width * 0.34, 340), 460)
-            ZStack {
-                Color.mobileBackground.ignoresSafeArea()
-                if wide {
-                    HStack(spacing: panelSpacing) {
-                        HostListView(viewModel: viewModel)
-                            .frame(width: hostPanelWidth)
-                            .frame(maxHeight: .infinity)
-                        sessionDetail(framed: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+        ZStack {
+            Color.mobileBackground.ignoresSafeArea()
+            GeometryReader { proxy in
+                let wide = proxy.size.width >= 900
+                let panelSpacing: CGFloat = wide ? 1 : 0
+                let hostPanelWidth = min(max(proxy.size.width * 0.34, 340), 460)
+                let safeInsets = proxy.safeAreaInsets
+                Group {
+                    if wide {
+                        HStack(spacing: panelSpacing) {
+                            HostListView(viewModel: viewModel)
+                                .frame(width: hostPanelWidth)
+                                .frame(maxHeight: .infinity)
+                                .padding(.top, safeInsets.top)
+                                .padding(.bottom, safeInsets.bottom)
+                            sessionDetail(framed: false)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                .padding(.top, safeInsets.top)
+                                .padding(.bottom, safeInsets.bottom)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    } else {
+                        VStack(spacing: 0) {
+                            compactHeader
+                                .padding(.top, safeInsets.top)
+                            compactHostStrip
+                            sessionDetail(framed: false)
+                                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                } else {
-                    VStack(spacing: 0) {
-                        compactHeader
-                        compactHostStrip
-                        sessionDetail(framed: false)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
+                .frame(width: proxy.size.width, height: proxy.size.height)
             }
-            .frame(width: proxy.size.width, height: proxy.size.height)
         }
+        .ignoresSafeArea(.container, edges: .all)
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(Color.mobileBackground.ignoresSafeArea())
         .fileImporter(

@@ -26,6 +26,7 @@ struct TerminalSessionView: View {
         GeometryReader { proxy in
             let compact = proxy.size.width < 700 || !framed
             let cornerRadius: CGFloat = framed && !compact ? 18 : 0
+            let bottomSafeArea = proxy.safeAreaInsets.bottom
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
@@ -40,7 +41,7 @@ struct TerminalSessionView: View {
                     if pendingMultilinePaste == input, !input.isEmpty {
                         pasteWarning
                     }
-                    inputRow
+                    inputRow(bottomSafeArea: bottomSafeArea)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(Color.mobilePanelBackground)
@@ -221,6 +222,7 @@ struct TerminalSessionView: View {
         }
         .padding(.horizontal, framed ? 14 : 0)
         .padding(.vertical, framed ? 8 : 0)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .frame(minHeight: 220)
     }
 
@@ -299,7 +301,7 @@ struct TerminalSessionView: View {
         .padding(.bottom, 8)
     }
 
-    private var inputRow: some View {
+    private func inputRow(bottomSafeArea: CGFloat) -> some View {
         HStack(alignment: .bottom, spacing: 8) {
             TextField("Command", text: $input, axis: .vertical)
                 .textFieldStyle(.roundedBorder)
@@ -318,6 +320,7 @@ struct TerminalSessionView: View {
             .disabled(input.isEmpty || viewModel.connectionState != .connected)
         }
         .padding(14)
+        .padding(.bottom, framed ? 0 : bottomSafeArea)
     }
 
     private func sendInput(force: Bool = false) {
