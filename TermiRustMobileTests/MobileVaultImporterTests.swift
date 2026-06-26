@@ -42,7 +42,7 @@ final class MobileVaultImporterTests: XCTestCase {
         "host": "prod.example.com",
         "port": 22,
         "username": "ubuntu",
-        "auth": {"kind": "private_key", "identity_id": "identity-1", "secret_ref": null},
+        "auth": {"kind": "private_key", "identity_id": "identity-1", "secret_ref": "termirust-mobile://identity/identity-1/private-key"},
         "jump_host_id": null,
         "startup_directory": "/srv/app",
         "startup_command": "uptime",
@@ -83,6 +83,10 @@ final class MobileVaultImporterTests: XCTestCase {
 
         XCTAssertEqual(vault.schemaVersion, 1)
         XCTAssertEqual(vault.hosts.first?.persistentSession.sessionName, "tr-prod")
+        XCTAssertEqual(
+            vault.hosts.first?.auth.secretRef,
+            "termirust-mobile://identity/identity-1/private-key"
+        )
         XCTAssertEqual(vault.knownHosts.first?.endpoint, "prod.example.com:22")
         XCTAssertEqual(vault.devices.first?.deviceId, "desktop-1")
         XCTAssertEqual(vault.devices.first?.platform, "desktop")
