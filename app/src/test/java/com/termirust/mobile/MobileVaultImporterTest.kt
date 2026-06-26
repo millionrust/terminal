@@ -9,19 +9,33 @@ import com.termirust.mobile.data.MobileVaultDecryptor
 import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.data.passphraseUtf8Bytes
 import com.termirust.mobile.security.MobileSecretStore
+import com.termirust.mobile.ssh.PinnedKnownHostVerifier
 import com.termirust.mobile.ssh.TmuxBootstrap
 import com.termirust.mobile.terminal.TerminalBuffer
 import com.termirust.mobile.terminal.TerminalGrid
 import com.termirust.mobile.terminal.encodeTerminalInput
 import com.termirust.mobile.terminal.estimateTerminalGrid
+import com.hierynomus.sshj.userauth.keyprovider.OpenSSHKeyV1KeyFile
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.security.KeyPairGenerator
 
 class MobileVaultImporterTest {
+    private val fixtureEd25519PrivateKey = """
+        -----BEGIN OPENSSH PRIVATE KEY-----
+        b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAMwAAAAtzc2gtZW
+        QyNTUxOQAAACDXdpIxO9R+jxlETproGCGcxOE4SjX6r+jU8UIg2K5ULgAAAJgxZY5/MWWO
+        fwAAAAtzc2gtZWQyNTUxOQAAACDXdpIxO9R+jxlETproGCGcxOE4SjX6r+jU8UIg2K5ULg
+        AAAECEhzF5gu5ZhIg/P8PEq/33+dXN8wUMwtU7zIlgJLfC2Nd2kjE71H6PGUROmugYIZzE
+        4ThKNfqv6NTxQiDYrlQuAAAAD2NsYXdAak1hYy5sb2NhbAECAwQFBg==
+        -----END OPENSSH PRIVATE KEY-----
+    """.trimIndent()
+
     private val encryptedEnvelope = """
         {
           "version": 1,
@@ -245,6 +259,33 @@ class MobileVaultImporterTest {
     fun nativeDecryptorPassphraseEncodingUsesUtf8Bytes() {
         assertEquals("hunter2".encodeToByteArray().toList(), passphraseUtf8Bytes("hunter2".toCharArray()).toList())
         assertEquals("päss 🔐".encodeToByteArray().toList(), passphraseUtf8Bytes("päss 🔐".toCharArray()).toList())
+    }
+
+    @Test
+    fun pinnedKnownHostVerifierRejectsMismatchedHostKey() {
+        val host = MobileHost(
+            id = "profile-1",
+            label = "Prod",
+            host = "prod.example.com",
+            port = 22,
+            username = "ubuntu",
+            auth = MobileAuthMetadata(kind = MobileAuthKind.PrivateKey),
+        )
+        val knownHost = com.termirust.mobile.data.MobileKnownHost(
+            endpoint = "prod.example.com:22",
+            publicKey = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINd2kjE71H6PGUROmugYIZzE4ThKNfqv6NTxQiDYrlQu",
+            algorithm = "ssh-ed25519",
+        )
+        val matchingKey = OpenSSHKeyV1KeyFile().apply {
+            init(fixtureEd25519PrivateKey, null, null)
+        }.public
+        val mismatchedKey = KeyPairGenerator.getInstance("RSA").apply {
+            initialize(2048)
+        }.generateKeyPair().public
+        val verifier = PinnedKnownHostVerifier(host, knownHost)
+
+        assertTrue(verifier.verify("prod.example.com", 22, matchingKey))
+        assertFalse(verifier.verify("prod.example.com", 22, mismatchedKey))
     }
 
     @Test

@@ -176,7 +176,7 @@ private class StaticPasswordFinder(
         passphrase != null && retried.compareAndSet(false, true)
 }
 
-private class PinnedKnownHostVerifier(
+internal class PinnedKnownHostVerifier(
     host: MobileHost,
     knownHost: MobileKnownHost,
 ) : HostKeyVerifier {
