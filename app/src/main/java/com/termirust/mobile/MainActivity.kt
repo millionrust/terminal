@@ -16,6 +16,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.data.NativeMobileVaultDecryptor
+import com.termirust.mobile.data.SharedPreferencesEncryptedVaultStore
 import com.termirust.mobile.security.KeystoreSecretStore
 import com.termirust.mobile.ssh.DirectSshSessionClient
 import com.termirust.mobile.ssh.MobileSshSecretProvider
@@ -28,13 +29,14 @@ class MainActivity : ComponentActivity() {
             val context = LocalContext.current.applicationContext
             val factory = remember {
                 val secretStore = KeystoreSecretStore(context)
+                val encryptedVaultStore = SharedPreferencesEncryptedVaultStore(context)
                 val vaultImporter = MobileVaultImporter(decryptor = NativeMobileVaultDecryptor())
                 val sshClient = DirectSshSessionClient(
                     secretProvider = MobileSshSecretProvider { reference ->
                         secretStore.readSecret(reference)?.toCharArray()
                     },
                 )
-                MobileHostViewModelFactory(vaultImporter, secretStore, sshClient)
+                MobileHostViewModelFactory(vaultImporter, secretStore, encryptedVaultStore, sshClient)
             }
             val viewModel: MobileHostViewModel = viewModel(factory = factory)
             var pendingVaultPassphrase by remember { mutableStateOf("") }
@@ -82,6 +84,7 @@ class MainActivity : ComponentActivity() {
 private class MobileHostViewModelFactory(
     private val vaultImporter: MobileVaultImporter,
     private val secretStore: KeystoreSecretStore,
+    private val encryptedVaultStore: SharedPreferencesEncryptedVaultStore,
     private val sshClient: DirectSshSessionClient,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
@@ -91,6 +94,7 @@ private class MobileHostViewModelFactory(
                 importer = vaultImporter,
                 sshClient = sshClient,
                 secretStore = secretStore,
+                encryptedVaultStore = encryptedVaultStore,
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class ${modelClass.name}")

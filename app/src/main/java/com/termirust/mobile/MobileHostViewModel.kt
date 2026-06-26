@@ -2,6 +2,7 @@ package com.termirust.mobile
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.termirust.mobile.data.EncryptedVaultStore
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobileVaultExport
 import com.termirust.mobile.data.MobileVaultImporter
@@ -18,6 +19,7 @@ class MobileHostViewModel(
     private val importer: MobileVaultImporter = MobileVaultImporter(),
     private val sshClient: MobileSshSessionClient = DirectSshSessionClient(),
     private val secretStore: MobileSecretStore? = null,
+    private val encryptedVaultStore: EncryptedVaultStore? = null,
 ) : ViewModel() {
     private val _vault = MutableStateFlow<MobileVaultExport?>(null)
     val vault: StateFlow<MobileVaultExport?> = _vault
@@ -30,6 +32,9 @@ class MobileHostViewModel(
 
     private val _status = MutableStateFlow<String?>(null)
     val status: StateFlow<String?> = _status
+
+    private val _hasStoredEncryptedVault = MutableStateFlow(encryptedVaultStore?.hasEncryptedVault() == true)
+    val hasStoredEncryptedVault: StateFlow<Boolean> = _hasStoredEncryptedVault
 
     val terminalBuffer = TerminalBuffer()
 
@@ -56,11 +61,32 @@ class MobileHostViewModel(
     fun importEncryptedVault(bytes: ByteArray, passphrase: CharArray) {
         runCatching { importer.importEncryptedVault(bytes, passphrase) }
             .onSuccess {
+                encryptedVaultStore?.saveEncryptedVault(bytes)
+                _hasStoredEncryptedVault.value = encryptedVaultStore?.hasEncryptedVault() == true
                 _vault.value = it
                 _selectedHost.value = it.hosts.firstOrNull()
                 _status.value = null
             }
             .onFailure { _status.value = it.message }
+    }
+
+    fun unlockStoredEncryptedVault(passphrase: CharArray) {
+        val bytes = encryptedVaultStore?.readEncryptedVault()
+        if (bytes == null) {
+            passphrase.fill('\u0000')
+            _hasStoredEncryptedVault.value = false
+            _status.value = "No stored encrypted vault is available."
+            return
+        }
+        importEncryptedVault(bytes, passphrase)
+    }
+
+    fun forgetStoredEncryptedVault() {
+        encryptedVaultStore?.clearEncryptedVault()
+        _hasStoredEncryptedVault.value = false
+        _vault.value = null
+        _selectedHost.value = null
+        _status.value = "Stored encrypted vault removed."
     }
 
     fun selectHost(host: MobileHost) {

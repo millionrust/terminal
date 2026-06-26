@@ -2,6 +2,7 @@ package com.termirust.mobile
 
 import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileAuthMetadata
+import com.termirust.mobile.data.EncryptedVaultStore
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobilePersistentSession
 import com.termirust.mobile.data.MobileVaultDecryptor
@@ -117,6 +118,28 @@ class MobileVaultImporterTest {
         assertEquals("prod.example.com", vault.hosts.first().host)
         assertEquals("tr-prod", vault.hosts.first().persistentSession.sessionName)
         assertTrue(passphrase.all { it == '\u0000' })
+    }
+
+    @Test
+    fun encryptedVaultImportCachesEncryptedBytesForLaterUnlock() {
+        val passphrase = "hunter2".toCharArray()
+        val encryptedStore = FakeEncryptedVaultStore()
+        val viewModel = MobileHostViewModel(
+            importer = MobileVaultImporter(decryptor = FixtureDecryptor(plaintextVault)),
+            encryptedVaultStore = encryptedStore,
+        )
+
+        viewModel.importEncryptedVault(encryptedEnvelope, passphrase)
+
+        assertTrue(viewModel.hasStoredEncryptedVault.value)
+        assertEquals(encryptedEnvelope.toList(), encryptedStore.saved?.toList())
+        assertTrue(passphrase.all { it == '\u0000' })
+
+        val unlockPassphrase = "hunter2".toCharArray()
+        viewModel.unlockStoredEncryptedVault(unlockPassphrase)
+
+        assertEquals("Prod", viewModel.selectedHost.value?.label)
+        assertTrue(unlockPassphrase.all { it == '\u0000' })
     }
 
     @Test
@@ -255,5 +278,21 @@ private class FakeSecretStore : MobileSecretStore {
 
     override fun deleteSecret(account: String) {
         saved.remove(account)
+    }
+}
+
+private class FakeEncryptedVaultStore : EncryptedVaultStore {
+    var saved: ByteArray? = null
+
+    override fun hasEncryptedVault(): Boolean = saved != null
+
+    override fun saveEncryptedVault(bytes: ByteArray) {
+        saved = bytes.copyOf()
+    }
+
+    override fun readEncryptedVault(): ByteArray? = saved?.copyOf()
+
+    override fun clearEncryptedVault() {
+        saved = null
     }
 }

@@ -215,6 +215,7 @@ private fun ImportVaultCard(
     compact: Boolean = false,
 ) {
     val status by viewModel.status.collectAsState()
+    val hasStoredEncryptedVault by viewModel.hasStoredEncryptedVault.collectAsState()
     var vaultPassphrase by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -236,6 +237,23 @@ private fun ImportVaultCard(
             colors = ButtonDefaults.buttonColors(containerColor = Accent),
         ) {
             Text("Import Encrypted Vault")
+        }
+        if (hasStoredEncryptedVault) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {
+                FilledTonalButton(
+                    onClick = {
+                        viewModel.unlockStoredEncryptedVault(vaultPassphrase.toCharArray())
+                        vaultPassphrase = ""
+                    },
+                    enabled = vaultPassphrase.isNotBlank(),
+                    modifier = Modifier.weight(1f),
+                ) {
+                    Text("Unlock Saved Vault")
+                }
+                OutlinedButton(onClick = { viewModel.forgetStoredEncryptedVault() }) {
+                    Text("Forget")
+                }
+            }
         }
         status?.let {
             Text(it, style = MaterialTheme.typography.bodySmall, color = Color(0xFF475569))
