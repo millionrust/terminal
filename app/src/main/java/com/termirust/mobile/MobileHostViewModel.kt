@@ -21,6 +21,7 @@ class MobileHostViewModel(
     private val sshClient: MobileSshSessionClient = DirectSshSessionClient(),
     private val secretStore: MobileSecretStore? = null,
     private val encryptedVaultStore: EncryptedVaultStore? = null,
+    private val localDeviceId: String = "",
 ) : ViewModel() {
     private val _vault = MutableStateFlow<MobileVaultExport?>(null)
     val vault: StateFlow<MobileVaultExport?> = _vault
@@ -45,11 +46,7 @@ class MobileHostViewModel(
 
     fun importPlaintextFixture(bytes: ByteArray) {
         runCatching { importer.importPlaintextFixture(bytes) }
-            .onSuccess {
-                _vault.value = it
-                _selectedHost.value = it.hosts.firstOrNull()
-                _status.value = null
-            }
+            .onSuccess { acceptImportedVault(it) }
             .onFailure { _status.value = it.message }
     }
 
@@ -62,11 +59,10 @@ class MobileHostViewModel(
     fun importEncryptedVault(bytes: ByteArray, passphrase: CharArray) {
         runCatching { importer.importEncryptedVault(bytes, passphrase) }
             .onSuccess {
-                encryptedVaultStore?.saveEncryptedVault(bytes)
-                _hasStoredEncryptedVault.value = encryptedVaultStore?.hasEncryptedVault() == true
-                _vault.value = it
-                _selectedHost.value = it.hosts.firstOrNull()
-                _status.value = null
+                if (acceptImportedVault(it)) {
+                    encryptedVaultStore?.saveEncryptedVault(bytes)
+                    _hasStoredEncryptedVault.value = encryptedVaultStore?.hasEncryptedVault() == true
+                }
             }
             .onFailure { _status.value = it.message }
     }
@@ -92,6 +88,19 @@ class MobileHostViewModel(
 
     fun selectHost(host: MobileHost) {
         _selectedHost.value = host
+    }
+
+    private fun acceptImportedVault(imported: MobileVaultExport): Boolean {
+        if (imported.isDeviceRevoked(localDeviceId)) {
+            _vault.value = null
+            _selectedHost.value = null
+            _status.value = "This device has been revoked for the imported mobile vault ($localDeviceId). Import blocked."
+            return false
+        }
+        _vault.value = imported
+        _selectedHost.value = imported.hosts.firstOrNull()
+        _status.value = null
+        return true
     }
 
     fun knownHostFor(host: MobileHost): MobileKnownHost? =

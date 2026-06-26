@@ -17,6 +17,7 @@ import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.data.NativeMobileVaultDecryptor
+import com.termirust.mobile.data.SharedPreferencesDeviceIdentityStore
 import com.termirust.mobile.data.SharedPreferencesEncryptedVaultStore
 import com.termirust.mobile.security.KeystoreSecretStore
 import com.termirust.mobile.ssh.DirectSshSessionClient
@@ -32,13 +33,20 @@ class MainActivity : ComponentActivity() {
             val factory = remember {
                 val secretStore = KeystoreSecretStore(context)
                 val encryptedVaultStore = SharedPreferencesEncryptedVaultStore(context)
+                val deviceIdentityStore = SharedPreferencesDeviceIdentityStore(context)
                 val vaultImporter = MobileVaultImporter(decryptor = NativeMobileVaultDecryptor())
                 val sshClient = DirectSshSessionClient(
                     secretProvider = MobileSshSecretProvider { reference ->
                         secretStore.readSecret(reference)?.toCharArray()
                     },
                 )
-                MobileHostViewModelFactory(vaultImporter, secretStore, encryptedVaultStore, sshClient)
+                MobileHostViewModelFactory(
+                    vaultImporter,
+                    secretStore,
+                    encryptedVaultStore,
+                    sshClient,
+                    deviceIdentityStore.deviceId(),
+                )
             }
             val viewModel: MobileHostViewModel = viewModel(factory = factory)
             var pendingVaultPassphrase by remember { mutableStateOf("") }
@@ -88,6 +96,7 @@ private class MobileHostViewModelFactory(
     private val secretStore: KeystoreSecretStore,
     private val encryptedVaultStore: SharedPreferencesEncryptedVaultStore,
     private val sshClient: DirectSshSessionClient,
+    private val localDeviceId: String,
 ) : ViewModelProvider.Factory {
     @Suppress("UNCHECKED_CAST")
     override fun <T : ViewModel> create(modelClass: Class<T>, extras: CreationExtras): T {
@@ -97,6 +106,7 @@ private class MobileHostViewModelFactory(
                 sshClient = sshClient,
                 secretStore = secretStore,
                 encryptedVaultStore = encryptedVaultStore,
+                localDeviceId = localDeviceId,
             ) as T
         }
         throw IllegalArgumentException("Unknown ViewModel class ${modelClass.name}")

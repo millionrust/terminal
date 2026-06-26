@@ -115,6 +115,39 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun viewModelRejectsVaultWhenLocalDeviceIsRevoked() {
+        val revokedVault = plaintextVault.decodeToString()
+            .let { json ->
+                val match = requireNotNull(
+                    Regex("""("devices"\s*:\s*\[\{[\s\S]*?"revoked_at_millis"\s*:\s*null\s*)\}""")
+                        .find(json)
+                )
+                json.replaceRange(
+                    match.range,
+                    """
+                    ${match.groupValues[1]}}, {
+                        "device_id": "android-1",
+                        "label": "Jacob Android",
+                        "platform": "android",
+                        "public_key": null,
+                        "revoked_at_millis": 1719356789123
+                    }
+                    """.trimIndent(),
+                )
+            }
+            .encodeToByteArray()
+        val viewModel = MobileHostViewModel(localDeviceId = "android-1")
+
+        viewModel.importPlaintextFixture(revokedVault)
+
+        assertEquals(null, viewModel.selectedHost.value)
+        assertEquals(
+            "This device has been revoked for the imported mobile vault (android-1). Import blocked.",
+            viewModel.status.value,
+        )
+    }
+
+    @Test
     fun viewModelResolvesSelectedHostKnownHostPin() {
         val viewModel = MobileHostViewModel()
 

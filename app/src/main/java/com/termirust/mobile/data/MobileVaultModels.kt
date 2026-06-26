@@ -39,8 +39,16 @@ data class MobileVaultExport(
     fun sourceDeviceRevoked(): Boolean =
         sourceDeviceRecord()?.revokedAtMillis != null
 
+    fun isDeviceRevoked(deviceId: String): Boolean {
+        val trimmed = deviceId.trim()
+        if (trimmed.isEmpty()) {
+            return false
+        }
+        return devices.any { it.deviceId == trimmed && it.revokedAtMillis != null }
+    }
+
     fun activeDeviceKey(deviceId: String): MobileDeviceVaultKey? {
-        if (devices.firstOrNull { it.deviceId == deviceId }?.revokedAtMillis != null) {
+        if (isDeviceRevoked(deviceId)) {
             return null
         }
         return deviceKeys.firstOrNull { it.deviceId == deviceId && it.revokedAtMillis == null }
