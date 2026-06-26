@@ -172,11 +172,15 @@ final class HostListViewModel: ObservableObject {
         host.auth.secretRef
     }
 
+    func knownHost(for host: MobileHost) -> MobileKnownHost? {
+        vault?.knownHosts.first { $0.endpoint == host.knownHostEndpoint }
+    }
+
     func connectSelectedHost() {
         guard let host = selectedHost else {
             return
         }
-        let knownHost = vault?.knownHosts.first { $0.endpoint == host.knownHostEndpoint }
+        let knownHost = knownHost(for: host)
         connectionState = .connecting
         terminalBuffer.clear()
         terminalBuffer.append("Connecting to \(host.username)@\(host.host):\(host.port)")

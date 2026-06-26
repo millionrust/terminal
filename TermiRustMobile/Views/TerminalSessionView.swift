@@ -30,6 +30,7 @@ struct TerminalSessionView: View {
                     if let failureMessage {
                         ConnectionWarningBanner(message: failureMessage)
                     }
+                    HostKeyPinPanel(host: host, knownHost: viewModel.knownHost(for: host))
                     credentialPanel
                     terminalSurface
                     terminalControls
@@ -421,6 +422,64 @@ private struct ConnectionWarningBanner: View {
         )
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
+    }
+}
+
+private struct HostKeyPinPanel: View {
+    let host: MobileHost
+    let knownHost: MobileKnownHost?
+
+    var body: some View {
+        HStack(alignment: .top, spacing: 10) {
+            Image(systemName: knownHost == nil ? "exclamationmark.shield" : "checkmark.shield")
+                .foregroundStyle(knownHost == nil ? .red : .green)
+                .font(.body.weight(.semibold))
+                .frame(width: 22)
+            VStack(alignment: .leading, spacing: 4) {
+                Text(knownHost == nil ? "Host key not pinned" : "Host key pinned")
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(knownHost == nil ? .red : .green)
+                Text(knownHost?.endpoint ?? host.knownHostEndpoint ?? "\(host.host):\(host.port)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                Text(pinDetail)
+                    .font(.caption2.monospaced())
+                    .foregroundStyle(knownHost == nil ? Color(red: 0.50, green: 0.11, blue: 0.11) : .secondary)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 0)
+        }
+        .padding(10)
+        .background((knownHost == nil ? Color.red : Color.green).opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke((knownHost == nil ? Color.red : Color.green).opacity(0.24))
+        )
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
+    }
+
+    private var pinDetail: String {
+        guard let knownHost else {
+            return "Export a known-host pin from desktop before connecting."
+        }
+        if let fingerprint = knownHost.fingerprint, !fingerprint.isEmpty {
+            return fingerprint
+        }
+        return knownHost.publicKey.truncatedMiddle(maxLength: 52)
+    }
+}
+
+private extension String {
+    func truncatedMiddle(maxLength: Int) -> String {
+        guard count > maxLength, maxLength > 8 else {
+            return self
+        }
+        let prefixCount = maxLength / 2 - 2
+        let suffixCount = maxLength - prefixCount - 3
+        return "\(prefix(prefixCount))...\(suffix(suffixCount))"
     }
 }
 

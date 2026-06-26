@@ -78,6 +78,25 @@ final class MobileVaultImporterTests: XCTestCase {
         XCTAssertEqual(vault.devices.first?.platform, "desktop")
     }
 
+    @MainActor
+    func testViewModelResolvesSelectedHostKnownHostPin() throws {
+        let viewModel = HostListViewModel(
+            vaultImporter: MobileVaultImporter(),
+            secretStore: FixtureSecretStore(),
+            sshClient: FixtureSSHClient()
+        )
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("json")
+        try plaintextVaultData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        viewModel.importPlaintextFixture(from: tempURL)
+
+        let host = try XCTUnwrap(viewModel.selectedHost)
+        XCTAssertEqual(viewModel.knownHost(for: host)?.endpoint, "prod.example.com:22")
+    }
+
     func testPlaintextVaultRejectsRevokedSourceDevice() {
         let revokedVaultData = Data(
             String(decoding: plaintextVaultData, as: UTF8.self)
