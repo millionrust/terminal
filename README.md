@@ -18,7 +18,7 @@ Implemented:
 - Versioned mobile vault models.
 - Plaintext fixture import for tests and encrypted production vault import through the shared Rust crypto library.
 - `NativeMobileVaultDecryptor` Swift adapter for the Rust shared crypto XCFramework.
-- Keychain wrapper using `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`.
+- Keychain wrapper using `kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly`.
 - Tmux bootstrap script generation.
 - SwiftNIO SSH password and unencrypted OpenSSH Ed25519 private-key transport with pinned known-host verification, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
 - Transcript-level terminal buffering for common redraw/control sequences such as carriage return, backspace, ANSI SGR, line erase, cursor movement, and clear screen.
@@ -26,7 +26,7 @@ Implemented:
 
 Not finished yet:
 
-- Shipping the generated Rust XCFramework with release builds. The app target expects it at `../../terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework` relative to this folder.
+- Release automation that rebuilds the Rust XCFramework and refreshes `Frameworks/TermiRustMobileCrypto.xcframework` before archiving.
 - Encrypted private-key passphrase prompts and RSA/ECDSA private-key parsing.
 - Full terminal emulator integration. SwiftTerm is the right candidate, but this Xcode install is missing the Metal Toolchain needed to build SwiftTerm. Re-enable SwiftTerm after installing it with `xcodebuild -downloadComponent MetalToolchain` or through Xcode Settings > Components.
 
@@ -37,6 +37,8 @@ cd /Users/jacob/Projects/terminal
 scripts/build-mobile-ffi-ios.sh
 
 cd /Users/jacob/Projects/terminal_app/terminal_swift
+rm -rf Frameworks/TermiRustMobileCrypto.xcframework
+cp -R /Users/jacob/Projects/terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework Frameworks/
 xcodegen generate
 xcodebuild test -project TermiRustMobile.xcodeproj -scheme TermiRustMobile -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
