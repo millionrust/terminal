@@ -26,7 +26,6 @@ Implemented:
 
 Not finished yet:
 
-- Release automation that rebuilds the Rust XCFramework and refreshes `Frameworks/TermiRustMobileCrypto.xcframework` before archiving.
 - Encrypted private-key passphrase prompts and RSA/ECDSA private-key parsing.
 - Full terminal emulator integration. SwiftTerm is the right candidate, but this Xcode install is missing the Metal Toolchain needed to build SwiftTerm. Re-enable SwiftTerm after installing it with `xcodebuild -downloadComponent MetalToolchain` or through Xcode Settings > Components.
 
@@ -34,11 +33,9 @@ Not finished yet:
 
 ```bash
 cd /Users/jacob/Projects/terminal
-scripts/build-mobile-ffi-ios.sh
+scripts/sync-mobile-ffi-artifacts.sh ios
 
 cd /Users/jacob/Projects/terminal_app/terminal_swift
-rm -rf Frameworks/TermiRustMobileCrypto.xcframework
-cp -R /Users/jacob/Projects/terminal/dist/mobile/ios/TermiRustMobileCrypto.xcframework Frameworks/
 xcodegen generate
 xcodebuild test -project TermiRustMobile.xcodeproj -scheme TermiRustMobile -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
 ```
