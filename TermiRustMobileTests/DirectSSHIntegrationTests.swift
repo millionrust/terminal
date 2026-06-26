@@ -4,16 +4,7 @@ import XCTest
 
 final class DirectSSHIntegrationTests: XCTestCase {
     func testDirectSSHAttachesToPersistentTmuxSessionAndSurvivesReconnect() async throws {
-        let hostName = env("TERMIRUST_MOBILE_TEST_SSH_HOST")
-        let port = UInt16(env("TERMIRUST_MOBILE_TEST_SSH_PORT"))
-        let username = env("TERMIRUST_MOBILE_TEST_SSH_USER")
-        let privateKey = env("TERMIRUST_MOBILE_TEST_SSH_KEY")
-        let knownHostKey = env("TERMIRUST_MOBILE_TEST_KNOWN_HOST_KEY")
-        guard !hostName.isEmpty,
-              let port,
-              !username.isEmpty,
-              !privateKey.isEmpty,
-              !knownHostKey.isEmpty else {
+        guard let config = LiveSSHSmokeConfig.load() else {
             throw XCTSkip(
                 "Set TERMIRUST_MOBILE_TEST_SSH_HOST, TERMIRUST_MOBILE_TEST_SSH_PORT, TERMIRUST_MOBILE_TEST_SSH_USER, TERMIRUST_MOBILE_TEST_SSH_KEY, and TERMIRUST_MOBILE_TEST_KNOWN_HOST_KEY to run this live SSH smoke."
             )
@@ -27,9 +18,9 @@ final class DirectSSHIntegrationTests: XCTestCase {
             vaultId: nil,
             group: "",
             tags: [],
-            host: hostName,
-            port: port,
-            username: username,
+            host: config.host,
+            port: config.port,
+            username: config.username,
             auth: MobileAuthMetadata(
                 kind: .privateKey,
                 identityId: nil,
@@ -47,18 +38,18 @@ final class DirectSSHIntegrationTests: XCTestCase {
             terminalScrollbackRows: nil,
             colorTag: nil,
             environment: [],
-            knownHostEndpoint: "\(hostName):\(port)"
+            knownHostEndpoint: "\(config.host):\(config.port)"
         )
         let knownHost = MobileKnownHost(
-            endpoint: "\(hostName):\(port)",
-            publicKey: knownHostKey,
+            endpoint: "\(config.host):\(config.port)",
+            publicKey: config.knownHostKey,
             algorithm: nil,
             fingerprint: nil
         )
 
         let firstOutput = OutputCapture()
         let firstClient = DirectSSHSessionClient(
-            secretStore: StaticSecretStore(account: secretRef, secret: privateKey)
+            secretStore: StaticSecretStore(account: secretRef, secret: config.privateKey)
         )
         do {
             try await firstClient.connect(host: host, knownHost: knownHost) { data in
@@ -79,7 +70,7 @@ final class DirectSSHIntegrationTests: XCTestCase {
 
         let secondOutput = OutputCapture()
         let secondClient = DirectSSHSessionClient(
-            secretStore: StaticSecretStore(account: secretRef, secret: privateKey)
+            secretStore: StaticSecretStore(account: secretRef, secret: config.privateKey)
         )
         do {
             try await secondClient.connect(host: host, knownHost: knownHost) { data in
@@ -98,8 +89,70 @@ final class DirectSSHIntegrationTests: XCTestCase {
         await secondClient.disconnect()
     }
 
-    private func env(_ name: String) -> String {
-        ProcessInfo.processInfo.environment[name]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+}
+
+private struct LiveSSHSmokeConfig {
+    let host: String
+    let port: UInt16
+    let username: String
+    let privateKey: String
+    let knownHostKey: String
+
+    static func load() -> Self? {
+        let values = envValues().merging(fileValues()) { envValue, _ in envValue }
+        guard let host = values["TERMIRUST_MOBILE_TEST_SSH_HOST"], !host.isEmpty,
+              let portText = values["TERMIRUST_MOBILE_TEST_SSH_PORT"],
+              let port = UInt16(portText),
+              let username = values["TERMIRUST_MOBILE_TEST_SSH_USER"], !username.isEmpty,
+              let privateKey = decodedValue(values, "TERMIRUST_MOBILE_TEST_SSH_KEY"),
+              !privateKey.isEmpty,
+              let knownHostKey = decodedValue(values, "TERMIRUST_MOBILE_TEST_KNOWN_HOST_KEY"),
+              !knownHostKey.isEmpty else {
+            return nil
+        }
+        return Self(
+            host: host,
+            port: port,
+            username: username,
+            privateKey: privateKey,
+            knownHostKey: knownHostKey
+        )
+    }
+
+    private static func envValues() -> [String: String] {
+        ProcessInfo.processInfo.environment.mapValues {
+            $0.trimmingCharacters(in: .whitespacesAndNewlines)
+        }
+    }
+
+    private static func fileValues() -> [String: String] {
+        let fileURL = URL(fileURLWithPath: #filePath)
+            .deletingLastPathComponent()
+            .appendingPathComponent(".termirust-mobile-live-ssh.properties")
+        guard let contents = try? String(contentsOf: fileURL, encoding: .utf8) else {
+            return [:]
+        }
+        return contents
+            .split(whereSeparator: \.isNewline)
+            .reduce(into: [:]) { values, line in
+                let text = String(line)
+                guard !text.trimmingCharacters(in: .whitespaces).hasPrefix("#"),
+                      let separator = line.firstIndex(of: "=") else {
+                    return
+                }
+                let key = line[..<separator].trimmingCharacters(in: .whitespacesAndNewlines)
+                let value = line[line.index(after: separator)...].trimmingCharacters(in: .whitespacesAndNewlines)
+                values[key] = value
+            }
+    }
+
+    private static func decodedValue(_ values: [String: String], _ key: String) -> String? {
+        if let encoded = values["\(key)_BASE64"],
+           let data = Data(base64Encoded: encoded),
+           let decoded = String(data: data, encoding: .utf8) {
+            return decoded
+        }
+        return values[key]
     }
 }
 
