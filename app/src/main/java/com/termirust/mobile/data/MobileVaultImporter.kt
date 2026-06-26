@@ -26,6 +26,9 @@ class MobileVaultImporter(
         require(vault.schemaVersion == MOBILE_VAULT_SCHEMA_VERSION) {
             "Unsupported mobile vault schema version ${vault.schemaVersion}."
         }
+        require(!vault.sourceDeviceRevoked()) {
+            "This mobile vault was exported by a revoked device (${vault.sourceDeviceId}). Import blocked."
+        }
         return vault
     }
 

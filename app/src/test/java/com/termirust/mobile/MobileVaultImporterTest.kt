@@ -83,6 +83,22 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun plaintextVaultRejectsRevokedSourceDevice() {
+        val revokedVault = plaintextVault.decodeToString()
+            .replace("\"revoked_at_millis\": null", "\"revoked_at_millis\": 1719356789123")
+            .encodeToByteArray()
+
+        val error = kotlin.runCatching {
+            MobileVaultImporter().importPlaintextFixture(revokedVault)
+        }.exceptionOrNull()
+
+        assertEquals(
+            "This mobile vault was exported by a revoked device (desktop-1). Import blocked.",
+            error?.message,
+        )
+    }
+
+    @Test
     fun encryptedVaultRequiresSharedCryptoDecryptor() {
         val error = kotlin.runCatching {
             MobileVaultImporter().importEncryptedVault(encryptedEnvelope, "hunter2".toCharArray())

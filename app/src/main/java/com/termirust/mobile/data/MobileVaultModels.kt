@@ -31,7 +31,13 @@ data class MobileVaultExport(
     @SerialName("known_hosts") val knownHosts: List<MobileKnownHost> = emptyList(),
     val sync: MobileSyncMetadata = MobileSyncMetadata(),
     val devices: List<MobileDeviceRecord> = emptyList(),
-)
+) {
+    fun sourceDeviceRecord(): MobileDeviceRecord? =
+        devices.firstOrNull { it.deviceId == sourceDeviceId }
+
+    fun sourceDeviceRevoked(): Boolean =
+        sourceDeviceRecord()?.revokedAtMillis != null
+}
 
 @Serializable
 data class MobileVault(
