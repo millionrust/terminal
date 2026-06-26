@@ -19,7 +19,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -87,19 +86,22 @@ fun TermirustApp(
                 .navigationBarsPadding()
                 .imePadding(),
         ) {
-            val wide = maxWidth >= 840.dp
+            val wide = maxWidth >= 900.dp
+            val outerPadding = if (wide) 20.dp else 0.dp
+            val panelSpacing = if (wide) 18.dp else 8.dp
+            val hostPanelWidth = (maxWidth * 0.34f).coerceIn(340.dp, 460.dp)
             if (wide) {
                 Row(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
+                        .padding(outerPadding),
+                    horizontalArrangement = Arrangement.spacedBy(panelSpacing),
                 ) {
                     HostPanel(
                         viewModel = viewModel,
                         onImportVault = onImportVault,
                         modifier = Modifier
-                            .widthIn(min = 320.dp, max = 380.dp)
+                            .width(hostPanelWidth)
                             .fillMaxHeight(),
                     )
                     SessionPanel(
@@ -114,8 +116,15 @@ fun TermirustApp(
                         .fillMaxSize(),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    CompactHeader(viewModel = viewModel, onImportVault = onImportVault)
-                    CompactHostStrip(viewModel = viewModel)
+                    CompactHeader(
+                        viewModel = viewModel,
+                        onImportVault = onImportVault,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
+                    CompactHostStrip(
+                        viewModel = viewModel,
+                        modifier = Modifier.fillMaxWidth(),
+                    )
                     SessionPanel(
                         viewModel = viewModel,
                         onImportCredentialFile = onImportCredentialFile,
@@ -173,11 +182,13 @@ private fun HostPanel(
 private fun CompactHeader(
     viewModel: MobileHostViewModel,
     onImportVault: (String) -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     Card(
+        modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = Color.White),
         border = BorderStroke(1.dp, PanelBorder),
-        shape = RoundedCornerShape(18.dp),
+        shape = RoundedCornerShape(0.dp),
     ) {
         Column(
             modifier = Modifier
@@ -263,7 +274,7 @@ private fun ImportVaultCard(
 }
 
 @Composable
-private fun CompactHostStrip(viewModel: MobileHostViewModel) {
+private fun CompactHostStrip(viewModel: MobileHostViewModel, modifier: Modifier = Modifier) {
     val vault by viewModel.vault.collectAsState()
     val selectedHost by viewModel.selectedHost.collectAsState()
     val hosts = vault?.hosts.orEmpty()
@@ -271,7 +282,10 @@ private fun CompactHostStrip(viewModel: MobileHostViewModel) {
         return
     }
 
-    LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+    LazyRow(
+        modifier = modifier.padding(horizontal = 14.dp),
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         items(hosts, key = { it.id }) { host ->
             HostChip(
                 host = host,
@@ -475,33 +489,91 @@ private fun SessionHeader(
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
 ) {
-    Row(
+    BoxWithConstraints(
         modifier = Modifier
             .fillMaxWidth()
             .padding(14.dp),
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.CenterVertically,
     ) {
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                host?.label ?: "No host selected",
-                style = MaterialTheme.typography.titleLarge,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
-            Text(
-                host?.let { "${it.username}@${it.host}:${it.port}" } ?: "Import a vault and select a host",
-                style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF64748B),
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-            )
+        if (maxWidth >= 560.dp) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                SessionTitle(host = host, modifier = Modifier.weight(1f))
+                StatusPill(state.label(), state.color())
+                SessionActions(
+                    host = host,
+                    state = state,
+                    onConnect = onConnect,
+                    onDisconnect = onDisconnect,
+                )
+            }
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    SessionTitle(host = host, modifier = Modifier.weight(1f))
+                    StatusPill(state.label(), state.color())
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    SessionActions(
+                        host = host,
+                        state = state,
+                        onConnect = onConnect,
+                        onDisconnect = onDisconnect,
+                        modifier = Modifier.fillMaxWidth(),
+                        expanded = true,
+                    )
+                }
+            }
         }
-        StatusPill(state.label(), state.color())
+    }
+}
+
+@Composable
+private fun SessionTitle(host: MobileHost?, modifier: Modifier = Modifier) {
+    Column(modifier = modifier) {
+        Text(
+            host?.label ?: "No host selected",
+            style = MaterialTheme.typography.titleLarge,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+        Text(
+            host?.let { "${it.username}@${it.host}:${it.port}" } ?: "Import a vault and select a host",
+            style = MaterialTheme.typography.bodySmall,
+            color = Color(0xFF64748B),
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun SessionActions(
+    host: MobileHost?,
+    state: TerminalConnectionState,
+    onConnect: () -> Unit,
+    onDisconnect: () -> Unit,
+    modifier: Modifier = Modifier,
+    expanded: Boolean = false,
+) {
+    Row(
+        modifier = modifier,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
         Button(
             onClick = onConnect,
             enabled = host != null,
+            modifier = if (expanded) Modifier.weight(1f) else Modifier,
             colors = ButtonDefaults.buttonColors(containerColor = Accent),
         ) {
             Text("Connect")
@@ -509,6 +581,7 @@ private fun SessionHeader(
         OutlinedButton(
             onClick = onDisconnect,
             enabled = state != TerminalConnectionState.Disconnected,
+            modifier = if (expanded) Modifier.weight(1f) else Modifier,
         ) {
             Text("Disconnect")
         }
