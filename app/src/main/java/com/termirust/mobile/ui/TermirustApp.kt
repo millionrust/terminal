@@ -236,18 +236,15 @@ fun TermirustApp(
                                 onImportVault = onImportVault,
                                 modifier = Modifier
                                     .width(hostPanelWidth)
-                                    .fillMaxHeight()
-                                    .statusBarsPadding()
-                                    .navigationBarsPadding(),
+                                    .fillMaxHeight(),
                             )
                             SessionPanel(
                                 viewModel = viewModel,
                                 onImportCredentialFile = onImportCredentialFile,
                                 modifier = Modifier
-                                    .weight(1f)
-                                    .statusBarsPadding()
-                                    .navigationBarsPadding(),
+                                    .weight(1f),
                                 framed = false,
+                                protectTopSystemBars = true,
                             )
                         }
                     } else {
@@ -271,6 +268,7 @@ fun TermirustApp(
                                 onImportCredentialFile = onImportCredentialFile,
                                 modifier = Modifier.weight(1f),
                                 framed = false,
+                                protectTopSystemBars = false,
                             )
                         }
                     }
@@ -304,6 +302,8 @@ private fun HostPanel(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -575,6 +575,7 @@ private fun SessionPanel(
     onImportCredentialFile: () -> Unit,
     modifier: Modifier = Modifier,
     framed: Boolean = true,
+    protectTopSystemBars: Boolean = true,
 ) {
     val selectedHost by viewModel.selectedHost.collectAsState()
     val vault by viewModel.vault.collectAsState()
@@ -634,6 +635,7 @@ private fun SessionPanel(
                 state = state,
                 onConnect = { viewModel.connectSelectedHost() },
                 onDisconnect = { viewModel.disconnect() },
+                modifier = if (protectTopSystemBars) Modifier.statusBarsPadding() else Modifier,
             )
             state.failureMessage()?.let { message ->
                 ConnectionWarningBanner(message = message)
@@ -723,9 +725,10 @@ private fun SessionHeader(
     state: TerminalConnectionState,
     onConnect: () -> Unit,
     onDisconnect: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     BoxWithConstraints(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
             .padding(14.dp),
     ) {
