@@ -17,6 +17,9 @@ struct TerminalSessionView: View {
                 Color.mobileBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
                     sessionHeader
+                    if let failureMessage {
+                        ConnectionWarningBanner(message: failureMessage)
+                    }
                     credentialPanel
                     terminalSurface
                     terminalControls
@@ -93,6 +96,13 @@ struct TerminalSessionView: View {
         }
         .padding(.horizontal, 14)
         .padding(.bottom, 8)
+    }
+
+    private var failureMessage: String? {
+        if case .failed(let message) = viewModel.connectionState {
+            return message
+        }
+        return nil
     }
 
     @ViewBuilder
@@ -344,6 +354,32 @@ struct StatusPill: View {
             .background(color.opacity(0.11))
             .clipShape(Capsule())
             .lineLimit(1)
+    }
+}
+
+private struct ConnectionWarningBanner: View {
+    let message: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 4) {
+            Text("Connection blocked")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.red)
+            Text(message)
+                .font(.caption)
+                .foregroundStyle(Color(red: 0.50, green: 0.11, blue: 0.11))
+                .fixedSize(horizontal: false, vertical: true)
+        }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(10)
+        .background(Color.red.opacity(0.08))
+        .clipShape(RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .stroke(Color.red.opacity(0.25))
+        )
+        .padding(.horizontal, 14)
+        .padding(.bottom, 8)
     }
 }
 
