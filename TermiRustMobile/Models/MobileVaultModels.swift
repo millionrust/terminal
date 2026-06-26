@@ -36,6 +36,7 @@ struct MobileVaultExport: Codable, Hashable {
     let knownHosts: [MobileKnownHost]
     let sync: MobileSyncMetadata
     let devices: [MobileDeviceRecord]
+    let deviceKeys: [MobileDeviceVaultKey]
 
     enum CodingKeys: String, CodingKey {
         case schemaVersion = "schema_version"
@@ -51,6 +52,25 @@ struct MobileVaultExport: Codable, Hashable {
         case knownHosts = "known_hosts"
         case sync
         case devices
+        case deviceKeys = "device_keys"
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        schemaVersion = try container.decode(Int.self, forKey: .schemaVersion)
+        exportId = try container.decode(String.self, forKey: .exportId)
+        createdAtMillis = try container.decode(UInt64.self, forKey: .createdAtMillis)
+        updatedAtMillis = try container.decode(UInt64.self, forKey: .updatedAtMillis)
+        sourceDeviceId = try container.decode(String.self, forKey: .sourceDeviceId)
+        vaults = try container.decodeIfPresent([MobileVault].self, forKey: .vaults) ?? []
+        hosts = try container.decodeIfPresent([MobileHost].self, forKey: .hosts) ?? []
+        groups = try container.decodeIfPresent([MobileGroup].self, forKey: .groups) ?? []
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        identities = try container.decodeIfPresent([MobileIdentityMetadata].self, forKey: .identities) ?? []
+        knownHosts = try container.decodeIfPresent([MobileKnownHost].self, forKey: .knownHosts) ?? []
+        sync = try container.decodeIfPresent(MobileSyncMetadata.self, forKey: .sync) ?? MobileSyncMetadata()
+        devices = try container.decodeIfPresent([MobileDeviceRecord].self, forKey: .devices) ?? []
+        deviceKeys = try container.decodeIfPresent([MobileDeviceVaultKey].self, forKey: .deviceKeys) ?? []
     }
 
     var sourceDeviceRecord: MobileDeviceRecord? {
@@ -59,6 +79,15 @@ struct MobileVaultExport: Codable, Hashable {
 
     var sourceDeviceRevoked: Bool {
         sourceDeviceRecord?.revokedAtMillis != nil
+    }
+
+    func activeDeviceKey(for deviceId: String) -> MobileDeviceVaultKey? {
+        guard devices.first(where: { $0.deviceId == deviceId })?.revokedAtMillis == nil else {
+            return nil
+        }
+        return deviceKeys.first { key in
+            key.deviceId == deviceId && key.revokedAtMillis == nil
+        }
     }
 }
 
@@ -194,6 +223,11 @@ struct MobileSyncMetadata: Codable, Hashable {
         case revision
         case lastSyncedAtMillis = "last_synced_at_millis"
     }
+
+    init(revision: UInt64? = nil, lastSyncedAtMillis: UInt64? = nil) {
+        self.revision = revision
+        self.lastSyncedAtMillis = lastSyncedAtMillis
+    }
 }
 
 struct MobileDeviceRecord: Codable, Hashable, Identifiable {
@@ -203,6 +237,8 @@ struct MobileDeviceRecord: Codable, Hashable, Identifiable {
     let label: String
     let platform: String?
     let publicKey: String?
+    let pairedAtMillis: UInt64?
+    let lastSeenAtMillis: UInt64?
     let revokedAtMillis: UInt64?
 
     enum CodingKeys: String, CodingKey {
@@ -210,6 +246,28 @@ struct MobileDeviceRecord: Codable, Hashable, Identifiable {
         case label
         case platform
         case publicKey = "public_key"
+        case pairedAtMillis = "paired_at_millis"
+        case lastSeenAtMillis = "last_seen_at_millis"
+        case revokedAtMillis = "revoked_at_millis"
+    }
+}
+
+struct MobileDeviceVaultKey: Codable, Hashable, Identifiable {
+    var id: String { keyId }
+
+    let keyId: String
+    let deviceId: String
+    let wrappingAlgorithm: String
+    let encryptedVaultKey: String
+    let createdAtMillis: UInt64?
+    let revokedAtMillis: UInt64?
+
+    enum CodingKeys: String, CodingKey {
+        case keyId = "key_id"
+        case deviceId = "device_id"
+        case wrappingAlgorithm = "wrapping_algorithm"
+        case encryptedVaultKey = "encrypted_vault_key"
+        case createdAtMillis = "created_at_millis"
         case revokedAtMillis = "revoked_at_millis"
     }
 }

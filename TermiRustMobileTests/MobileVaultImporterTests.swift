@@ -63,6 +63,16 @@ final class MobileVaultImporterTests: XCTestCase {
         "label": "TermiRust Desktop",
         "platform": "desktop",
         "public_key": null,
+        "paired_at_millis": 1,
+        "last_seen_at_millis": 1,
+        "revoked_at_millis": null
+      }],
+      "device_keys": [{
+        "key_id": "vault-key-ios-1",
+        "device_id": "ios-1",
+        "wrapping_algorithm": "x25519-xsalsa20poly1305",
+        "encrypted_vault_key": "base64-wrapped-key",
+        "created_at_millis": 1,
         "revoked_at_millis": null
       }]
     }
@@ -76,6 +86,21 @@ final class MobileVaultImporterTests: XCTestCase {
         XCTAssertEqual(vault.knownHosts.first?.endpoint, "prod.example.com:22")
         XCTAssertEqual(vault.devices.first?.deviceId, "desktop-1")
         XCTAssertEqual(vault.devices.first?.platform, "desktop")
+        XCTAssertEqual(vault.devices.first?.pairedAtMillis, 1)
+        XCTAssertEqual(vault.deviceKeys.first?.deviceId, "ios-1")
+        XCTAssertEqual(vault.activeDeviceKey(for: "ios-1")?.keyId, "vault-key-ios-1")
+    }
+
+    func testPlaintextVaultDefaultsMissingDeviceKeys() throws {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: plaintextVaultData) as? [String: Any]
+        )
+        object.removeValue(forKey: "device_keys")
+        let legacyVaultData = try JSONSerialization.data(withJSONObject: object)
+
+        let vault = try MobileVaultImporter().importPlaintextVaultData(legacyVaultData)
+
+        XCTAssertTrue(vault.deviceKeys.isEmpty)
     }
 
     @MainActor
