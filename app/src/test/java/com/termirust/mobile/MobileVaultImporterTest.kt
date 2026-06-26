@@ -240,7 +240,10 @@ class MobileVaultImporterTest {
             MobileVaultImporter().importEncryptedVault(encryptedEnvelope, "hunter2".toCharArray())
         }.exceptionOrNull()
 
-        assertEquals("Encrypted production import requires the shared TermiRust vault crypto module.", error?.message)
+        assertEquals(
+            "This build is missing TermiRust shared vault crypto. Install the mobile crypto library before importing encrypted vaults.",
+            error?.message,
+        )
     }
 
     @Test

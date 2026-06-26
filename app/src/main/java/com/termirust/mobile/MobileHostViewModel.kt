@@ -76,12 +76,6 @@ class MobileHostViewModel(
             .onFailure { _status.value = it.message }
     }
 
-    fun inspectEncryptedVault(bytes: ByteArray) {
-        runCatching { importer.inspectEncryptedEnvelope(bytes) }
-            .onSuccess { _status.value = "Encrypted vault recognized. Shared TermiRust vault crypto is required before production import." }
-            .onFailure { _status.value = it.message }
-    }
-
     fun importEncryptedVault(bytes: ByteArray, passphrase: CharArray) {
         runCatching { importer.importEncryptedVault(bytes, passphrase) }
             .onSuccess {

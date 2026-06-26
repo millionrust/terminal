@@ -36,7 +36,7 @@ class MobileVaultImporter(
         inspectEncryptedEnvelope(bytes)
         val plaintext = try {
             decryptor?.decrypt(bytes, passphrase)
-                ?: error("Encrypted production import requires the shared TermiRust vault crypto module.")
+                ?: error("This build is missing TermiRust shared vault crypto. Install the mobile crypto library before importing encrypted vaults.")
         } finally {
             passphrase.fill('\u0000')
         }
