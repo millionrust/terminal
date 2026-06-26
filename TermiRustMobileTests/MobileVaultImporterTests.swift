@@ -108,6 +108,42 @@ final class MobileVaultImporterTests: XCTestCase {
     }
 
     @MainActor
+    func testViewModelRejectsVaultWhenLocalDeviceIsRevoked() throws {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: plaintextVaultData) as? [String: Any]
+        )
+        var devices = try XCTUnwrap(object["devices"] as? [[String: Any]])
+        devices.append([
+            "device_id": "ios-1",
+            "label": "Jacob iPhone",
+            "platform": "ios",
+            "public_key": NSNull(),
+            "revoked_at_millis": 1719356789123
+        ])
+        object["devices"] = devices
+        let revokedVaultData = try JSONSerialization.data(withJSONObject: object)
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("json")
+        try revokedVaultData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+        let viewModel = HostListViewModel(
+            vaultImporter: MobileVaultImporter(),
+            secretStore: FixtureSecretStore(),
+            sshClient: FixtureSSHClient(),
+            localDeviceId: "ios-1"
+        )
+
+        viewModel.importPlaintextFixture(from: tempURL)
+
+        XCTAssertNil(viewModel.selectedHost)
+        XCTAssertEqual(
+            viewModel.importError,
+            "This device has been revoked for the imported mobile vault (ios-1). Import blocked."
+        )
+    }
+
+    @MainActor
     func testViewModelResolvesSelectedHostKnownHostPin() throws {
         let viewModel = HostListViewModel(
             vaultImporter: MobileVaultImporter(),

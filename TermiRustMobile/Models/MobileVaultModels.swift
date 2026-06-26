@@ -81,8 +81,18 @@ struct MobileVaultExport: Codable, Hashable {
         sourceDeviceRecord?.revokedAtMillis != nil
     }
 
+    func isDeviceRevoked(_ deviceId: String) -> Bool {
+        let trimmed = deviceId.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else {
+            return false
+        }
+        return devices.contains { device in
+            device.deviceId == trimmed && device.revokedAtMillis != nil
+        }
+    }
+
     func activeDeviceKey(for deviceId: String) -> MobileDeviceVaultKey? {
-        guard devices.first(where: { $0.deviceId == deviceId })?.revokedAtMillis == nil else {
+        guard !isDeviceRevoked(deviceId) else {
             return nil
         }
         return deviceKeys.first { key in

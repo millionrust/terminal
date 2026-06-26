@@ -5,6 +5,7 @@ enum MobileVaultImportError: Error, Equatable, LocalizedError {
     case encryptedVaultRequiresSharedCrypto
     case invalidVault
     case revokedSourceDevice(String)
+    case revokedLocalDevice(String)
 
     var errorDescription: String? {
         switch self {
@@ -16,6 +17,8 @@ enum MobileVaultImportError: Error, Equatable, LocalizedError {
             return "The selected file is not a valid TermiRust mobile vault."
         case .revokedSourceDevice(let deviceId):
             return "This mobile vault was exported by a revoked device (\(deviceId)). Import blocked."
+        case .revokedLocalDevice(let deviceId):
+            return "This device has been revoked for the imported mobile vault (\(deviceId)). Import blocked."
         }
     }
 }

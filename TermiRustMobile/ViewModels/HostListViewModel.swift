@@ -16,17 +16,20 @@ final class HostListViewModel: ObservableObject {
     private let secretStore: SecretStoring
     private let encryptedVaultStore: EncryptedVaultStoring?
     private let sshClient: MobileSSHConnecting
+    private let localDeviceId: String
 
     init(
         vaultImporter: MobileVaultImporter,
         secretStore: SecretStoring,
         encryptedVaultStore: EncryptedVaultStoring? = nil,
-        sshClient: MobileSSHConnecting = DirectSSHSessionClient()
+        sshClient: MobileSSHConnecting = DirectSSHSessionClient(),
+        localDeviceId: String = ""
     ) {
         self.vaultImporter = vaultImporter
         self.secretStore = secretStore
         self.encryptedVaultStore = encryptedVaultStore
         self.sshClient = sshClient
+        self.localDeviceId = localDeviceId
         self.hasStoredEncryptedVault = encryptedVaultStore?.hasEncryptedVault ?? false
     }
 
@@ -37,9 +40,7 @@ final class HostListViewModel: ObservableObject {
     func importPlaintextFixture(from url: URL) {
         do {
             let data = try Data(contentsOf: url)
-            vault = try vaultImporter.importPlaintextVaultData(data)
-            selectedHost = hosts.first
-            importError = nil
+            try acceptImportedVault(try vaultImporter.importPlaintextVaultData(data))
         } catch {
             importError = error.localizedDescription
         }
@@ -58,11 +59,9 @@ final class HostListViewModel: ObservableObject {
     func importEncryptedVault(from url: URL, passphrase: String) {
         do {
             let data = try Data(contentsOf: url)
-            vault = try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase)
+            try acceptImportedVault(try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase))
             try encryptedVaultStore?.saveEncryptedVault(data)
             hasStoredEncryptedVault = encryptedVaultStore?.hasEncryptedVault ?? false
-            selectedHost = hosts.first
-            importError = nil
         } catch {
             importError = error.localizedDescription
         }
@@ -75,10 +74,8 @@ final class HostListViewModel: ObservableObject {
                 importError = "No stored encrypted vault is available."
                 return
             }
-            vault = try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase)
-            selectedHost = hosts.first
+            try acceptImportedVault(try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase))
             hasStoredEncryptedVault = encryptedVaultStore?.hasEncryptedVault ?? false
-            importError = nil
         } catch {
             importError = error.localizedDescription
         }
@@ -174,6 +171,15 @@ final class HostListViewModel: ObservableObject {
 
     func knownHost(for host: MobileHost) -> MobileKnownHost? {
         vault?.knownHosts.first { $0.endpoint == host.knownHostEndpoint }
+    }
+
+    private func acceptImportedVault(_ imported: MobileVaultExport) throws {
+        if imported.isDeviceRevoked(localDeviceId) {
+            throw MobileVaultImportError.revokedLocalDevice(localDeviceId)
+        }
+        vault = imported
+        selectedHost = hosts.first
+        importError = nil
     }
 
     func connectSelectedHost() {
