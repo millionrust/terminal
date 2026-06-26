@@ -25,6 +25,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -81,6 +82,7 @@ fun TermirustApp(
     onImportCredentialFile: () -> Unit,
 ) {
     MaterialTheme {
+        var showVaultDialog by remember { mutableStateOf(false) }
         Box(
             modifier = Modifier
                 .fillMaxSize()
@@ -120,9 +122,9 @@ fun TermirustApp(
                         modifier = Modifier.fillMaxSize(),
                         verticalArrangement = Arrangement.spacedBy(0.dp),
                     ) {
-                        CompactHeader(
+                        CompactTopBar(
                             viewModel = viewModel,
-                            onImportVault = onImportVault,
+                            onOpenVault = { showVaultDialog = true },
                             modifier = Modifier.fillMaxWidth(),
                         )
                         CompactHostStrip(
@@ -137,6 +139,13 @@ fun TermirustApp(
                         )
                     }
                 }
+            }
+            if (showVaultDialog) {
+                VaultDialog(
+                    viewModel = viewModel,
+                    onImportVault = onImportVault,
+                    onDismiss = { showVaultDialog = false },
+                )
             }
         }
     }
@@ -184,32 +193,49 @@ private fun HostPanel(
 }
 
 @Composable
-private fun CompactHeader(
+private fun CompactTopBar(
     viewModel: MobileHostViewModel,
-    onImportVault: (String) -> Unit,
+    onOpenVault: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    Card(
+    val vault by viewModel.vault.collectAsState()
+    Surface(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        color = Color.White,
         border = BorderStroke(1.dp, PanelBorder),
-        shape = RoundedCornerShape(0.dp),
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(14.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
+                .padding(horizontal = 14.dp, vertical = 10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.CenterVertically,
         ) {
-            ProductHeader()
-            ImportVaultCard(viewModel = viewModel, onImportVault = onImportVault, compact = true)
+            ProductHeader(
+                subtitle = if (vault?.hosts.isNullOrEmpty()) {
+                    "Import vault to begin"
+                } else {
+                    "${vault?.hosts?.size ?: 0} hosts available"
+                },
+                modifier = Modifier.weight(1f),
+            )
+            OutlinedButton(onClick = onOpenVault) {
+                Text("Vault")
+            }
         }
     }
 }
 
 @Composable
-private fun ProductHeader() {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+private fun ProductHeader(
+    subtitle: String = "Mobile terminal",
+    modifier: Modifier = Modifier,
+) {
+    Row(
+        modifier = modifier,
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+    ) {
         Box(
             modifier = Modifier
                 .size(34.dp)
@@ -220,9 +246,40 @@ private fun ProductHeader() {
         }
         Column {
             Text("TermiRust", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.Bold)
-            Text("Mobile terminal", style = MaterialTheme.typography.bodySmall, color = Color(0xFF64748B))
+            Text(
+                subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF64748B),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
         }
     }
+}
+
+@Composable
+private fun VaultDialog(
+    viewModel: MobileHostViewModel,
+    onImportVault: (String) -> Unit,
+    onDismiss: () -> Unit,
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Done")
+            }
+        },
+        title = { Text("Vault") },
+        text = {
+            ImportVaultCard(
+                viewModel = viewModel,
+                onImportVault = onImportVault,
+                compact = true,
+            )
+        },
+        containerColor = Color.White,
+    )
 }
 
 @Composable
