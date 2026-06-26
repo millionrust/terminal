@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct TerminalSessionView: View {
@@ -42,7 +43,7 @@ struct TerminalSessionView: View {
                     inputRow
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(.white)
+                .background(Color.mobilePanelBackground)
                 .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .overlay {
                     if cornerRadius > 0 {
@@ -539,7 +540,7 @@ extension View {
         self
             .padding(14)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.white)
+            .background(Color.mobilePanelBackground)
             .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
             .overlay(
                 RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -549,9 +550,34 @@ extension View {
 }
 
 extension Color {
-    static let mobileBackground = Color(red: 0.96, green: 0.97, blue: 0.98)
-    static let panelBorder = Color(red: 0.88, green: 0.90, blue: 0.94)
-    static let terminalBackground = Color(red: 0.04, green: 0.06, blue: 0.13)
-    static let terminalForeground = Color(red: 0.90, green: 0.92, blue: 0.95)
-    static let terminalMuted = Color(red: 0.58, green: 0.64, blue: 0.72)
+    static let mobileBackground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.05, green: 0.06, blue: 0.08, alpha: 1)
+            : UIColor(red: 0.96, green: 0.97, blue: 0.98, alpha: 1)
+    })
+    static let mobilePanelBackground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.09, green: 0.10, blue: 0.12, alpha: 1)
+            : UIColor.white
+    })
+    static let panelBorder = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.20, green: 0.23, blue: 0.28, alpha: 1)
+            : UIColor(red: 0.88, green: 0.90, blue: 0.94, alpha: 1)
+    })
+    static let terminalBackground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.02, green: 0.03, blue: 0.06, alpha: 1)
+            : UIColor(red: 0.04, green: 0.06, blue: 0.13, alpha: 1)
+    })
+    static let terminalForeground = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.94, green: 0.95, blue: 0.97, alpha: 1)
+            : UIColor(red: 0.90, green: 0.92, blue: 0.95, alpha: 1)
+    })
+    static let terminalMuted = Color(UIColor { trait in
+        trait.userInterfaceStyle == .dark
+            ? UIColor(red: 0.62, green: 0.68, blue: 0.78, alpha: 1)
+            : UIColor(red: 0.58, green: 0.64, blue: 0.72, alpha: 1)
+    })
 }

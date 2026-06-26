@@ -109,7 +109,7 @@ struct ContentView: View {
         .padding(.horizontal, 14)
         .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white)
+        .background(Color.mobilePanelBackground)
         .overlay(alignment: .bottom) {
             Rectangle()
                 .fill(Color.panelBorder)
@@ -178,7 +178,7 @@ struct ContentView: View {
         }
         .padding(14)
         .frame(maxWidth: .infinity, alignment: .leading)
-        .background(.white)
+        .background(Color.mobilePanelBackground)
         .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
         .overlay(
             RoundedRectangle(cornerRadius: 18, style: .continuous)
@@ -205,7 +205,7 @@ struct ContentView: View {
             }
             .frame(height: 52)
             .frame(maxWidth: .infinity)
-            .background(.white)
+            .background(Color.mobilePanelBackground)
             .overlay(alignment: .bottom) {
                 Rectangle()
                     .fill(Color.panelBorder)
@@ -244,7 +244,7 @@ private struct CompactHostChip: View {
             .foregroundStyle(.primary)
             .padding(.horizontal, 12)
             .padding(.vertical, 8)
-            .background(selected ? Color.blue.opacity(0.08) : .white)
+            .background(selected ? Color.blue.opacity(0.08) : Color.mobilePanelBackground)
             .clipShape(Capsule())
             .overlay(
                 Capsule()
@@ -264,11 +264,11 @@ private struct EmptySessionView: View {
 
     var body: some View {
         ZStack {
-            (framed ? Color.mobileBackground : Color.white).ignoresSafeArea()
+            (framed ? Color.mobileBackground : Color.mobilePanelBackground).ignoresSafeArea()
             if framed {
                 emptyContent
                     .padding(24)
-                    .background(.white)
+                    .background(Color.mobilePanelBackground)
                     .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
                     .overlay(
                         RoundedRectangle(cornerRadius: 18, style: .continuous)
