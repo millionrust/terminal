@@ -11,7 +11,7 @@ struct ContentView: View {
         GeometryReader { proxy in
             let wide = proxy.size.width >= 900
             let outerPadding: CGFloat = wide ? 20 : 0
-            let panelSpacing: CGFloat = wide ? 18 : 8
+            let panelSpacing: CGFloat = wide ? 18 : 0
             let hostPanelWidth = min(max(proxy.size.width * 0.34, 340), 460)
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
@@ -25,7 +25,7 @@ struct ContentView: View {
                     }
                     .padding(outerPadding)
                 } else {
-                    VStack(spacing: 8) {
+                    VStack(spacing: 0) {
                         compactHeader
                         compactHostStrip
                         sessionDetail(framed: false)
@@ -36,6 +36,8 @@ struct ContentView: View {
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.mobileBackground.ignoresSafeArea())
         .fileImporter(
             isPresented: $showingImporter,
             allowedContentTypes: [.json],
@@ -143,8 +145,16 @@ struct ContentView: View {
                     }
                 }
                 .padding(.horizontal, 14)
+                .padding(.vertical, 6)
             }
-            .frame(height: 44)
+            .frame(height: 52)
+            .frame(maxWidth: .infinity)
+            .background(.white)
+            .overlay(alignment: .bottom) {
+                Rectangle()
+                    .fill(Color.panelBorder)
+                    .frame(height: 1)
+            }
         }
     }
 
@@ -198,32 +208,37 @@ private struct EmptySessionView: View {
 
     var body: some View {
         ZStack {
+            (framed ? Color.mobileBackground : Color.white).ignoresSafeArea()
             if framed {
-                Color.mobileBackground.ignoresSafeArea()
+                emptyContent
+                    .padding(24)
+                    .background(.white)
+                    .clipShape(RoundedRectangle(cornerRadius: 18, style: .continuous))
+                    .overlay(
+                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                            .stroke(Color.panelBorder)
+                    )
             } else {
-                Color.white.ignoresSafeArea()
+                emptyContent
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
-            VStack(spacing: 14) {
-                Image(systemName: "terminal")
-                    .font(.system(size: 34, weight: .semibold))
-                    .foregroundStyle(.blue)
-                Text("Select a host")
-                    .font(.title2.weight(.bold))
-                Text("Import a mobile vault, save the credential, then connect to a tmux-backed terminal.")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 320)
-            }
-            .padding(24)
-            .background(.white)
-            .clipShape(RoundedRectangle(cornerRadius: framed ? 18 : 0, style: .continuous))
-            .overlay(
-                RoundedRectangle(cornerRadius: framed ? 18 : 0, style: .continuous)
-                    .stroke(framed ? Color.panelBorder : .clear)
-            )
-            .padding(framed ? 0 : 16)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private var emptyContent: some View {
+        VStack(spacing: 14) {
+            Image(systemName: "terminal")
+                .font(.system(size: 34, weight: .semibold))
+                .foregroundStyle(.blue)
+            Text("Select a host")
+                .font(.title2.weight(.bold))
+            Text("Import a mobile vault, save the credential, then connect to a tmux-backed terminal.")
+                .font(.subheadline)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: 320)
+        }
+        .padding(24)
     }
 }
