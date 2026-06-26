@@ -4,6 +4,7 @@ import UniformTypeIdentifiers
 struct TerminalSessionView: View {
     @ObservedObject var viewModel: HostListViewModel
     let host: MobileHost
+    let framed: Bool
     @State private var input = ""
     @State private var credential = ""
     @State private var terminalFontSize: CGFloat = 14
@@ -12,9 +13,16 @@ struct TerminalSessionView: View {
     @State private var lastSentTerminalGrid: TerminalGrid?
     @State private var showingPrivateKeyImporter = false
 
+    init(viewModel: HostListViewModel, host: MobileHost, framed: Bool = true) {
+        self.viewModel = viewModel
+        self.host = host
+        self.framed = framed
+    }
+
     var body: some View {
         GeometryReader { proxy in
-            let compact = proxy.size.width < 700
+            let compact = proxy.size.width < 700 || !framed
+            let cornerRadius: CGFloat = framed && !compact ? 18 : 0
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
@@ -32,18 +40,16 @@ struct TerminalSessionView: View {
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                 .background(.white)
-                .clipShape(RoundedRectangle(cornerRadius: compact ? 0 : 18, style: .continuous))
+                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
                 .overlay {
-                    if !compact {
-                        RoundedRectangle(cornerRadius: 18, style: .continuous)
+                    if cornerRadius > 0 {
+                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
                             .stroke(Color.panelBorder)
                     }
                 }
-                .padding(compact ? 0 : 12)
+                .padding(framed && !compact ? 12 : 0)
             }
         }
-        .navigationTitle(host.label)
-        .navigationBarTitleDisplayMode(.inline)
         .fileImporter(
             isPresented: $showingPrivateKeyImporter,
             allowedContentTypes: [.plainText, .data],
