@@ -61,17 +61,50 @@ struct TerminalSessionView: View {
     }
 
     private var sessionHeader: some View {
-        HStack(spacing: 12) {
-            VStack(alignment: .leading, spacing: 3) {
-                Text(host.label)
-                    .font(.title3.weight(.bold))
-                    .lineLimit(1)
-                Text("\(host.username)@\(host.host):\(host.port)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
+        ViewThatFits(in: .horizontal) {
+            HStack(spacing: 12) {
+                sessionTitle
+                Spacer()
+                sessionActions
             }
-            Spacer()
+            VStack(alignment: .leading, spacing: 10) {
+                HStack(spacing: 10) {
+                    sessionTitle
+                    Spacer()
+                    StatusPill(statusText, color: statusColor)
+                }
+                HStack(spacing: 8) {
+                    Button("Connect") {
+                        viewModel.connectSelectedHost()
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .frame(maxWidth: .infinity)
+                    Button("Disconnect") {
+                        viewModel.disconnect()
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(viewModel.connectionState == .disconnected)
+                    .frame(maxWidth: .infinity)
+                }
+            }
+        }
+        .padding(14)
+    }
+
+    private var sessionTitle: some View {
+        VStack(alignment: .leading, spacing: 3) {
+            Text(host.label)
+                .font(.title3.weight(.bold))
+                .lineLimit(1)
+            Text("\(host.username)@\(host.host):\(host.port)")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+        }
+    }
+
+    private var sessionActions: some View {
+        HStack(spacing: 8) {
             StatusPill(statusText, color: statusColor)
             Button("Connect") {
                 viewModel.connectSelectedHost()
@@ -83,7 +116,6 @@ struct TerminalSessionView: View {
             .buttonStyle(.bordered)
             .disabled(viewModel.connectionState == .disconnected)
         }
-        .padding(14)
     }
 
     private var credentialPanel: some View {

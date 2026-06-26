@@ -8,23 +8,29 @@ struct ContentView: View {
 
     var body: some View {
         GeometryReader { proxy in
-            let wide = proxy.size.width >= 840
+            let wide = proxy.size.width >= 900
+            let outerPadding: CGFloat = wide ? 20 : 0
+            let panelSpacing: CGFloat = wide ? 18 : 8
+            let hostPanelWidth = min(max(proxy.size.width * 0.34, 340), 460)
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
                 if wide {
-                    HStack(spacing: 16) {
+                    HStack(spacing: panelSpacing) {
                         HostListView(viewModel: viewModel)
-                            .frame(minWidth: 320, idealWidth: 360, maxWidth: 380)
+                            .frame(width: hostPanelWidth)
                             .frame(maxHeight: .infinity)
                         sessionDetail(framed: true)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .padding(16)
+                    .padding(outerPadding)
                 } else {
                     VStack(spacing: 8) {
                         compactHeader
                         compactHostStrip
                         sessionDetail(framed: false)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
             .frame(width: proxy.size.width, height: proxy.size.height)
