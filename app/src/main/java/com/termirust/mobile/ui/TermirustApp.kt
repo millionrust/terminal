@@ -371,6 +371,9 @@ private fun SessionPanel(
                 onConnect = { viewModel.connectSelectedHost() },
                 onDisconnect = { viewModel.disconnect() },
             )
+            state.failureMessage()?.let { message ->
+                ConnectionWarningBanner(message = message)
+            }
             selectedHost?.let { host ->
                 CredentialEditor(
                     host = host,
@@ -484,6 +487,35 @@ private fun SessionHeader(
             enabled = state != TerminalConnectionState.Disconnected,
         ) {
             Text("Disconnect")
+        }
+    }
+}
+
+@Composable
+private fun ConnectionWarningBanner(message: String) {
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+        color = Color(0xFFFEF2F2),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, Color(0xFFFECACA)),
+    ) {
+        Column(
+            modifier = Modifier.padding(10.dp),
+            verticalArrangement = Arrangement.spacedBy(3.dp),
+        ) {
+            Text(
+                "Connection blocked",
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = FontWeight.SemiBold,
+                color = Color(0xFFB91C1C),
+            )
+            Text(
+                message,
+                style = MaterialTheme.typography.bodySmall,
+                color = Color(0xFF7F1D1D),
+            )
         }
     }
 }
@@ -730,4 +762,9 @@ private fun TerminalConnectionState.color(): Color = when (this) {
     TerminalConnectionState.Connecting -> Accent
     TerminalConnectionState.Disconnected -> Color(0xFF64748B)
     is TerminalConnectionState.Failed -> Color(0xFFDC2626)
+}
+
+private fun TerminalConnectionState.failureMessage(): String? = when (this) {
+    is TerminalConnectionState.Failed -> message
+    else -> null
 }
