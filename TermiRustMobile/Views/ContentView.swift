@@ -41,11 +41,13 @@ struct ContentView: View {
             allowedContentTypes: [.json],
             allowsMultipleSelection: false
         ) { result in
+            defer {
+                vaultPassphrase = ""
+            }
             guard case .success(let urls) = result, let url = urls.first else {
                 return
             }
             viewModel.importEncryptedVault(from: url, passphrase: vaultPassphrase)
-            vaultPassphrase = ""
         }
         .tint(.blue)
     }

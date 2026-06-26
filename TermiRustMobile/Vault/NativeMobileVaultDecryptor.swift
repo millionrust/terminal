@@ -14,7 +14,10 @@ enum NativeMobileVaultDecryptorError: Error, LocalizedError {
 
 struct NativeMobileVaultDecryptor: MobileVaultDecrypting {
     func decrypt(encryptedVaultData: Data, passphrase: String) throws -> Data {
-        let passphraseData = Data(passphrase.utf8)
+        var passphraseData = Data(passphrase.utf8)
+        defer {
+            passphraseData.resetBytes(in: 0..<passphraseData.count)
+        }
         let result = encryptedVaultData.withUnsafeBytes { encryptedBytes in
             passphraseData.withUnsafeBytes { passphraseBytes in
                 termirust_mobile_decrypt_vault_json(
