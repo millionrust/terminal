@@ -52,6 +52,14 @@ struct MobileVaultExport: Codable, Hashable {
         case sync
         case devices
     }
+
+    var sourceDeviceRecord: MobileDeviceRecord? {
+        devices.first { $0.deviceId == sourceDeviceId }
+    }
+
+    var sourceDeviceRevoked: Bool {
+        sourceDeviceRecord?.revokedAtMillis != nil
+    }
 }
 
 struct MobileVault: Codable, Hashable, Identifiable {

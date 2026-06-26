@@ -78,6 +78,18 @@ final class MobileVaultImporterTests: XCTestCase {
         XCTAssertEqual(vault.devices.first?.platform, "desktop")
     }
 
+    func testPlaintextVaultRejectsRevokedSourceDevice() {
+        let revokedVaultData = Data(
+            String(decoding: plaintextVaultData, as: UTF8.self)
+                .replacingOccurrences(of: "\"revoked_at_millis\": null", with: "\"revoked_at_millis\": 1719356789123")
+                .utf8
+        )
+
+        XCTAssertThrowsError(try MobileVaultImporter().importPlaintextVaultData(revokedVaultData)) { error in
+            XCTAssertEqual(error as? MobileVaultImportError, .revokedSourceDevice("desktop-1"))
+        }
+    }
+
     func testEncryptedVaultRequiresSharedCryptoDecryptor() throws {
         XCTAssertThrowsError(
             try MobileVaultImporter().importEncryptedVaultData(encryptedEnvelopeData, passphrase: "hunter2")

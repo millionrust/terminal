@@ -4,6 +4,7 @@ enum MobileVaultImportError: Error, Equatable, LocalizedError {
     case unsupportedSchema(Int)
     case encryptedVaultRequiresSharedCrypto
     case invalidVault
+    case revokedSourceDevice(String)
 
     var errorDescription: String? {
         switch self {
@@ -13,6 +14,8 @@ enum MobileVaultImportError: Error, Equatable, LocalizedError {
             return "This encrypted vault uses TermiRust shared crypto. Link the shared Rust vault crypto before importing encrypted production vaults."
         case .invalidVault:
             return "The selected file is not a valid TermiRust mobile vault."
+        case .revokedSourceDevice(let deviceId):
+            return "This mobile vault was exported by a revoked device (\(deviceId)). Import blocked."
         }
     }
 }
@@ -41,6 +44,9 @@ struct MobileVaultImporter {
         let vault = try decoder.decode(MobileVaultExport.self, from: data)
         guard vault.schemaVersion == mobileVaultSchemaVersion else {
             throw MobileVaultImportError.unsupportedSchema(vault.schemaVersion)
+        }
+        guard !vault.sourceDeviceRevoked else {
+            throw MobileVaultImportError.revokedSourceDevice(vault.sourceDeviceId)
         }
         return vault
     }
