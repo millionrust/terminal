@@ -15,19 +15,15 @@ struct ContentView: View {
                 let wide = proxy.size.width >= 900
                 let panelSpacing: CGFloat = wide ? 1 : 0
                 let hostPanelWidth = min(max(proxy.size.width * 0.34, 340), 460)
-                let safeInsets = proxy.safeAreaInsets
+                let safeInsets = effectiveSafeAreaInsets(proxy.safeAreaInsets)
                 Group {
                     if wide {
                         HStack(spacing: panelSpacing) {
                             HostListView(viewModel: viewModel)
                                 .frame(width: hostPanelWidth)
                                 .frame(maxHeight: .infinity)
-                                .padding(.top, safeInsets.top)
-                                .padding(.bottom, safeInsets.bottom)
-                            sessionDetail(framed: false)
+                            sessionDetail(framed: false, protectsTopSafeArea: true)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                .padding(.top, safeInsets.top)
-                                .padding(.bottom, safeInsets.bottom)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                     } else {
@@ -35,7 +31,7 @@ struct ContentView: View {
                             compactHeader
                                 .padding(.top, safeInsets.top)
                             compactHostStrip
-                            sessionDetail(framed: false)
+                            sessionDetail(framed: false, protectsTopSafeArea: false)
                                 .frame(maxWidth: .infinity, maxHeight: .infinity)
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
@@ -81,9 +77,14 @@ struct ContentView: View {
     }
 
     @ViewBuilder
-    private func sessionDetail(framed: Bool) -> some View {
+    private func sessionDetail(framed: Bool, protectsTopSafeArea: Bool) -> some View {
         if let host = viewModel.selectedHost {
-            TerminalSessionView(viewModel: viewModel, host: host, framed: framed)
+            TerminalSessionView(
+                viewModel: viewModel,
+                host: host,
+                framed: framed,
+                protectsTopSafeArea: protectsTopSafeArea
+            )
         } else {
             EmptySessionView(framed: framed)
         }
@@ -231,6 +232,25 @@ struct ContentView: View {
         } catch {
             viewModel.reportStatus(error.localizedDescription)
         }
+    }
+
+    private func effectiveSafeAreaInsets(_ proxyInsets: EdgeInsets) -> EdgeInsets {
+        if proxyInsets.top > 0 || proxyInsets.bottom > 0 || proxyInsets.leading > 0 || proxyInsets.trailing > 0 {
+            return proxyInsets
+        }
+        guard
+            let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+            let window = scene.windows.first(where: { $0.isKeyWindow })
+        else {
+            return proxyInsets
+        }
+        let windowInsets = window.safeAreaInsets
+        return EdgeInsets(
+            top: windowInsets.top,
+            leading: windowInsets.left,
+            bottom: windowInsets.bottom,
+            trailing: windowInsets.right
+        )
     }
 }
 

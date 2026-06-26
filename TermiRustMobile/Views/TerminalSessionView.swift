@@ -6,6 +6,7 @@ struct TerminalSessionView: View {
     @ObservedObject var viewModel: HostListViewModel
     let host: MobileHost
     let framed: Bool
+    let protectsTopSafeArea: Bool
     @State private var input = ""
     @State private var credential = ""
     @State private var terminalFontSize: CGFloat = 14
@@ -16,21 +17,29 @@ struct TerminalSessionView: View {
     @State private var controlModifierActive = false
     @State private var optionModifierActive = false
 
-    init(viewModel: HostListViewModel, host: MobileHost, framed: Bool = true) {
+    init(
+        viewModel: HostListViewModel,
+        host: MobileHost,
+        framed: Bool = true,
+        protectsTopSafeArea: Bool = true
+    ) {
         self.viewModel = viewModel
         self.host = host
         self.framed = framed
+        self.protectsTopSafeArea = protectsTopSafeArea
     }
 
     var body: some View {
         GeometryReader { proxy in
             let compact = proxy.size.width < 700 || !framed
             let cornerRadius: CGFloat = framed && !compact ? 18 : 0
-            let bottomSafeArea = proxy.safeAreaInsets.bottom
+            let safeInsets = effectiveSafeAreaInsets(proxy.safeAreaInsets)
+            let topSafeArea = !framed && protectsTopSafeArea ? safeInsets.top : 0
+            let bottomSafeArea = safeInsets.bottom
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
                 VStack(spacing: 0) {
-                    sessionHeader
+                    sessionHeader(topSafeArea: topSafeArea)
                     if let failureMessage {
                         ConnectionWarningBanner(message: failureMessage)
                     }
@@ -64,7 +73,7 @@ struct TerminalSessionView: View {
         }
     }
 
-    private var sessionHeader: some View {
+    private func sessionHeader(topSafeArea: CGFloat) -> some View {
         ViewThatFits(in: .horizontal) {
             HStack(spacing: 12) {
                 sessionTitle
@@ -93,6 +102,7 @@ struct TerminalSessionView: View {
             }
         }
         .padding(14)
+        .padding(.top, topSafeArea)
     }
 
     private var sessionTitle: some View {
@@ -359,6 +369,25 @@ struct TerminalSessionView: View {
         } catch {
             viewModel.reportStatus(error.localizedDescription)
         }
+    }
+
+    private func effectiveSafeAreaInsets(_ proxyInsets: EdgeInsets) -> EdgeInsets {
+        if proxyInsets.top > 0 || proxyInsets.bottom > 0 || proxyInsets.leading > 0 || proxyInsets.trailing > 0 {
+            return proxyInsets
+        }
+        guard
+            let scene = UIApplication.shared.connectedScenes.compactMap({ $0 as? UIWindowScene }).first,
+            let window = scene.windows.first(where: { $0.isKeyWindow })
+        else {
+            return proxyInsets
+        }
+        let windowInsets = window.safeAreaInsets
+        return EdgeInsets(
+            top: windowInsets.top,
+            leading: windowInsets.left,
+            bottom: windowInsets.bottom,
+            trailing: windowInsets.right
+        )
     }
 
     private func updateTerminalGrid(size: CGSize, forceResize: Bool = false) {
