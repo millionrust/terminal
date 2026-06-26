@@ -32,9 +32,20 @@ Not finished yet:
 
 ## Build
 
+Refresh the shared Rust mobile crypto JNI libraries when the desktop FFI crate changes:
+
+```bash
+cd /Users/jacob/Projects/terminal
+scripts/sync-mobile-ffi-artifacts.sh android
+```
+
 Use the checked-in Gradle wrapper:
 
 ```bash
+echo "sdk.dir=/Users/jacob/Library/Android/sdk" > local.properties
 ./gradlew testDebugUnitTest
 ./gradlew assembleDebug
 ```
+
+If Android Studio installed the SDK somewhere else, replace the `sdk.dir` path
+or set `ANDROID_HOME` for the Gradle commands.
