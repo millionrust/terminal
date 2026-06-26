@@ -81,6 +81,13 @@ struct MobileVaultExport: Codable, Hashable {
         sourceDeviceRecord?.revokedAtMillis != nil
     }
 
+    func isOlder(than other: MobileVaultExport) -> Bool {
+        if let revision = sync.revision, let otherRevision = other.sync.revision, revision != otherRevision {
+            return revision < otherRevision
+        }
+        return updatedAtMillis < other.updatedAtMillis
+    }
+
     func isDeviceRevoked(_ deviceId: String) -> Bool {
         let trimmed = deviceId.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {

@@ -6,6 +6,7 @@ enum MobileVaultImportError: Error, Equatable, LocalizedError {
     case invalidVault
     case revokedSourceDevice(String)
     case revokedLocalDevice(String)
+    case staleVault
 
     var errorDescription: String? {
         switch self {
@@ -19,6 +20,8 @@ enum MobileVaultImportError: Error, Equatable, LocalizedError {
             return "This mobile vault was exported by a revoked device (\(deviceId)). Import blocked."
         case .revokedLocalDevice(let deviceId):
             return "This device has been revoked for the imported mobile vault (\(deviceId)). Import blocked."
+        case .staleVault:
+            return "Imported vault is older than the currently loaded vault. Import blocked to avoid overwriting newer mobile state."
         }
     }
 }

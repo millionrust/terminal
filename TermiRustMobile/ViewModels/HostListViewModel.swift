@@ -177,6 +177,9 @@ final class HostListViewModel: ObservableObject {
         if imported.isDeviceRevoked(localDeviceId) {
             throw MobileVaultImportError.revokedLocalDevice(localDeviceId)
         }
+        if let vault, imported.isOlder(than: vault) {
+            throw MobileVaultImportError.staleVault
+        }
         vault = imported
         selectedHost = hosts.first
         importError = nil

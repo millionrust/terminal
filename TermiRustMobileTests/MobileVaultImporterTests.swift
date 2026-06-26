@@ -144,6 +144,32 @@ final class MobileVaultImporterTests: XCTestCase {
     }
 
     @MainActor
+    func testViewModelRejectsOlderVaultOverLoadedVault() throws {
+        let viewModel = HostListViewModel(
+            vaultImporter: MobileVaultImporter(),
+            secretStore: FixtureSecretStore(),
+            sshClient: FixtureSSHClient()
+        )
+        let currentURL = try writeVaultFixture(updatedAtMillis: 10, revision: 2)
+        let staleURL = try writeVaultFixture(updatedAtMillis: 5, revision: 1)
+        defer {
+            try? FileManager.default.removeItem(at: currentURL)
+            try? FileManager.default.removeItem(at: staleURL)
+        }
+
+        viewModel.importPlaintextFixture(from: currentURL)
+        XCTAssertEqual(viewModel.vault?.updatedAtMillis, 10)
+
+        viewModel.importPlaintextFixture(from: staleURL)
+
+        XCTAssertEqual(viewModel.vault?.updatedAtMillis, 10)
+        XCTAssertEqual(
+            viewModel.importError,
+            "Imported vault is older than the currently loaded vault. Import blocked to avoid overwriting newer mobile state."
+        )
+    }
+
+    @MainActor
     func testViewModelResolvesSelectedHostKnownHostPin() throws {
         let viewModel = HostListViewModel(
             vaultImporter: MobileVaultImporter(),
@@ -160,6 +186,20 @@ final class MobileVaultImporterTests: XCTestCase {
 
         let host = try XCTUnwrap(viewModel.selectedHost)
         XCTAssertEqual(viewModel.knownHost(for: host)?.endpoint, "prod.example.com:22")
+    }
+
+    private func writeVaultFixture(updatedAtMillis: UInt64, revision: UInt64) throws -> URL {
+        var object = try XCTUnwrap(
+            JSONSerialization.jsonObject(with: plaintextVaultData) as? [String: Any]
+        )
+        object["updated_at_millis"] = updatedAtMillis
+        object["sync"] = ["revision": revision, "last_synced_at_millis": NSNull()]
+        let data = try JSONSerialization.data(withJSONObject: object)
+        let url = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("json")
+        try data.write(to: url)
+        return url
     }
 
     func testPlaintextVaultRejectsRevokedSourceDevice() {
