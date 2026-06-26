@@ -69,6 +69,20 @@ struct HostListView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(vaultPassphrase.isEmpty)
+            if viewModel.hasStoredEncryptedVault {
+                HStack(spacing: 8) {
+                    Button("Unlock Saved Vault") {
+                        viewModel.unlockStoredEncryptedVault(passphrase: vaultPassphrase)
+                        vaultPassphrase = ""
+                    }
+                    .buttonStyle(.bordered)
+                    .disabled(vaultPassphrase.isEmpty)
+                    Button("Forget") {
+                        viewModel.forgetStoredEncryptedVault()
+                    }
+                    .buttonStyle(.bordered)
+                }
+            }
         }
         .mobilePanel()
     }

@@ -15,6 +15,7 @@
 		20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */; };
 		304086417473B388F4742CBB /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79858D8548840C07D779517 /* MobileVaultImporter.swift */; };
 		37E4220D6E3FCC19C5F77C3A /* OpenSSHPrivateKeyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909BACBBFFB76FA023EBDB9A /* OpenSSHPrivateKeyParser.swift */; };
+		3BDA4D8CBA0D6C8DF9F7F371 /* EncryptedVaultStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5F0EB78F4D2A252EADAE8A /* EncryptedVaultStore.swift */; };
 		5D22C51CF4953ECA53DF4274 /* TerminalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A85EB62200FB06A4581F84 /* TerminalGrid.swift */; };
 		7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A094D79B3532C27E003F0B33 /* HostListView.swift */; };
 		81AAE37D864D4860FB6C07F5 /* MobileSSHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B01326772388C06F4F275E /* MobileSSHSession.swift */; };
@@ -57,6 +58,7 @@
 		A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TermiRustMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		A094D79B3532C27E003F0B33 /* HostListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListView.swift; sourceTree = "<group>"; };
 		A79858D8548840C07D779517 /* MobileVaultImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporter.swift; sourceTree = "<group>"; };
+		AA5F0EB78F4D2A252EADAE8A /* EncryptedVaultStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedVaultStore.swift; sourceTree = "<group>"; };
 		F376C5C2345ABA90522EF515 /* MobileVaultModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultModels.swift; sourceTree = "<group>"; };
 		FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermiRustMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -129,6 +131,7 @@
 		50DA47110E51091E83B5D67C /* Vault */ = {
 			isa = PBXGroup;
 			children = (
+				AA5F0EB78F4D2A252EADAE8A /* EncryptedVaultStore.swift */,
 				A79858D8548840C07D779517 /* MobileVaultImporter.swift */,
 				12A4A57E7A9697AA99669AD5 /* NativeMobileVaultDecryptor.swift */,
 			);
@@ -300,6 +303,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				E22EA4959B1A3AA8EFA705EC /* ContentView.swift in Sources */,
+				3BDA4D8CBA0D6C8DF9F7F371 /* EncryptedVaultStore.swift in Sources */,
 				7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */,
 				024F40527C1D093776F9191D /* HostListViewModel.swift in Sources */,
 				99EB986DA9ED3C19DFFB95F0 /* KeychainSecretStore.swift in Sources */,

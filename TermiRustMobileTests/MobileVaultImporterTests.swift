@@ -108,6 +108,31 @@ final class MobileVaultImporterTests: XCTestCase {
     }
 
     @MainActor
+    func testEncryptedVaultImportCachesEncryptedBytesForLaterUnlock() throws {
+        let store = FixtureEncryptedVaultStore()
+        let viewModel = HostListViewModel(
+            vaultImporter: MobileVaultImporter(decryptor: FixtureDecryptor(plaintext: plaintextVaultData)),
+            secretStore: FixtureSecretStore(),
+            encryptedVaultStore: store,
+            sshClient: FixtureSSHClient()
+        )
+        let tempURL = FileManager.default.temporaryDirectory
+            .appendingPathComponent(UUID().uuidString)
+            .appendingPathExtension("json")
+        try encryptedEnvelopeData.write(to: tempURL)
+        defer { try? FileManager.default.removeItem(at: tempURL) }
+
+        viewModel.importEncryptedVault(from: tempURL, passphrase: "hunter2")
+
+        XCTAssertTrue(viewModel.hasStoredEncryptedVault)
+        XCTAssertEqual(store.saved, encryptedEnvelopeData)
+
+        viewModel.unlockStoredEncryptedVault(passphrase: "hunter2")
+
+        XCTAssertEqual(viewModel.selectedHost?.label, "Prod")
+    }
+
+    @MainActor
     func testCredentialSaveUsesExportedSecretReference() throws {
         let host = MobileHost(
             id: "profile-1",
@@ -246,6 +271,26 @@ private final class FixtureSecretStore: SecretStoring {
 
     func deleteSecret(account: String) throws {
         saved.removeValue(forKey: account)
+    }
+}
+
+private final class FixtureEncryptedVaultStore: EncryptedVaultStoring {
+    var saved: Data?
+
+    var hasEncryptedVault: Bool {
+        saved != nil
+    }
+
+    func saveEncryptedVault(_ data: Data) throws {
+        saved = data
+    }
+
+    func readEncryptedVault() throws -> Data? {
+        saved
+    }
+
+    func clearEncryptedVault() throws {
+        saved = nil
     }
 }
 

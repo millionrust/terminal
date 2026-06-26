@@ -6,6 +6,7 @@ import UniformTypeIdentifiers
 final class HostListViewModel: ObservableObject {
     @Published private(set) var vault: MobileVaultExport?
     @Published private(set) var connectionState: TerminalConnectionState = .disconnected
+    @Published private(set) var hasStoredEncryptedVault: Bool
     @Published var selectedHost: MobileHost?
     @Published var importError: String?
 
@@ -13,16 +14,20 @@ final class HostListViewModel: ObservableObject {
 
     private let vaultImporter: MobileVaultImporter
     private let secretStore: SecretStoring
+    private let encryptedVaultStore: EncryptedVaultStoring?
     private let sshClient: MobileSSHConnecting
 
     init(
         vaultImporter: MobileVaultImporter,
         secretStore: SecretStoring,
+        encryptedVaultStore: EncryptedVaultStoring? = nil,
         sshClient: MobileSSHConnecting = DirectSSHSessionClient()
     ) {
         self.vaultImporter = vaultImporter
         self.secretStore = secretStore
+        self.encryptedVaultStore = encryptedVaultStore
         self.sshClient = sshClient
+        self.hasStoredEncryptedVault = encryptedVaultStore?.hasEncryptedVault ?? false
     }
 
     var hosts: [MobileHost] {
@@ -54,8 +59,38 @@ final class HostListViewModel: ObservableObject {
         do {
             let data = try Data(contentsOf: url)
             vault = try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase)
+            try encryptedVaultStore?.saveEncryptedVault(data)
+            hasStoredEncryptedVault = encryptedVaultStore?.hasEncryptedVault ?? false
             selectedHost = hosts.first
             importError = nil
+        } catch {
+            importError = error.localizedDescription
+        }
+    }
+
+    func unlockStoredEncryptedVault(passphrase: String) {
+        do {
+            guard let data = try encryptedVaultStore?.readEncryptedVault() else {
+                hasStoredEncryptedVault = false
+                importError = "No stored encrypted vault is available."
+                return
+            }
+            vault = try vaultImporter.importEncryptedVaultData(data, passphrase: passphrase)
+            selectedHost = hosts.first
+            hasStoredEncryptedVault = encryptedVaultStore?.hasEncryptedVault ?? false
+            importError = nil
+        } catch {
+            importError = error.localizedDescription
+        }
+    }
+
+    func forgetStoredEncryptedVault() {
+        do {
+            try encryptedVaultStore?.clearEncryptedVault()
+            hasStoredEncryptedVault = false
+            vault = nil
+            selectedHost = nil
+            importError = "Stored encrypted vault removed."
         } catch {
             importError = error.localizedDescription
         }

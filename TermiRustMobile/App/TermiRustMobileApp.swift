@@ -7,6 +7,7 @@ struct TermiRustMobileApp: App {
         return HostListViewModel(
             vaultImporter: MobileVaultImporter(decryptor: NativeMobileVaultDecryptor()),
             secretStore: secretStore,
+            encryptedVaultStore: try? FileEncryptedVaultStore(),
             sshClient: DirectSSHSessionClient(secretStore: secretStore)
         )
     }()
