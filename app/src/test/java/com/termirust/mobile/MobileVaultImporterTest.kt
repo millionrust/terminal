@@ -46,7 +46,7 @@ class MobileVaultImporterTest {
             "host": "prod.example.com",
             "port": 22,
             "username": "ubuntu",
-            "auth": {"kind": "private_key", "identity_id": "identity-1", "secret_ref": null},
+            "auth": {"kind": "private_key", "identity_id": "identity-1", "secret_ref": "termirust-mobile://identity/identity-1/private-key"},
             "jump_host_id": null,
             "startup_directory": "/srv/app",
             "startup_command": "uptime",
@@ -88,6 +88,10 @@ class MobileVaultImporterTest {
 
         assertEquals(1, vault.schemaVersion)
         assertEquals("tr-prod", vault.hosts.first().persistentSession.sessionName)
+        assertEquals(
+            "termirust-mobile://identity/identity-1/private-key",
+            vault.hosts.first().auth.secretRef,
+        )
         assertEquals("prod.example.com:22", vault.knownHosts.first().endpoint)
         assertEquals("desktop-1", vault.devices.first().deviceId)
         assertEquals("desktop", vault.devices.first().platform)
