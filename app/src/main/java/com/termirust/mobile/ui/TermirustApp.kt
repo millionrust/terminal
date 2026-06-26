@@ -62,6 +62,7 @@ import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobileKnownHost
 import com.termirust.mobile.ssh.TerminalConnectionState
+import com.termirust.mobile.terminal.encodeTerminalInput
 import com.termirust.mobile.terminal.estimateTerminalGrid
 
 private val AppBackground = Color(0xFFF5F7FA)
@@ -80,59 +81,61 @@ fun TermirustApp(
     onImportCredentialFile: () -> Unit,
 ) {
     MaterialTheme {
-        BoxWithConstraints(
+        Box(
             modifier = Modifier
                 .fillMaxSize()
                 .background(AppBackground)
-                .statusBarsPadding()
-                .navigationBarsPadding()
                 .imePadding(),
         ) {
-            val wide = maxWidth >= 900.dp
-            val outerPadding = if (wide) 20.dp else 0.dp
-            val panelSpacing = if (wide) 18.dp else 0.dp
-            val hostPanelWidth = (maxWidth * 0.34f).coerceIn(340.dp, 460.dp)
-            if (wide) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(outerPadding),
-                    horizontalArrangement = Arrangement.spacedBy(panelSpacing),
-                ) {
-                    HostPanel(
-                        viewModel = viewModel,
-                        onImportVault = onImportVault,
-                        modifier = Modifier
-                            .width(hostPanelWidth)
-                            .fillMaxHeight(),
-                    )
-                    SessionPanel(
-                        viewModel = viewModel,
-                        onImportCredentialFile = onImportCredentialFile,
-                        modifier = Modifier.weight(1f),
-                    )
-                }
-            } else {
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize(),
-                    verticalArrangement = Arrangement.spacedBy(0.dp),
-                ) {
-                    CompactHeader(
-                        viewModel = viewModel,
-                        onImportVault = onImportVault,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    CompactHostStrip(
-                        viewModel = viewModel,
-                        modifier = Modifier.fillMaxWidth(),
-                    )
-                    SessionPanel(
-                        viewModel = viewModel,
-                        onImportCredentialFile = onImportCredentialFile,
-                        modifier = Modifier.weight(1f),
-                        framed = false,
-                    )
+            BoxWithConstraints(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .statusBarsPadding()
+                    .navigationBarsPadding(),
+            ) {
+                val wide = maxWidth >= 900.dp
+                val panelSpacing = if (wide) 1.dp else 0.dp
+                val hostPanelWidth = (maxWidth * 0.34f).coerceIn(340.dp, 460.dp)
+                if (wide) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.spacedBy(panelSpacing),
+                    ) {
+                        HostPanel(
+                            viewModel = viewModel,
+                            onImportVault = onImportVault,
+                            modifier = Modifier
+                                .width(hostPanelWidth)
+                                .fillMaxHeight(),
+                        )
+                        SessionPanel(
+                            viewModel = viewModel,
+                            onImportCredentialFile = onImportCredentialFile,
+                            modifier = Modifier.weight(1f),
+                            framed = false,
+                        )
+                    }
+                } else {
+                    Column(
+                        modifier = Modifier.fillMaxSize(),
+                        verticalArrangement = Arrangement.spacedBy(0.dp),
+                    ) {
+                        CompactHeader(
+                            viewModel = viewModel,
+                            onImportVault = onImportVault,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        CompactHostStrip(
+                            viewModel = viewModel,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+                        SessionPanel(
+                            viewModel = viewModel,
+                            onImportCredentialFile = onImportCredentialFile,
+                            modifier = Modifier.weight(1f),
+                            framed = false,
+                        )
+                    }
                 }
             }
         }
@@ -390,6 +393,8 @@ private fun SessionPanel(
     var pendingMultilinePaste by remember { mutableStateOf<String?>(null) }
     var terminalWidthPx by remember { mutableStateOf(0) }
     var terminalHeightPx by remember { mutableStateOf(0) }
+    var controlModifierActive by remember { mutableStateOf(false) }
+    var altModifierActive by remember { mutableStateOf(false) }
     val density = LocalDensity.current
     val terminalGrid = remember(terminalWidthPx, terminalHeightPx, terminalFontSize, density.density) {
         if (terminalWidthPx > 0 && terminalHeightPx > 0) {
@@ -407,12 +412,25 @@ private fun SessionPanel(
 
     fun sendCommandWithPasteGuard(force: Boolean = false) {
         val value = command
-        if (!force && value.lineSequence().take(2).count() > 1) {
+        val modifierActive = controlModifierActive || altModifierActive
+        if (!force && !modifierActive && value.lineSequence().take(2).count() > 1) {
             pendingMultilinePaste = value
             return
         }
-        viewModel.sendTerminalInput(value)
+        if (modifierActive) {
+            viewModel.sendTerminalBytes(
+                encodeTerminalInput(
+                    input = value,
+                    control = controlModifierActive,
+                    alt = altModifierActive,
+                ),
+            )
+        } else {
+            viewModel.sendTerminalInput(value)
+        }
         command = ""
+        controlModifierActive = false
+        altModifierActive = false
         pendingMultilinePaste = null
     }
 
@@ -455,11 +473,16 @@ private fun SessionPanel(
                     terminalHeightPx = height
                 },
                 modifier = Modifier.weight(1f),
+                edgeToEdge = !framed,
             )
             TerminalToolbar(
                 terminalFontSize = terminalFontSize,
                 onDecreaseFont = { terminalFontSize = (terminalFontSize - 1).coerceAtLeast(10) },
                 onIncreaseFont = { terminalFontSize = (terminalFontSize + 1).coerceAtMost(24) },
+                controlModifierActive = controlModifierActive,
+                altModifierActive = altModifierActive,
+                onToggleControl = { controlModifierActive = !controlModifierActive },
+                onToggleAlt = { altModifierActive = !altModifierActive },
                 onSend = viewModel::sendTerminalBytes,
             )
             if (pendingMultilinePaste == command && command.isNotEmpty()) {
@@ -759,14 +782,18 @@ private fun TerminalSurface(
     terminalFontSize: Int,
     onSizeChanged: (Int, Int) -> Unit,
     modifier: Modifier = Modifier,
+    edgeToEdge: Boolean = false,
 ) {
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .padding(horizontal = 14.dp, vertical = 10.dp)
+            .padding(
+                horizontal = if (edgeToEdge) 0.dp else 14.dp,
+                vertical = if (edgeToEdge) 0.dp else 10.dp,
+            )
             .onSizeChanged { onSizeChanged(it.width, it.height) },
         color = TerminalBackground,
-        shape = RoundedCornerShape(14.dp),
+        shape = RoundedCornerShape(if (edgeToEdge) 0.dp else 14.dp),
     ) {
         SelectionContainer {
             LazyColumn(
@@ -804,6 +831,10 @@ private fun TerminalToolbar(
     terminalFontSize: Int,
     onDecreaseFont: () -> Unit,
     onIncreaseFont: () -> Unit,
+    controlModifierActive: Boolean,
+    altModifierActive: Boolean,
+    onToggleControl: () -> Unit,
+    onToggleAlt: () -> Unit,
     onSend: (ByteArray) -> Unit,
 ) {
     Column(modifier = Modifier.padding(horizontal = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -813,6 +844,18 @@ private fun TerminalToolbar(
             Text("$terminalFontSize sp", color = Color(0xFF64748B), style = MaterialTheme.typography.bodySmall)
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+            item {
+                AssistChip(
+                    onClick = onToggleControl,
+                    label = { Text(if (controlModifierActive) "Ctrl*" else "Ctrl") },
+                )
+            }
+            item {
+                AssistChip(
+                    onClick = onToggleAlt,
+                    label = { Text(if (altModifierActive) "Alt*" else "Alt") },
+                )
+            }
             items(accessoryKeys, key = { it.label }) { key ->
                 AssistChip(
                     onClick = {
@@ -905,8 +948,6 @@ private data class AccessoryKey(val label: String, val bytes: String)
 private val accessoryKeys = listOf(
     AccessoryKey("Esc", "\u001B"),
     AccessoryKey("Tab", "\t"),
-    AccessoryKey("Ctrl", ""),
-    AccessoryKey("Alt", ""),
     AccessoryKey("←", "\u001B[D"),
     AccessoryKey("↓", "\u001B[B"),
     AccessoryKey("↑", "\u001B[A"),

@@ -11,6 +11,7 @@ import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.TmuxBootstrap
 import com.termirust.mobile.terminal.TerminalBuffer
 import com.termirust.mobile.terminal.TerminalGrid
+import com.termirust.mobile.terminal.encodeTerminalInput
 import com.termirust.mobile.terminal.estimateTerminalGrid
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonObject
@@ -373,6 +374,16 @@ class MobileVaultImporterTest {
             TerminalGrid(columns = 20, rows = 6),
             estimateTerminalGrid(widthPx = 1, heightPx = 1, fontSizeSp = 14, density = 1f),
         )
+    }
+
+    @Test
+    fun terminalInputEncodingHandlesControlAndAltModifiers() {
+        assertEquals("uptime\n".encodeToByteArray().toList(), encodeTerminalInput("uptime", control = false, alt = false).toList())
+        assertEquals(listOf(0x03.toByte()), encodeTerminalInput("c", control = true, alt = false).toList())
+        assertEquals(listOf(0x04.toByte()), encodeTerminalInput("D", control = true, alt = false).toList())
+        assertEquals(listOf(0x1B.toByte()), encodeTerminalInput("[", control = true, alt = false).toList())
+        assertEquals(listOf(0x1B.toByte(), 0x78.toByte()), encodeTerminalInput("x", control = false, alt = true).toList())
+        assertEquals(listOf(0x1B.toByte(), 0x03.toByte()), encodeTerminalInput("c", control = true, alt = true).toList())
     }
 }
 
