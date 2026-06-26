@@ -59,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import com.termirust.mobile.MobileHostViewModel
 import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileHost
+import com.termirust.mobile.data.MobileKnownHost
 import com.termirust.mobile.ssh.TerminalConnectionState
 import com.termirust.mobile.terminal.estimateTerminalGrid
 
@@ -347,6 +348,7 @@ private fun SessionPanel(
     framed: Boolean = true,
 ) {
     val selectedHost by viewModel.selectedHost.collectAsState()
+    val vault by viewModel.vault.collectAsState()
     val lines by viewModel.terminalBuffer.lines.collectAsState()
     val state by viewModel.connectionState.collectAsState()
     var command by remember { mutableStateOf("") }
@@ -393,6 +395,10 @@ private fun SessionPanel(
                 ConnectionWarningBanner(message = message)
             }
             selectedHost?.let { host ->
+                HostKeyPinPanel(
+                    host = host,
+                    knownHost = vault?.knownHosts?.firstOrNull { it.endpoint == host.knownHostEndpoint },
+                )
                 CredentialEditor(
                     host = host,
                     credential = credential,
@@ -534,6 +540,56 @@ private fun ConnectionWarningBanner(message: String) {
                 style = MaterialTheme.typography.bodySmall,
                 color = Color(0xFF7F1D1D),
             )
+        }
+    }
+}
+
+@Composable
+private fun HostKeyPinPanel(host: MobileHost, knownHost: MobileKnownHost?) {
+    val pinned = knownHost != null
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(horizontal = 14.dp, vertical = 4.dp),
+        color = if (pinned) Color(0xFFEFFDF5) else Color(0xFFFEF2F2),
+        shape = RoundedCornerShape(12.dp),
+        border = BorderStroke(1.dp, if (pinned) Color(0xFFBBF7D0) else Color(0xFFFECACA)),
+    ) {
+        Row(
+            modifier = Modifier.padding(10.dp),
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+            verticalAlignment = Alignment.Top,
+        ) {
+            Text(
+                if (pinned) "✓" else "!",
+                modifier = Modifier.width(18.dp),
+                color = if (pinned) Success else Color(0xFFDC2626),
+                style = MaterialTheme.typography.titleSmall,
+                fontWeight = FontWeight.Bold,
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
+                Text(
+                    if (pinned) "Host key pinned" else "Host key not pinned",
+                    style = MaterialTheme.typography.labelLarge,
+                    fontWeight = FontWeight.SemiBold,
+                    color = if (pinned) Success else Color(0xFFB91C1C),
+                )
+                Text(
+                    knownHost?.endpoint ?: host.knownHostEndpoint ?: "${host.host}:${host.port}",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = Color(0xFF64748B),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    knownHost?.pinPreview() ?: "Export a known-host pin from desktop before connecting.",
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (pinned) Color(0xFF475569) else Color(0xFF7F1D1D),
+                    fontFamily = FontFamily.Monospace,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
         }
     }
 }
@@ -785,4 +841,16 @@ private fun TerminalConnectionState.color(): Color = when (this) {
 private fun TerminalConnectionState.failureMessage(): String? = when (this) {
     is TerminalConnectionState.Failed -> message
     else -> null
+}
+
+private fun MobileKnownHost.pinPreview(): String =
+    fingerprint?.takeIf { it.isNotBlank() } ?: publicKey.truncatedMiddle(52)
+
+private fun String.truncatedMiddle(maxLength: Int): String {
+    if (length <= maxLength || maxLength <= 8) {
+        return this
+    }
+    val prefixLength = maxLength / 2 - 2
+    val suffixLength = maxLength - prefixLength - 3
+    return take(prefixLength) + "..." + takeLast(suffixLength)
 }

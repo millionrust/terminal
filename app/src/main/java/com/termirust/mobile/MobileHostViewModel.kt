@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.termirust.mobile.data.EncryptedVaultStore
 import com.termirust.mobile.data.MobileHost
+import com.termirust.mobile.data.MobileKnownHost
 import com.termirust.mobile.data.MobileVaultExport
 import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.security.MobileSecretStore
@@ -93,6 +94,9 @@ class MobileHostViewModel(
         _selectedHost.value = host
     }
 
+    fun knownHostFor(host: MobileHost): MobileKnownHost? =
+        _vault.value?.knownHosts?.firstOrNull { it.endpoint == host.knownHostEndpoint }
+
     fun saveCredentialForSelectedHost(secret: String) {
         val host = _selectedHost.value ?: return
         val reference = host.auth.secretRef
@@ -135,7 +139,7 @@ class MobileHostViewModel(
 
     fun connectSelectedHost() {
         val host = _selectedHost.value ?: return
-        val knownHost = _vault.value?.knownHosts?.firstOrNull { it.endpoint == host.knownHostEndpoint }
+        val knownHost = knownHostFor(host)
         _connectionState.value = TerminalConnectionState.Connecting
         terminalBuffer.clear()
         terminalBuffer.append("Connecting to ${host.username}@${host.host}:${host.port}")

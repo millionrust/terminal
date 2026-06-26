@@ -84,6 +84,16 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun viewModelResolvesSelectedHostKnownHostPin() {
+        val viewModel = MobileHostViewModel()
+
+        viewModel.importPlaintextFixture(plaintextVault)
+
+        val host = viewModel.selectedHost.value!!
+        assertEquals("prod.example.com:22", viewModel.knownHostFor(host)?.endpoint)
+    }
+
+    @Test
     fun plaintextVaultRejectsRevokedSourceDevice() {
         val revokedVault = plaintextVault.decodeToString()
             .replace("\"revoked_at_millis\": null", "\"revoked_at_millis\": 1719356789123")
