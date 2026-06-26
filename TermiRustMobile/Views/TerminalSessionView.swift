@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct TerminalSessionView: View {
     @ObservedObject var viewModel: HostListViewModel
@@ -9,6 +10,7 @@ struct TerminalSessionView: View {
     @State private var pendingMultilinePaste: String?
     @State private var terminalGrid: TerminalGrid?
     @State private var lastSentTerminalGrid: TerminalGrid?
+    @State private var showingPrivateKeyImporter = false
 
     var body: some View {
         GeometryReader { proxy in
@@ -42,6 +44,13 @@ struct TerminalSessionView: View {
         }
         .navigationTitle(host.label)
         .navigationBarTitleDisplayMode(.inline)
+        .fileImporter(
+            isPresented: $showingPrivateKeyImporter,
+            allowedContentTypes: [.plainText, .data],
+            allowsMultipleSelection: false
+        ) { result in
+            importPrivateKey(result)
+        }
     }
 
     private var sessionHeader: some View {
@@ -91,6 +100,13 @@ struct TerminalSessionView: View {
                     }
                     .buttonStyle(.bordered)
                     .disabled(host.auth.secretRef?.isEmpty ?? true)
+                    if host.auth.kind == .privateKey {
+                        Button("Import Key File") {
+                            showingPrivateKeyImporter = true
+                        }
+                        .buttonStyle(.bordered)
+                        .disabled(host.auth.secretRef?.isEmpty ?? true)
+                    }
                 }
             }
         }
@@ -260,6 +276,25 @@ struct TerminalSessionView: View {
         viewModel.sendTerminalInput(input)
         input = ""
         pendingMultilinePaste = nil
+    }
+
+    private func importPrivateKey(_ result: Result<[URL], Error>) {
+        do {
+            guard case .success(let urls) = result, let url = urls.first else {
+                return
+            }
+            let scoped = url.startAccessingSecurityScopedResource()
+            defer {
+                if scoped {
+                    url.stopAccessingSecurityScopedResource()
+                }
+            }
+            let key = try String(contentsOf: url, encoding: .utf8)
+            viewModel.saveCredential(key, for: host)
+            credential = ""
+        } catch {
+            viewModel.reportStatus(error.localizedDescription)
+        }
     }
 
     private func updateTerminalGrid(size: CGSize, forceResize: Bool = false) {
