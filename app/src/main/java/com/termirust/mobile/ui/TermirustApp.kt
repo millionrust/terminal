@@ -31,7 +31,9 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.lightColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -39,12 +41,14 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -58,6 +62,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.foundation.isSystemInDarkTheme
 import com.termirust.mobile.MobileHostViewModel
 import com.termirust.mobile.data.MobileAuthKind
 import com.termirust.mobile.data.MobileHost
@@ -66,14 +71,122 @@ import com.termirust.mobile.ssh.TerminalConnectionState
 import com.termirust.mobile.terminal.encodeTerminalInput
 import com.termirust.mobile.terminal.estimateTerminalGrid
 
-private val AppBackground = Color(0xFFF5F7FA)
-private val PanelBorder = Color(0xFFE0E6EF)
-private val TerminalBackground = Color(0xFF0B1020)
-private val TerminalForeground = Color(0xFFE5E7EB)
-private val TerminalMuted = Color(0xFF94A3B8)
-private val Accent = Color(0xFF2563EB)
-private val Success = Color(0xFF0F9F6E)
-private val Warning = Color(0xFFB45309)
+private data class TermirustMobileColors(
+    val appBackground: Color,
+    val panelBackground: Color,
+    val panelAltBackground: Color,
+    val panelBorder: Color,
+    val primaryText: Color,
+    val secondaryText: Color,
+    val terminalBackground: Color,
+    val terminalForeground: Color,
+    val terminalMuted: Color,
+    val accent: Color,
+    val accentSurface: Color,
+    val success: Color,
+    val successSurface: Color,
+    val successBorder: Color,
+    val warning: Color,
+    val warningSurface: Color,
+    val warningBorder: Color,
+    val danger: Color,
+    val dangerText: Color,
+    val dangerSurface: Color,
+    val dangerBorder: Color,
+)
+
+private val LightMobileColors = TermirustMobileColors(
+    appBackground = Color(0xFFF5F7FA),
+    panelBackground = Color.White,
+    panelAltBackground = Color(0xFFF8FAFC),
+    panelBorder = Color(0xFFE0E6EF),
+    primaryText = Color(0xFF111827),
+    secondaryText = Color(0xFF64748B),
+    terminalBackground = Color(0xFF0B1020),
+    terminalForeground = Color(0xFFE5E7EB),
+    terminalMuted = Color(0xFF94A3B8),
+    accent = Color(0xFF2563EB),
+    accentSurface = Color(0xFFEFF6FF),
+    success = Color(0xFF0F9F6E),
+    successSurface = Color(0xFFEFFDF5),
+    successBorder = Color(0xFFBBF7D0),
+    warning = Color(0xFFB45309),
+    warningSurface = Color(0xFFFFF7ED),
+    warningBorder = Color(0xFFFED7AA),
+    danger = Color(0xFFDC2626),
+    dangerText = Color(0xFF7F1D1D),
+    dangerSurface = Color(0xFFFEF2F2),
+    dangerBorder = Color(0xFFFECACA),
+)
+
+private val DarkMobileColors = TermirustMobileColors(
+    appBackground = Color(0xFF0C0F14),
+    panelBackground = Color(0xFF151922),
+    panelAltBackground = Color(0xFF111827),
+    panelBorder = Color(0xFF303746),
+    primaryText = Color(0xFFF8FAFC),
+    secondaryText = Color(0xFF94A3B8),
+    terminalBackground = Color(0xFF050814),
+    terminalForeground = Color(0xFFF1F5F9),
+    terminalMuted = Color(0xFF94A3B8),
+    accent = Color(0xFF60A5FA),
+    accentSurface = Color(0xFF13233D),
+    success = Color(0xFF34D399),
+    successSurface = Color(0xFF062E22),
+    successBorder = Color(0xFF166846),
+    warning = Color(0xFFF59E0B),
+    warningSurface = Color(0xFF3B2507),
+    warningBorder = Color(0xFF92400E),
+    danger = Color(0xFFF87171),
+    dangerText = Color(0xFFFECACA),
+    dangerSurface = Color(0xFF3A1114),
+    dangerBorder = Color(0xFF7F1D1D),
+)
+
+private val LocalTermirustMobileColors = staticCompositionLocalOf { LightMobileColors }
+
+private val AppBackground: Color
+    @Composable get() = LocalTermirustMobileColors.current.appBackground
+private val PanelBackground: Color
+    @Composable get() = LocalTermirustMobileColors.current.panelBackground
+private val PanelAltBackground: Color
+    @Composable get() = LocalTermirustMobileColors.current.panelAltBackground
+private val PanelBorder: Color
+    @Composable get() = LocalTermirustMobileColors.current.panelBorder
+private val PrimaryText: Color
+    @Composable get() = LocalTermirustMobileColors.current.primaryText
+private val SecondaryText: Color
+    @Composable get() = LocalTermirustMobileColors.current.secondaryText
+private val TerminalBackground: Color
+    @Composable get() = LocalTermirustMobileColors.current.terminalBackground
+private val TerminalForeground: Color
+    @Composable get() = LocalTermirustMobileColors.current.terminalForeground
+private val TerminalMuted: Color
+    @Composable get() = LocalTermirustMobileColors.current.terminalMuted
+private val Accent: Color
+    @Composable get() = LocalTermirustMobileColors.current.accent
+private val AccentSurface: Color
+    @Composable get() = LocalTermirustMobileColors.current.accentSurface
+private val Success: Color
+    @Composable get() = LocalTermirustMobileColors.current.success
+private val SuccessSurface: Color
+    @Composable get() = LocalTermirustMobileColors.current.successSurface
+private val SuccessBorder: Color
+    @Composable get() = LocalTermirustMobileColors.current.successBorder
+private val Warning: Color
+    @Composable get() = LocalTermirustMobileColors.current.warning
+private val WarningSurface: Color
+    @Composable get() = LocalTermirustMobileColors.current.warningSurface
+private val WarningBorder: Color
+    @Composable get() = LocalTermirustMobileColors.current.warningBorder
+private val Danger: Color
+    @Composable get() = LocalTermirustMobileColors.current.danger
+private val DangerText: Color
+    @Composable get() = LocalTermirustMobileColors.current.dangerText
+private val DangerSurface: Color
+    @Composable get() = LocalTermirustMobileColors.current.dangerSurface
+private val DangerBorder: Color
+    @Composable get() = LocalTermirustMobileColors.current.dangerBorder
 
 @Composable
 fun TermirustApp(
@@ -81,71 +194,89 @@ fun TermirustApp(
     onImportVault: (String) -> Unit,
     onImportCredentialFile: () -> Unit,
 ) {
-    MaterialTheme {
+    val dark = isSystemInDarkTheme()
+    val mobileColors = if (dark) DarkMobileColors else LightMobileColors
+    MaterialTheme(
+        colorScheme = if (dark) {
+            darkColorScheme(
+                primary = mobileColors.accent,
+                background = mobileColors.appBackground,
+                surface = mobileColors.panelBackground,
+            )
+        } else {
+            lightColorScheme(
+                primary = mobileColors.accent,
+                background = mobileColors.appBackground,
+                surface = mobileColors.panelBackground,
+            )
+        },
+    ) {
         var showVaultDialog by remember { mutableStateOf(false) }
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .background(AppBackground)
-                .imePadding(),
-        ) {
-            BoxWithConstraints(
+        CompositionLocalProvider(LocalTermirustMobileColors provides mobileColors) {
+            Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .statusBarsPadding()
-                    .navigationBarsPadding(),
+                    .background(mobileColors.appBackground)
+                    .imePadding(),
             ) {
-                val wide = maxWidth >= 900.dp
-                val panelSpacing = if (wide) 1.dp else 0.dp
-                val hostPanelWidth = (maxWidth * 0.34f).coerceIn(340.dp, 460.dp)
-                if (wide) {
-                    Row(
-                        modifier = Modifier.fillMaxSize(),
-                        horizontalArrangement = Arrangement.spacedBy(panelSpacing),
-                    ) {
-                        HostPanel(
-                            viewModel = viewModel,
-                            onImportVault = onImportVault,
-                            modifier = Modifier
-                                .width(hostPanelWidth)
-                                .fillMaxHeight(),
-                        )
-                        SessionPanel(
-                            viewModel = viewModel,
-                            onImportCredentialFile = onImportCredentialFile,
-                            modifier = Modifier.weight(1f),
-                            framed = false,
-                        )
-                    }
-                } else {
-                    Column(
-                        modifier = Modifier.fillMaxSize(),
-                        verticalArrangement = Arrangement.spacedBy(0.dp),
-                    ) {
-                        CompactTopBar(
-                            viewModel = viewModel,
-                            onOpenVault = { showVaultDialog = true },
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        CompactHostStrip(
-                            viewModel = viewModel,
-                            modifier = Modifier.fillMaxWidth(),
-                        )
-                        SessionPanel(
-                            viewModel = viewModel,
-                            onImportCredentialFile = onImportCredentialFile,
-                            modifier = Modifier.weight(1f),
-                            framed = false,
-                        )
+                BoxWithConstraints(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .statusBarsPadding()
+                        .navigationBarsPadding(),
+                ) {
+                    val wide = maxWidth >= 900.dp
+                    val panelSpacing = if (wide) 1.dp else 0.dp
+                    val hostPanelWidth = (maxWidth * 0.34f).coerceIn(340.dp, 460.dp)
+                    if (wide) {
+                        Row(
+                            modifier = Modifier.fillMaxSize(),
+                            horizontalArrangement = Arrangement.spacedBy(panelSpacing),
+                        ) {
+                            HostPanel(
+                                viewModel = viewModel,
+                                onImportVault = onImportVault,
+                                modifier = Modifier
+                                    .width(hostPanelWidth)
+                                    .fillMaxHeight(),
+                            )
+                            SessionPanel(
+                                viewModel = viewModel,
+                                onImportCredentialFile = onImportCredentialFile,
+                                modifier = Modifier.weight(1f),
+                                framed = false,
+                            )
+                        }
+                    } else {
+                        Column(
+                            modifier = Modifier.fillMaxSize(),
+                            verticalArrangement = Arrangement.spacedBy(0.dp),
+                        ) {
+                            CompactTopBar(
+                                viewModel = viewModel,
+                                onOpenVault = { showVaultDialog = true },
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            CompactHostStrip(
+                                viewModel = viewModel,
+                                modifier = Modifier.fillMaxWidth(),
+                            )
+                            SessionPanel(
+                                viewModel = viewModel,
+                                onImportCredentialFile = onImportCredentialFile,
+                                modifier = Modifier.weight(1f),
+                                framed = false,
+                            )
+                        }
                     }
                 }
-            }
-            if (showVaultDialog) {
-                VaultDialog(
-                    viewModel = viewModel,
-                    onImportVault = onImportVault,
-                    onDismiss = { showVaultDialog = false },
-                )
+                if (showVaultDialog) {
+                    VaultDialog(
+                        viewModel = viewModel,
+                        onImportVault = onImportVault,
+                        onDismiss = { showVaultDialog = false },
+                    )
+                }
             }
         }
     }
@@ -161,7 +292,7 @@ private fun HostPanel(
     val selectedHost by viewModel.selectedHost.collectAsState()
     Card(
         modifier = modifier,
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = PanelBackground),
         border = BorderStroke(1.dp, PanelBorder),
         shape = RoundedCornerShape(18.dp),
     ) {
@@ -177,7 +308,7 @@ private fun HostPanel(
                 "Hosts",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFF111827),
+                color = PrimaryText,
             )
             LazyColumn(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 items(vault?.hosts.orEmpty(), key = { it.id }) { host ->
@@ -201,7 +332,7 @@ private fun CompactTopBar(
     val vault by viewModel.vault.collectAsState()
     Surface(
         modifier = modifier,
-        color = Color.White,
+        color = PanelBackground,
         border = BorderStroke(1.dp, PanelBorder),
     ) {
         Row(
@@ -249,7 +380,7 @@ private fun ProductHeader(
             Text(
                 subtitle,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF64748B),
+                color = SecondaryText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
@@ -278,7 +409,7 @@ private fun VaultDialog(
                 compact = true,
             )
         },
-        containerColor = Color.White,
+        containerColor = PanelBackground,
     )
 }
 
@@ -295,7 +426,7 @@ private fun ImportVaultCard(
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (!compact) {
-            Text("Vault", style = MaterialTheme.typography.labelLarge, color = Color(0xFF334155))
+            Text("Vault", style = MaterialTheme.typography.labelLarge, color = SecondaryText)
         }
         OutlinedTextField(
             value = vaultPassphrase,
@@ -344,7 +475,7 @@ private fun ImportVaultCard(
             }
         }
         status?.let {
-            Text(it, style = MaterialTheme.typography.bodySmall, color = Color(0xFF475569))
+            Text(it, style = MaterialTheme.typography.bodySmall, color = SecondaryText)
         }
     }
 }
@@ -361,7 +492,7 @@ private fun CompactHostStrip(viewModel: MobileHostViewModel, modifier: Modifier 
     LazyRow(
         modifier = modifier
             .height(52.dp)
-            .background(Color.White)
+            .background(PanelBackground)
             .padding(horizontal = 14.dp, vertical = 6.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
@@ -379,7 +510,7 @@ private fun CompactHostStrip(viewModel: MobileHostViewModel, modifier: Modifier 
 private fun HostCard(host: MobileHost, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = if (selected) Color(0xFFEFF6FF) else Color(0xFFF8FAFC),
+        color = if (selected) AccentSurface else PanelAltBackground,
         border = BorderStroke(1.dp, if (selected) Accent else PanelBorder),
         shape = RoundedCornerShape(14.dp),
         modifier = Modifier.fillMaxWidth(),
@@ -401,12 +532,12 @@ private fun HostCard(host: MobileHost, selected: Boolean, onClick: () -> Unit) {
             Text(
                 "${host.username}@${host.host}:${host.port}",
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF64748B),
+                color = SecondaryText,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis,
             )
             host.persistentSession.sessionName?.let {
-                Text(it, style = MaterialTheme.typography.labelSmall, color = Color(0xFF2563EB))
+                Text(it, style = MaterialTheme.typography.labelSmall, color = Accent)
             }
         }
     }
@@ -416,7 +547,7 @@ private fun HostCard(host: MobileHost, selected: Boolean, onClick: () -> Unit) {
 private fun HostChip(host: MobileHost, selected: Boolean, onClick: () -> Unit) {
     Surface(
         onClick = onClick,
-        color = if (selected) Color(0xFFEFF6FF) else Color.White,
+        color = if (selected) AccentSurface else PanelBackground,
         border = BorderStroke(1.dp, if (selected) Accent else PanelBorder),
         shape = RoundedCornerShape(999.dp),
     ) {
@@ -565,7 +696,7 @@ private fun SessionPanel(
     if (framed) {
         Card(
             modifier = modifier.fillMaxSize(),
-            colors = CardDefaults.cardColors(containerColor = Color.White),
+            colors = CardDefaults.cardColors(containerColor = PanelBackground),
             border = BorderStroke(1.dp, PanelBorder),
             shape = RoundedCornerShape(18.dp),
         ) {
@@ -574,7 +705,7 @@ private fun SessionPanel(
     } else {
         Surface(
             modifier = modifier.fillMaxSize(),
-            color = Color.White,
+            color = PanelBackground,
         ) {
             content()
         }
@@ -649,7 +780,7 @@ private fun SessionTitle(host: MobileHost?, modifier: Modifier = Modifier) {
         Text(
             host?.let { "${it.username}@${it.host}:${it.port}" } ?: "Import a vault and select a host",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF64748B),
+            color = SecondaryText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -693,9 +824,9 @@ private fun ConnectionWarningBanner(message: String) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 4.dp),
-        color = Color(0xFFFEF2F2),
+        color = DangerSurface,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFFFECACA)),
+        border = BorderStroke(1.dp, DangerBorder),
     ) {
         Column(
             modifier = Modifier.padding(10.dp),
@@ -705,12 +836,12 @@ private fun ConnectionWarningBanner(message: String) {
                 "Connection blocked",
                 style = MaterialTheme.typography.labelLarge,
                 fontWeight = FontWeight.SemiBold,
-                color = Color(0xFFB91C1C),
+                color = Danger,
             )
             Text(
                 message,
                 style = MaterialTheme.typography.bodySmall,
-                color = Color(0xFF7F1D1D),
+                color = DangerText,
             )
         }
     }
@@ -723,9 +854,9 @@ private fun HostKeyPinPanel(host: MobileHost, knownHost: MobileKnownHost?) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 4.dp),
-        color = if (pinned) Color(0xFFEFFDF5) else Color(0xFFFEF2F2),
+        color = if (pinned) SuccessSurface else DangerSurface,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, if (pinned) Color(0xFFBBF7D0) else Color(0xFFFECACA)),
+        border = BorderStroke(1.dp, if (pinned) SuccessBorder else DangerBorder),
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
@@ -735,7 +866,7 @@ private fun HostKeyPinPanel(host: MobileHost, knownHost: MobileKnownHost?) {
             Text(
                 if (pinned) "✓" else "!",
                 modifier = Modifier.width(18.dp),
-                color = if (pinned) Success else Color(0xFFDC2626),
+                color = if (pinned) Success else Danger,
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.Bold,
             )
@@ -744,19 +875,19 @@ private fun HostKeyPinPanel(host: MobileHost, knownHost: MobileKnownHost?) {
                     if (pinned) "Host key pinned" else "Host key not pinned",
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.SemiBold,
-                    color = if (pinned) Success else Color(0xFFB91C1C),
+                    color = if (pinned) Success else Danger,
                 )
                 Text(
                     knownHost?.endpoint ?: host.knownHostEndpoint ?: "${host.host}:${host.port}",
                     style = MaterialTheme.typography.bodySmall,
-                    color = Color(0xFF64748B),
+                    color = SecondaryText,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
                 Text(
                     knownHost?.pinPreview() ?: "Export a known-host pin from desktop before connecting.",
                     style = MaterialTheme.typography.labelSmall,
-                    color = if (pinned) Color(0xFF475569) else Color(0xFF7F1D1D),
+                    color = if (pinned) SecondaryText else DangerText,
                     fontFamily = FontFamily.Monospace,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
@@ -791,7 +922,7 @@ private fun CredentialEditor(
             if (secretRef.isNullOrBlank()) "No mobile secret reference exported for this host."
             else "Credential: $secretRef",
             style = MaterialTheme.typography.bodySmall,
-            color = Color(0xFF64748B),
+            color = SecondaryText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
         )
@@ -898,7 +1029,7 @@ private fun TerminalToolbar(
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
             AssistChip(onClick = onDecreaseFont, label = { Text("A-") })
             AssistChip(onClick = onIncreaseFont, label = { Text("A+") })
-            Text("$terminalFontSize sp", color = Color(0xFF64748B), style = MaterialTheme.typography.bodySmall)
+            Text("$terminalFontSize sp", color = SecondaryText, style = MaterialTheme.typography.bodySmall)
         }
         LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
             item {
@@ -933,9 +1064,9 @@ private fun MultilinePasteWarning(onConfirm: () -> Unit, onCancel: () -> Unit) {
         modifier = Modifier
             .fillMaxWidth()
             .padding(horizontal = 14.dp, vertical = 8.dp),
-        color = Color(0xFFFFF7ED),
+        color = WarningSurface,
         shape = RoundedCornerShape(12.dp),
-        border = BorderStroke(1.dp, Color(0xFFFED7AA)),
+        border = BorderStroke(1.dp, WarningBorder),
     ) {
         Row(
             modifier = Modifier.padding(10.dp),
@@ -1021,11 +1152,12 @@ private fun TerminalConnectionState.label(): String = when (this) {
     is TerminalConnectionState.Failed -> "Failed"
 }
 
+@Composable
 private fun TerminalConnectionState.color(): Color = when (this) {
     TerminalConnectionState.Connected -> Success
     TerminalConnectionState.Connecting -> Accent
-    TerminalConnectionState.Disconnected -> Color(0xFF64748B)
-    is TerminalConnectionState.Failed -> Color(0xFFDC2626)
+    TerminalConnectionState.Disconnected -> SecondaryText
+    is TerminalConnectionState.Failed -> Danger
 }
 
 private fun TerminalConnectionState.failureMessage(): String? = when (this) {
