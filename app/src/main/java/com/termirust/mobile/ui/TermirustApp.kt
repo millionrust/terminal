@@ -221,9 +221,7 @@ fun TermirustApp(
             ) {
                 BoxWithConstraints(
                     modifier = Modifier
-                        .fillMaxSize()
-                        .statusBarsPadding()
-                        .navigationBarsPadding(),
+                        .fillMaxSize(),
                 ) {
                     val wide = maxWidth >= 900.dp
                     val panelSpacing = if (wide) 1.dp else 0.dp
@@ -238,12 +236,17 @@ fun TermirustApp(
                                 onImportVault = onImportVault,
                                 modifier = Modifier
                                     .width(hostPanelWidth)
-                                    .fillMaxHeight(),
+                                    .fillMaxHeight()
+                                    .statusBarsPadding()
+                                    .navigationBarsPadding(),
                             )
                             SessionPanel(
                                 viewModel = viewModel,
                                 onImportCredentialFile = onImportCredentialFile,
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .statusBarsPadding()
+                                    .navigationBarsPadding(),
                                 framed = false,
                             )
                         }
@@ -255,7 +258,9 @@ fun TermirustApp(
                             CompactTopBar(
                                 viewModel = viewModel,
                                 onOpenVault = { showVaultDialog = true },
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .statusBarsPadding(),
                             )
                             CompactHostStrip(
                                 viewModel = viewModel,
@@ -1095,6 +1100,7 @@ private fun CommandInput(
     Row(
         modifier = Modifier
             .fillMaxWidth()
+            .navigationBarsPadding()
             .padding(14.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
         verticalAlignment = Alignment.Bottom,
