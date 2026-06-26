@@ -1,6 +1,8 @@
 package com.termirust.mobile.security
 
 import android.content.Context
+import android.app.KeyguardManager
+import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -25,6 +27,7 @@ class KeystoreSecretStore(
     }
 
     override fun saveSecret(account: String, secret: String) {
+        requireSecureDeviceLock()
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, secretKey())
         val ciphertext = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
@@ -33,6 +36,7 @@ class KeystoreSecretStore(
     }
 
     override fun readSecret(account: String): String? {
+        requireSecureDeviceLock()
         val payload = prefs.getString(account, null) ?: return null
         val parts = payload.split(":")
         if (parts.size != 2) return null
@@ -62,9 +66,21 @@ class KeystoreSecretStore(
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
             .setUserAuthenticationRequired(false)
+            .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    setUnlockedDeviceRequired(true)
+                }
+            }
             .build()
         keyGenerator.init(spec)
         return keyGenerator.generateKey()
+    }
+
+    private fun requireSecureDeviceLock() {
+        val keyguard = context.getSystemService(KeyguardManager::class.java)
+        check(keyguard?.isDeviceSecure == true) {
+            "Set a device PIN, password, or pattern before storing TermiRust mobile SSH credentials."
+        }
     }
 
     private companion object {
