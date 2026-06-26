@@ -316,6 +316,32 @@ class MobileVaultImporterTest {
     }
 
     @Test
+    fun credentialSaveReportsSecureStoreFailure() {
+        val host = MobileHost(
+            id = "profile-1",
+            label = "Prod",
+            host = "prod.example.com",
+            port = 22,
+            username = "ubuntu",
+            auth = MobileAuthMetadata(
+                kind = MobileAuthKind.Password,
+                secretRef = "secret-prod-password",
+            ),
+        )
+        val viewModel = MobileHostViewModel(
+            secretStore = FailingSecretStore("Unlock this device before using TermiRust mobile SSH credentials."),
+        )
+
+        viewModel.selectHost(host)
+        viewModel.saveCredentialForSelectedHost("super-secret")
+
+        assertEquals(
+            "Unlock this device before using TermiRust mobile SSH credentials.",
+            viewModel.status.value,
+        )
+    }
+
+    @Test
     fun tmuxBootstrapDoesNotRunStartupCommandOnAttachPath() {
         val host = MobileHost(
             id = "profile-1",
@@ -408,6 +434,22 @@ private class FakeSecretStore : MobileSecretStore {
 
     override fun deleteSecret(account: String) {
         saved.remove(account)
+    }
+}
+
+private class FailingSecretStore(
+    private val message: String,
+) : MobileSecretStore {
+    override fun saveSecret(account: String, secret: String) {
+        throw IllegalStateException(message)
+    }
+
+    override fun readSecret(account: String): String? {
+        throw IllegalStateException(message)
+    }
+
+    override fun deleteSecret(account: String) {
+        throw IllegalStateException(message)
     }
 }
 

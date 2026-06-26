@@ -3,8 +3,10 @@ package com.termirust.mobile.security
 import android.content.Context
 import android.app.KeyguardManager
 import android.os.Build
+import android.security.keystore.KeyPermanentlyInvalidatedException
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.security.keystore.UserNotAuthenticatedException
 import android.util.Base64
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -28,23 +30,27 @@ class KeystoreSecretStore(
 
     override fun saveSecret(account: String, secret: String) {
         requireSecureDeviceLock()
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.ENCRYPT_MODE, secretKey())
-        val ciphertext = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
-        val payload = "${Base64.encodeToString(cipher.iv, Base64.NO_WRAP)}:${Base64.encodeToString(ciphertext, Base64.NO_WRAP)}"
-        prefs.edit().putString(account, payload).apply()
+        runCatching {
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, secretKey())
+            val ciphertext = cipher.doFinal(secret.toByteArray(Charsets.UTF_8))
+            val payload = "${Base64.encodeToString(cipher.iv, Base64.NO_WRAP)}:${Base64.encodeToString(ciphertext, Base64.NO_WRAP)}"
+            prefs.edit().putString(account, payload).apply()
+        }.getOrElse { throw userFacingKeystoreError(it) }
     }
 
     override fun readSecret(account: String): String? {
         requireSecureDeviceLock()
-        val payload = prefs.getString(account, null) ?: return null
-        val parts = payload.split(":")
-        if (parts.size != 2) return null
-        val iv = Base64.decode(parts[0], Base64.NO_WRAP)
-        val ciphertext = Base64.decode(parts[1], Base64.NO_WRAP)
-        val cipher = Cipher.getInstance(TRANSFORMATION)
-        cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
-        return cipher.doFinal(ciphertext).toString(Charsets.UTF_8)
+        return runCatching {
+            val payload = prefs.getString(account, null) ?: return null
+            val parts = payload.split(":")
+            if (parts.size != 2) return null
+            val iv = Base64.decode(parts[0], Base64.NO_WRAP)
+            val ciphertext = Base64.decode(parts[1], Base64.NO_WRAP)
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.DECRYPT_MODE, secretKey(), GCMParameterSpec(128, iv))
+            cipher.doFinal(ciphertext).toString(Charsets.UTF_8)
+        }.getOrElse { throw userFacingKeystoreError(it) }
     }
 
     override fun deleteSecret(account: String) {
@@ -65,8 +71,17 @@ class KeystoreSecretStore(
         )
             .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
             .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
-            .setUserAuthenticationRequired(false)
+            .setUserAuthenticationRequired(true)
             .apply {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
+                    setUserAuthenticationParameters(
+                        AUTH_VALIDITY_SECONDS,
+                        KeyProperties.AUTH_DEVICE_CREDENTIAL or KeyProperties.AUTH_BIOMETRIC_STRONG,
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    setUserAuthenticationValidityDurationSeconds(AUTH_VALIDITY_SECONDS)
+                }
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
                     setUnlockedDeviceRequired(true)
                 }
@@ -83,7 +98,21 @@ class KeystoreSecretStore(
         }
     }
 
+    private fun userFacingKeystoreError(error: Throwable): Throwable =
+        when (error) {
+            is UserNotAuthenticatedException -> IllegalStateException(
+                "Unlock this device with PIN, password, pattern, or biometrics before using TermiRust mobile SSH credentials.",
+                error,
+            )
+            is KeyPermanentlyInvalidatedException -> IllegalStateException(
+                "The Android secure lock changed. Remove and save this TermiRust mobile credential again.",
+                error,
+            )
+            else -> error
+        }
+
     private companion object {
         const val TRANSFORMATION = "AES/GCM/NoPadding"
+        const val AUTH_VALIDITY_SECONDS = 300
     }
 }
