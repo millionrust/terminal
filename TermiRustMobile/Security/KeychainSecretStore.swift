@@ -1,14 +1,21 @@
 import Foundation
+import LocalAuthentication
 import Security
 
 enum SecretStoreError: Error, LocalizedError {
     case encodingFailed
+    case accessControlUnavailable
+    case authenticationRequired
     case unhandledStatus(OSStatus)
 
     var errorDescription: String? {
         switch self {
         case .encodingFailed:
             return "Unable to encode secret for Keychain storage."
+        case .accessControlUnavailable:
+            return "Unable to require device authentication for Keychain storage."
+        case .authenticationRequired:
+            return "Unlock this device with passcode or biometrics before using TermiRust mobile SSH credentials."
         case .unhandledStatus(let status):
             return "Keychain operation failed with status \(status)."
         }
@@ -35,26 +42,38 @@ final class KeychainSecretStore: SecretStoring {
 
         try deleteSecret(account: account)
 
+        guard let accessControl = SecAccessControlCreateWithFlags(
+            nil,
+            kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+            [.userPresence],
+            nil
+        ) else {
+            throw SecretStoreError.accessControlUnavailable
+        }
+
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
-            kSecAttrAccessible as String: kSecAttrAccessibleWhenPasscodeSetThisDeviceOnly,
+            kSecAttrAccessControl as String: accessControl,
             kSecValueData as String: data
         ]
         let status = SecItemAdd(query as CFDictionary, nil)
         guard status == errSecSuccess else {
-            throw SecretStoreError.unhandledStatus(status)
+            throw Self.error(for: status)
         }
     }
 
     func readSecret(account: String) throws -> String? {
+        let context = LAContext()
+        context.localizedReason = "Unlock TermiRust mobile SSH credential."
         let query: [String: Any] = [
             kSecClass as String: kSecClassGenericPassword,
             kSecAttrService as String: service,
             kSecAttrAccount as String: account,
             kSecReturnData as String: true,
-            kSecMatchLimit as String: kSecMatchLimitOne
+            kSecMatchLimit as String: kSecMatchLimitOne,
+            kSecUseAuthenticationContext as String: context
         ]
         var item: CFTypeRef?
         let status = SecItemCopyMatching(query as CFDictionary, &item)
@@ -62,7 +81,7 @@ final class KeychainSecretStore: SecretStoring {
             return nil
         }
         guard status == errSecSuccess else {
-            throw SecretStoreError.unhandledStatus(status)
+            throw Self.error(for: status)
         }
         guard let data = item as? Data else {
             return nil
@@ -78,7 +97,16 @@ final class KeychainSecretStore: SecretStoring {
         ]
         let status = SecItemDelete(query as CFDictionary)
         guard status == errSecSuccess || status == errSecItemNotFound else {
-            throw SecretStoreError.unhandledStatus(status)
+            throw Self.error(for: status)
+        }
+    }
+
+    private static func error(for status: OSStatus) -> SecretStoreError {
+        switch status {
+        case errSecAuthFailed, errSecInteractionNotAllowed, errSecUserCanceled:
+            return .authenticationRequired
+        default:
+            return .unhandledStatus(status)
         }
     }
 }
