@@ -48,7 +48,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -228,6 +230,7 @@ private fun ImportVaultCard(
 ) {
     val status by viewModel.status.collectAsState()
     val hasStoredEncryptedVault by viewModel.hasStoredEncryptedVault.collectAsState()
+    val clipboard = LocalClipboardManager.current
     var vaultPassphrase by remember { mutableStateOf("") }
 
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -249,6 +252,19 @@ private fun ImportVaultCard(
             colors = ButtonDefaults.buttonColors(containerColor = Accent),
         ) {
             Text("Import Encrypted Vault")
+        }
+        OutlinedButton(
+            onClick = {
+                runCatching { viewModel.pairingRequestText() }
+                    .onSuccess {
+                        clipboard.setText(AnnotatedString(it))
+                        viewModel.reportStatus("Pairing request copied. Import it on desktop to authorize this device.")
+                    }
+                    .onFailure { viewModel.reportStatus(it.message ?: "Unable to create pairing request.") }
+            },
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("Copy Pairing Request")
         }
         if (hasStoredEncryptedVault) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp), modifier = Modifier.fillMaxWidth()) {

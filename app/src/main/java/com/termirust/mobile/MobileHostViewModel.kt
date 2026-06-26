@@ -5,8 +5,10 @@ import androidx.lifecycle.viewModelScope
 import com.termirust.mobile.data.EncryptedVaultStore
 import com.termirust.mobile.data.MobileHost
 import com.termirust.mobile.data.MobileKnownHost
+import com.termirust.mobile.data.MobileDevicePairingRequest
 import com.termirust.mobile.data.MobileVaultExport
 import com.termirust.mobile.data.MobileVaultImporter
+import com.termirust.mobile.data.MOBILE_VAULT_SCHEMA_VERSION
 import com.termirust.mobile.security.MobileSecretStore
 import com.termirust.mobile.ssh.DirectSshSessionClient
 import com.termirust.mobile.ssh.MobileSshSessionClient
@@ -15,6 +17,8 @@ import com.termirust.mobile.terminal.TerminalBuffer
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
 
 class MobileHostViewModel(
     private val importer: MobileVaultImporter = MobileVaultImporter(),
@@ -39,6 +43,28 @@ class MobileHostViewModel(
     val hasStoredEncryptedVault: StateFlow<Boolean> = _hasStoredEncryptedVault
 
     val terminalBuffer = TerminalBuffer()
+
+    val localDeviceIdForDisplay: String
+        get() = localDeviceId.ifBlank { "Unavailable" }
+
+    fun pairingRequestText(
+        label: String = "Android Device",
+        nowMillis: ULong = currentUnixMillis(),
+    ): String {
+        require(localDeviceId.isNotBlank()) {
+            "This mobile device does not have a pairing identity yet."
+        }
+        val request = MobileDevicePairingRequest(
+            schemaVersion = MOBILE_VAULT_SCHEMA_VERSION,
+            requestId = "pair-$localDeviceId-$nowMillis",
+            deviceId = localDeviceId,
+            label = label,
+            platform = "android",
+            publicKey = null,
+            createdAtMillis = nowMillis,
+        )
+        return pairingJson.encodeToString(request)
+    }
 
     fun reportStatus(message: String) {
         _status.value = message
@@ -198,5 +224,16 @@ class MobileHostViewModel(
             sshClient.disconnect()
             _connectionState.value = TerminalConnectionState.Disconnected
         }
+    }
+
+    private companion object {
+        val pairingJson = Json {
+            prettyPrint = true
+            encodeDefaults = true
+            explicitNulls = false
+        }
+
+        fun currentUnixMillis(): ULong =
+            System.currentTimeMillis().toULong()
     }
 }

@@ -12,6 +12,9 @@ import com.termirust.mobile.ssh.TmuxBootstrap
 import com.termirust.mobile.terminal.TerminalBuffer
 import com.termirust.mobile.terminal.TerminalGrid
 import com.termirust.mobile.terminal.estimateTerminalGrid
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.jsonObject
+import kotlinx.serialization.json.jsonPrimitive
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
@@ -112,6 +115,21 @@ class MobileVaultImporterTest {
         val vault = MobileVaultImporter().importPlaintextFixture(legacyVault)
 
         assertTrue(vault.deviceKeys.isEmpty())
+    }
+
+    @Test
+    fun viewModelGeneratesPairingRequestJson() {
+        val viewModel = MobileHostViewModel(localDeviceId = "android-1")
+
+        val request = viewModel.pairingRequestText(label = "Jacob Android", nowMillis = 42UL)
+        val requestObject = Json.parseToJsonElement(request).jsonObject
+
+        assertEquals("1", requestObject.getValue("schema_version").jsonPrimitive.content)
+        assertEquals("pair-android-1-42", requestObject.getValue("request_id").jsonPrimitive.content)
+        assertEquals("android-1", requestObject.getValue("device_id").jsonPrimitive.content)
+        assertEquals("Jacob Android", requestObject.getValue("label").jsonPrimitive.content)
+        assertEquals("android", requestObject.getValue("platform").jsonPrimitive.content)
+        assertEquals("42", requestObject.getValue("created_at_millis").jsonPrimitive.content)
     }
 
     @Test

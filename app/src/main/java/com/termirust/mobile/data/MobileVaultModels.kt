@@ -174,3 +174,14 @@ data class MobileDeviceVaultKey(
     @SerialName("created_at_millis") val createdAtMillis: ULong? = null,
     @SerialName("revoked_at_millis") val revokedAtMillis: ULong? = null,
 )
+
+@Serializable
+data class MobileDevicePairingRequest(
+    @SerialName("schema_version") val schemaVersion: Int = MOBILE_VAULT_SCHEMA_VERSION,
+    @SerialName("request_id") val requestId: String,
+    @SerialName("device_id") val deviceId: String,
+    val label: String,
+    val platform: String,
+    @SerialName("public_key") val publicKey: String? = null,
+    @SerialName("created_at_millis") val createdAtMillis: ULong,
+)
