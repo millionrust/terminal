@@ -12,6 +12,8 @@ struct TerminalSessionView: View {
     @State private var terminalGrid: TerminalGrid?
     @State private var lastSentTerminalGrid: TerminalGrid?
     @State private var showingPrivateKeyImporter = false
+    @State private var controlModifierActive = false
+    @State private var optionModifierActive = false
 
     init(viewModel: HostListViewModel, host: MobileHost, framed: Bool = true) {
         self.viewModel = viewModel
@@ -199,7 +201,7 @@ struct TerminalSessionView: View {
                 .padding(12)
             }
             .background(Color.terminalBackground)
-            .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
+            .clipShape(RoundedRectangle(cornerRadius: framed ? 14 : 0, style: .continuous))
             .onAppear {
                 updateTerminalGrid(size: proxy.size)
             }
@@ -216,8 +218,8 @@ struct TerminalSessionView: View {
                 updateTerminalGrid(size: proxy.size, forceResize: newState == .connected)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 8)
+        .padding(.horizontal, framed ? 14 : 0)
+        .padding(.vertical, framed ? 8 : 0)
         .frame(minHeight: 220)
     }
 
@@ -244,11 +246,21 @@ struct TerminalSessionView: View {
             }
             ScrollView(.horizontal, showsIndicators: false) {
                 HStack(spacing: 8) {
+                    Button("Ctrl") {
+                        controlModifierActive.toggle()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(controlModifierActive ? .blue : .secondary)
+                    Button("Alt") {
+                        optionModifierActive.toggle()
+                    }
+                    .buttonStyle(.bordered)
+                    .controlSize(.small)
+                    .tint(optionModifierActive ? .blue : .secondary)
                     ForEach(accessoryKeys, id: \.label) { key in
                         Button(key.label) {
-                            if let bytes = key.bytes {
-                                viewModel.sendTerminalBytes(bytes)
-                            }
+                            viewModel.sendTerminalBytes(key.bytes)
                         }
                         .buttonStyle(.bordered)
                         .controlSize(.small)
@@ -308,12 +320,21 @@ struct TerminalSessionView: View {
     }
 
     private func sendInput(force: Bool = false) {
-        if !force && input.contains("\n") {
+        let modifierActive = controlModifierActive || optionModifierActive
+        if !force && !modifierActive && input.contains("\n") {
             pendingMultilinePaste = input
             return
         }
-        viewModel.sendTerminalInput(input)
+        if modifierActive {
+            viewModel.sendTerminalBytes(
+                encodeTerminalInput(input, control: controlModifierActive, option: optionModifierActive)
+            )
+        } else {
+            viewModel.sendTerminalInput(input)
+        }
         input = ""
+        controlModifierActive = false
+        optionModifierActive = false
         pendingMultilinePaste = nil
     }
 
@@ -351,12 +372,10 @@ struct TerminalSessionView: View {
         viewModel.resizeTerminal(columns: grid.columns, rows: grid.rows)
     }
 
-    private var accessoryKeys: [(label: String, bytes: Data?)] {
+    private var accessoryKeys: [(label: String, bytes: Data)] {
         [
             ("Esc", Data([0x1b])),
             ("Tab", Data([0x09])),
-            ("Ctrl", nil),
-            ("Alt", nil),
             ("←", Data("\u{1b}[D".utf8)),
             ("↓", Data("\u{1b}[B".utf8)),
             ("↑", Data("\u{1b}[A".utf8)),

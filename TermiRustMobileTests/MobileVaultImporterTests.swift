@@ -375,6 +375,15 @@ final class MobileVaultImporterTests: XCTestCase {
         )
     }
 
+    func testTerminalInputEncodingHandlesControlAndOptionModifiers() {
+        XCTAssertEqual(Array(encodeTerminalInput("uptime", control: false, option: false)), Array("uptime\n".utf8))
+        XCTAssertEqual(Array(encodeTerminalInput("c", control: true, option: false)), [0x03])
+        XCTAssertEqual(Array(encodeTerminalInput("D", control: true, option: false)), [0x04])
+        XCTAssertEqual(Array(encodeTerminalInput("[", control: true, option: false)), [0x1B])
+        XCTAssertEqual(Array(encodeTerminalInput("x", control: false, option: true)), [0x1B, 0x78])
+        XCTAssertEqual(Array(encodeTerminalInput("c", control: true, option: true)), [0x1B, 0x03])
+    }
+
     @MainActor
     func testTerminalBufferHandlesCommonTerminalRedrawSequences() {
         let buffer = TerminalBuffer()

@@ -10,8 +10,7 @@ struct ContentView: View {
     var body: some View {
         GeometryReader { proxy in
             let wide = proxy.size.width >= 900
-            let outerPadding: CGFloat = wide ? 20 : 0
-            let panelSpacing: CGFloat = wide ? 18 : 0
+            let panelSpacing: CGFloat = wide ? 1 : 0
             let hostPanelWidth = min(max(proxy.size.width * 0.34, 340), 460)
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
@@ -20,10 +19,9 @@ struct ContentView: View {
                         HostListView(viewModel: viewModel)
                             .frame(width: hostPanelWidth)
                             .frame(maxHeight: .infinity)
-                        sessionDetail(framed: true)
+                        sessionDetail(framed: false)
                             .frame(maxWidth: .infinity, maxHeight: .infinity)
                     }
-                    .padding(outerPadding)
                 } else {
                     VStack(spacing: 0) {
                         compactHeader
