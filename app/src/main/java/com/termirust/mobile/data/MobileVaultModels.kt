@@ -31,12 +31,20 @@ data class MobileVaultExport(
     @SerialName("known_hosts") val knownHosts: List<MobileKnownHost> = emptyList(),
     val sync: MobileSyncMetadata = MobileSyncMetadata(),
     val devices: List<MobileDeviceRecord> = emptyList(),
+    @SerialName("device_keys") val deviceKeys: List<MobileDeviceVaultKey> = emptyList(),
 ) {
     fun sourceDeviceRecord(): MobileDeviceRecord? =
         devices.firstOrNull { it.deviceId == sourceDeviceId }
 
     fun sourceDeviceRevoked(): Boolean =
         sourceDeviceRecord()?.revokedAtMillis != null
+
+    fun activeDeviceKey(deviceId: String): MobileDeviceVaultKey? {
+        if (devices.firstOrNull { it.deviceId == deviceId }?.revokedAtMillis != null) {
+            return null
+        }
+        return deviceKeys.firstOrNull { it.deviceId == deviceId && it.revokedAtMillis == null }
+    }
 }
 
 @Serializable
@@ -135,5 +143,17 @@ data class MobileDeviceRecord(
     val label: String,
     val platform: String? = null,
     @SerialName("public_key") val publicKey: String? = null,
+    @SerialName("paired_at_millis") val pairedAtMillis: ULong? = null,
+    @SerialName("last_seen_at_millis") val lastSeenAtMillis: ULong? = null,
+    @SerialName("revoked_at_millis") val revokedAtMillis: ULong? = null,
+)
+
+@Serializable
+data class MobileDeviceVaultKey(
+    @SerialName("key_id") val keyId: String,
+    @SerialName("device_id") val deviceId: String,
+    @SerialName("wrapping_algorithm") val wrappingAlgorithm: String,
+    @SerialName("encrypted_vault_key") val encryptedVaultKey: String,
+    @SerialName("created_at_millis") val createdAtMillis: ULong? = null,
     @SerialName("revoked_at_millis") val revokedAtMillis: ULong? = null,
 )

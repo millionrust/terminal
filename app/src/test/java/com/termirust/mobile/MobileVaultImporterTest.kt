@@ -67,6 +67,16 @@ class MobileVaultImporterTest {
             "label": "TermiRust Desktop",
             "platform": "desktop",
             "public_key": null,
+            "paired_at_millis": 1,
+            "last_seen_at_millis": 1,
+            "revoked_at_millis": null
+          }],
+          "device_keys": [{
+            "key_id": "vault-key-android-1",
+            "device_id": "android-1",
+            "wrapping_algorithm": "x25519-xsalsa20poly1305",
+            "encrypted_vault_key": "base64-wrapped-key",
+            "created_at_millis": 1,
             "revoked_at_millis": null
           }]
         }
@@ -81,6 +91,23 @@ class MobileVaultImporterTest {
         assertEquals("prod.example.com:22", vault.knownHosts.first().endpoint)
         assertEquals("desktop-1", vault.devices.first().deviceId)
         assertEquals("desktop", vault.devices.first().platform)
+        assertEquals(1UL, vault.devices.first().pairedAtMillis)
+        assertEquals("android-1", vault.deviceKeys.first().deviceId)
+        assertEquals("vault-key-android-1", vault.activeDeviceKey("android-1")?.keyId)
+    }
+
+    @Test
+    fun plaintextVaultDefaultsMissingDeviceKeys() {
+        val legacyVault = plaintextVault.decodeToString()
+            .replace(
+                Regex(""",\s*"device_keys"\s*:\s*\[\{[\s\S]*?\}\]"""),
+                "",
+            )
+            .encodeToByteArray()
+
+        val vault = MobileVaultImporter().importPlaintextFixture(legacyVault)
+
+        assertTrue(vault.deviceKeys.isEmpty())
     }
 
     @Test
