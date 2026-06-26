@@ -75,16 +75,6 @@ final class HostListViewModel: ObservableObject {
         }
     }
 
-    func inspectEncryptedVault(from url: URL) {
-        do {
-            let data = try Data(contentsOf: url)
-            _ = try vaultImporter.inspectEncryptedEnvelope(data)
-            importError = "Encrypted vault recognized. Shared TermiRust vault crypto is required before production import."
-        } catch {
-            importError = error.localizedDescription
-        }
-    }
-
     func importEncryptedVault(from url: URL, passphrase: String) {
         do {
             let data = try Data(contentsOf: url)
