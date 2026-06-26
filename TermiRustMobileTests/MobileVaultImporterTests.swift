@@ -354,6 +354,23 @@ final class MobileVaultImporterTests: XCTestCase {
         )
     }
 
+    func testPinnedHostKeyDelegateRejectsMismatchedHostKey() throws {
+        let privateKey = try OpenSSHPrivateKeyParser.parse(fixtureEd25519PrivateKey)
+        let knownHost = MobileKnownHost(
+            endpoint: "prod.example.com:22",
+            publicKey: String(openSSHPublicKey: privateKey.publicKey),
+            algorithm: "ssh-ed25519",
+            fingerprint: nil
+        )
+        let verifier = try PinnedHostKeyDelegate(knownHost: knownHost)
+        let mismatchedKey = try NIOSSHPublicKey(
+            openSSHPublicKey: "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAINd2kjE71H6PGUROmugYIZzE4ThKNfqv6NTxQiDYrlQv"
+        )
+
+        XCTAssertTrue(verifier.accepts(hostKey: privateKey.publicKey))
+        XCTAssertFalse(verifier.accepts(hostKey: mismatchedKey))
+    }
+
     func testOpenSSHPrivateKeyParserRejectsInvalidPEM() {
         XCTAssertThrowsError(try OpenSSHPrivateKeyParser.parse("not a key")) { error in
             XCTAssertEqual(error as? OpenSSHPrivateKeyParserError, .invalidPEM)

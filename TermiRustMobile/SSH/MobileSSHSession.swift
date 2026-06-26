@@ -263,7 +263,7 @@ private final class SinglePrivateKeyDelegate: NIOSSHClientUserAuthenticationDele
     }
 }
 
-private final class PinnedHostKeyDelegate: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
+final class PinnedHostKeyDelegate: NIOSSHClientServerAuthenticationDelegate, @unchecked Sendable {
     private let expectedKey: NIOSSHPublicKey
 
     init(knownHost: MobileKnownHost) throws {
@@ -271,11 +271,15 @@ private final class PinnedHostKeyDelegate: NIOSSHClientServerAuthenticationDeleg
     }
 
     func validateHostKey(hostKey: NIOSSHPublicKey, validationCompletePromise: EventLoopPromise<Void>) {
-        if hostKey == expectedKey || String(openSSHPublicKey: hostKey) == String(openSSHPublicKey: expectedKey) {
+        if accepts(hostKey: hostKey) {
             validationCompletePromise.succeed(())
         } else {
             validationCompletePromise.fail(MobileSSHError.hostKeyMismatch)
         }
+    }
+
+    func accepts(hostKey: NIOSSHPublicKey) -> Bool {
+        hostKey == expectedKey || String(openSSHPublicKey: hostKey) == String(openSSHPublicKey: expectedKey)
     }
 }
 
