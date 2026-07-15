@@ -21,6 +21,7 @@ import net.schmizz.sshj.userauth.password.PasswordFinder
 import net.schmizz.sshj.userauth.password.Resource
 import java.io.StringReader
 import java.security.PublicKey
+import java.util.concurrent.TimeUnit
 import java.util.concurrent.atomic.AtomicBoolean
 
 sealed interface TerminalConnectionState {
@@ -100,6 +101,7 @@ class DirectSshSessionClient(
                 openedShell.outputStream.write('\n'.code)
                 openedShell.outputStream.flush()
             }
+            waitForPersistentSessionAttachment(client, host)
         }
     }
 
@@ -162,6 +164,52 @@ class DirectSshSessionClient(
         } finally {
             secret.fill('\u0000')
         }
+    }
+
+    private fun waitForPersistentSessionAttachment(client: SSHClient, host: MobileHost) {
+        if (!host.persistentSession.enabled || !remoteTmuxAvailable(client)) {
+            return
+        }
+
+        val session = shellSingleQuote(TmuxBootstrap(host).sessionName())
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TMUX_ATTACH_TIMEOUT_SECONDS)
+        do {
+            val attachedClients = runRemoteCommand(
+                client,
+                "tmux display-message -p -t $session '#{session_attached}' 2>/dev/null",
+            ).output.trim().toIntOrNull() ?: 0
+            if (attachedClients > 0) {
+                return
+            }
+            Thread.sleep(TMUX_ATTACH_POLL_MILLIS)
+        } while (System.nanoTime() < deadline)
+
+        error("Timed out waiting for tmux session '${TmuxBootstrap(host).sessionName()}' to attach.")
+    }
+
+    private fun remoteTmuxAvailable(client: SSHClient): Boolean =
+        runCatching {
+            runRemoteCommand(client, "command -v tmux >/dev/null 2>&1").exitStatus == 0
+        }.getOrDefault(false)
+
+    private fun runRemoteCommand(client: SSHClient, commandText: String): RemoteCommandResult =
+        client.startSession().use { probeSession ->
+            probeSession.exec(commandText).use { command ->
+                val output = command.inputStream.bufferedReader().use { it.readText() }
+                command.join(REMOTE_COMMAND_TIMEOUT_SECONDS, TimeUnit.SECONDS)
+                RemoteCommandResult(command.exitStatus, output)
+            }
+        }
+
+    private data class RemoteCommandResult(
+        val exitStatus: Int?,
+        val output: String,
+    )
+
+    private companion object {
+        const val TMUX_ATTACH_TIMEOUT_SECONDS = 5L
+        const val TMUX_ATTACH_POLL_MILLIS = 50L
+        const val REMOTE_COMMAND_TIMEOUT_SECONDS = 2L
     }
 }
 

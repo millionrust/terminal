@@ -8,7 +8,7 @@ class TmuxBootstrap(private val host: MobileHost) {
             return host.startupCommand
         }
 
-        val session = shellSingleQuote(host.persistentSession.sessionName ?: defaultSessionName())
+        val session = shellSingleQuote(sessionName())
         val attach = if (host.persistentSession.detachOthers) {
             "exec tmux attach-session -d -t $session"
         } else {
@@ -38,6 +38,9 @@ class TmuxBootstrap(private val host: MobileHost) {
             fi
         """.trimIndent()
     }
+
+    internal fun sessionName(): String =
+        host.persistentSession.sessionName?.takeIf { it.isNotBlank() } ?: defaultSessionName()
 
     private fun defaultSessionName(): String =
         "tr-${host.username}-${host.host}-${host.port}".replace(Regex("[^A-Za-z0-9-]"), "-")
