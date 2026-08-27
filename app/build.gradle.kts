@@ -49,9 +49,15 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.7")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("com.hierynomus:sshj:0.39.0")
+    implementation("net.java.dev.jna:jna:5.17.0@aar")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.jetbrains.kotlinx:kotlinx-coroutines-test:1.10.1")
+    testRuntimeOnly("net.java.dev.jna:jna-jpms:5.17.0")
+}
+
+tasks.withType<org.gradle.api.tasks.testing.Test>().configureEach {
+    systemProperty("jna.library.path", file("src/test/native/darwin-aarch64").absolutePath)
 }
