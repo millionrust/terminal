@@ -567,6 +567,187 @@ fileprivate struct FfiConverterData: FfiConverterRustBuffer {
 
 
 
+public protocol ControllerConnectionSessionProtocol: AnyObject, Sendable {
+
+    func authorize(capability: ControllerCapability, presentedRevocationEpoch: UInt64) throws  -> AuthorizationDecision
+
+    func finish() throws
+
+    func handshakeOutbound(nowMillis: UInt64) throws  -> Data
+
+    func handshakeReceiveAccept(message: Data, nowMillis: UInt64) throws  -> ConnectionPublicResult
+
+    func openFrame(frame: Data) throws  -> OpenedControllerFrame
+
+    func sealFrame(kind: ControllerFrameKind, capability: ControllerCapability, revocationEpoch: UInt64, payload: Data) throws  -> Data
+
+}
+open class ControllerConnectionSession: ControllerConnectionSessionProtocol, @unchecked Sendable {
+    fileprivate let handle: UInt64
+
+    /// Used to instantiate a [FFIObject] without an actual handle, for fakes in tests, mostly.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public struct NoHandle {
+        public init() {}
+    }
+
+    // TODO: We'd like this to be `private` but for Swifty reasons,
+    // we can't implement `FfiConverter` without making this `required` and we can't
+    // make it `required` without making it `public`.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    required public init(unsafeFromHandle handle: UInt64) {
+        self.handle = handle
+    }
+
+    // This constructor can be used to instantiate a fake object.
+    // - Parameter noHandle: Placeholder value so we can have a constructor separate from the default empty one that may be implemented for classes extending [FFIObject].
+    //
+    // - Warning:
+    //     Any object instantiated with this constructor cannot be passed to an actual Rust-backed object. Since there isn't a backing handle the FFI lower functions will crash.
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public init(noHandle: NoHandle) {
+        self.handle = 0
+    }
+
+#if swift(>=5.8)
+    @_documentation(visibility: private)
+#endif
+    public func uniffiCloneHandle() -> UInt64 {
+        return try! rustCall { uniffi_termirust_controller_bindings_fn_clone_controllerconnectionsession(self.handle, $0) }
+    }
+    // No primary constructor declared for this class.
+
+    deinit {
+        if handle == 0 {
+            // Mock objects have handle=0 don't try to free them
+            return
+        }
+
+        try! rustCall { uniffi_termirust_controller_bindings_fn_free_controllerconnectionsession(handle, $0) }
+    }
+
+
+
+
+open func authorize(capability: ControllerCapability, presentedRevocationEpoch: UInt64)throws  -> AuthorizationDecision  {
+    return try  FfiConverterTypeAuthorizationDecision_lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllerconnectionsession_authorize(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeControllerCapability_lower(capability),
+        FfiConverterUInt64.lower(presentedRevocationEpoch),uniffiCallStatus
+    )
+})
+}
+
+open func finish()throws   {try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllerconnectionsession_finish(
+            self.uniffiCloneHandle(),uniffiCallStatus
+    )
+}
+}
+
+open func handshakeOutbound(nowMillis: UInt64)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllerconnectionsession_handshake_outbound(
+            self.uniffiCloneHandle(),
+        FfiConverterUInt64.lower(nowMillis),uniffiCallStatus
+    )
+})
+}
+
+open func handshakeReceiveAccept(message: Data, nowMillis: UInt64)throws  -> ConnectionPublicResult  {
+    return try  FfiConverterTypeConnectionPublicResult_lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllerconnectionsession_handshake_receive_accept(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(message),
+        FfiConverterUInt64.lower(nowMillis),uniffiCallStatus
+    )
+})
+}
+
+open func openFrame(frame: Data)throws  -> OpenedControllerFrame  {
+    return try  FfiConverterTypeOpenedControllerFrame_lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllerconnectionsession_open_frame(
+            self.uniffiCloneHandle(),
+        FfiConverterData.lower(frame),uniffiCallStatus
+    )
+})
+}
+
+open func sealFrame(kind: ControllerFrameKind, capability: ControllerCapability, revocationEpoch: UInt64, payload: Data)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllerconnectionsession_seal_frame(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeControllerFrameKind_lower(kind),
+        FfiConverterTypeControllerCapability_lower(capability),
+        FfiConverterUInt64.lower(revocationEpoch),
+        FfiConverterData.lower(payload),uniffiCallStatus
+    )
+})
+}
+
+
+
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeControllerConnectionSession: FfiConverter {
+    typealias FfiType = UInt64
+    typealias SwiftType = ControllerConnectionSession
+
+    public static func lift(_ handle: UInt64) throws -> ControllerConnectionSession {
+        return ControllerConnectionSession(unsafeFromHandle: handle)
+    }
+
+    public static func lower(_ value: ControllerConnectionSession) -> UInt64 {
+        return value.uniffiCloneHandle()
+    }
+
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ControllerConnectionSession {
+        let handle: UInt64 = try readInt(&buf)
+        return try lift(handle)
+    }
+
+    public static func write(_ value: ControllerConnectionSession, into buf: inout [UInt8]) {
+        writeInt(&buf, lower(value))
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeControllerConnectionSession_lift(_ handle: UInt64) throws -> ControllerConnectionSession {
+    return try FfiConverterTypeControllerConnectionSession.lift(handle)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeControllerConnectionSession_lower(_ value: ControllerConnectionSession) -> UInt64 {
+    return FfiConverterTypeControllerConnectionSession.lower(value)
+}
+
+
+
+
+
+
 public protocol ControllerPairingSessionProtocol: AnyObject, Sendable {
 
     func authorize(capability: ControllerCapability, presentedRevocationEpoch: UInt64) throws  -> AuthorizationDecision
@@ -795,6 +976,10 @@ public func FfiConverterTypeControllerPairingSession_lower(_ value: ControllerPa
 
 public protocol ControllerSecurityEngineProtocol: AnyObject, Sendable {
 
+    func connectionPrelude(request: ConnectionStartRequest) throws  -> Data
+
+    func connectionStart(request: ConnectionStartRequest, challengeBytes: Data) throws  -> ControllerConnectionSession
+
     func decodeOfferSummary(offerBytes: Data) throws  -> PublicOfferSummary
 
     func deleteSecureBlob(keyId: String) throws
@@ -869,6 +1054,27 @@ public convenience init(blobs: SecureBlobStore)throws  {
 
 
 
+
+open func connectionPrelude(request: ConnectionStartRequest)throws  -> Data  {
+    return try  FfiConverterData.lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllersecurityengine_connection_prelude(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeConnectionStartRequest_lower(request),uniffiCallStatus
+    )
+})
+}
+
+open func connectionStart(request: ConnectionStartRequest, challengeBytes: Data)throws  -> ControllerConnectionSession  {
+    return try  FfiConverterTypeControllerConnectionSession_lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
+        uniffiCallStatus in
+    uniffi_termirust_controller_bindings_fn_method_controllersecurityengine_connection_start(
+            self.uniffiCloneHandle(),
+        FfiConverterTypeConnectionStartRequest_lower(request),
+        FfiConverterData.lower(challengeBytes),uniffiCallStatus
+    )
+})
+}
 
 open func decodeOfferSummary(offerBytes: Data)throws  -> PublicOfferSummary  {
     return try  FfiConverterTypePublicOfferSummary_lift(try rustCallWithError(FfiConverterTypeControllerBindingError_lift) {
@@ -1249,6 +1455,150 @@ public func FfiConverterTypeSecureBlobStore_lower(_ value: SecureBlobStore) -> U
 }
 
 
+
+
+public struct ConnectionPublicResult: Equatable, Hashable {
+    public var hostStaticPublicKey: Data
+    public var deviceStaticPublicKey: Data
+    public var identityGeneration: UInt64
+    public var revocationEpoch: UInt64
+    public var grantedCapabilityBits: UInt16
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(hostStaticPublicKey: Data, deviceStaticPublicKey: Data, identityGeneration: UInt64, revocationEpoch: UInt64, grantedCapabilityBits: UInt16) {
+        self.hostStaticPublicKey = hostStaticPublicKey
+        self.deviceStaticPublicKey = deviceStaticPublicKey
+        self.identityGeneration = identityGeneration
+        self.revocationEpoch = revocationEpoch
+        self.grantedCapabilityBits = grantedCapabilityBits
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ConnectionPublicResult: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeConnectionPublicResult: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ConnectionPublicResult {
+        return
+            try ConnectionPublicResult(
+                hostStaticPublicKey: FfiConverterData.read(from: &buf),
+                deviceStaticPublicKey: FfiConverterData.read(from: &buf),
+                identityGeneration: FfiConverterUInt64.read(from: &buf),
+                revocationEpoch: FfiConverterUInt64.read(from: &buf),
+                grantedCapabilityBits: FfiConverterUInt16.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ConnectionPublicResult, into buf: inout [UInt8]) {
+        FfiConverterData.write(value.hostStaticPublicKey, into: &buf)
+        FfiConverterData.write(value.deviceStaticPublicKey, into: &buf)
+        FfiConverterUInt64.write(value.identityGeneration, into: &buf)
+        FfiConverterUInt64.write(value.revocationEpoch, into: &buf)
+        FfiConverterUInt16.write(value.grantedCapabilityBits, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeConnectionPublicResult_lift(_ buf: RustBuffer) throws -> ConnectionPublicResult {
+    return try FfiConverterTypeConnectionPublicResult.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeConnectionPublicResult_lower(_ value: ConnectionPublicResult) -> RustBuffer {
+    return FfiConverterTypeConnectionPublicResult.lower(value)
+}
+
+
+public struct ConnectionStartRequest: Equatable, Hashable {
+    public var staticKeyId: String
+    public var ephemeralPrivateKey: Data
+    public var hostStaticPublicKey: Data
+    public var identityGeneration: UInt64
+    public var revocationEpoch: UInt64
+    public var requestedCapabilityBits: UInt16
+    public var clientNonce: Data
+    public var nowMillis: UInt64
+
+    // Default memberwise initializers are never public by default, so we
+    // declare one manually.
+    public init(staticKeyId: String, ephemeralPrivateKey: Data, hostStaticPublicKey: Data, identityGeneration: UInt64, revocationEpoch: UInt64, requestedCapabilityBits: UInt16, clientNonce: Data, nowMillis: UInt64) {
+        self.staticKeyId = staticKeyId
+        self.ephemeralPrivateKey = ephemeralPrivateKey
+        self.hostStaticPublicKey = hostStaticPublicKey
+        self.identityGeneration = identityGeneration
+        self.revocationEpoch = revocationEpoch
+        self.requestedCapabilityBits = requestedCapabilityBits
+        self.clientNonce = clientNonce
+        self.nowMillis = nowMillis
+    }
+
+
+
+
+}
+
+#if compiler(>=6)
+extension ConnectionStartRequest: Sendable {}
+#endif
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public struct FfiConverterTypeConnectionStartRequest: FfiConverterRustBuffer {
+    public static func read(from buf: inout (data: Data, offset: Data.Index)) throws -> ConnectionStartRequest {
+        return
+            try ConnectionStartRequest(
+                staticKeyId: FfiConverterString.read(from: &buf),
+                ephemeralPrivateKey: FfiConverterData.read(from: &buf),
+                hostStaticPublicKey: FfiConverterData.read(from: &buf),
+                identityGeneration: FfiConverterUInt64.read(from: &buf),
+                revocationEpoch: FfiConverterUInt64.read(from: &buf),
+                requestedCapabilityBits: FfiConverterUInt16.read(from: &buf),
+                clientNonce: FfiConverterData.read(from: &buf),
+                nowMillis: FfiConverterUInt64.read(from: &buf)
+        )
+    }
+
+    public static func write(_ value: ConnectionStartRequest, into buf: inout [UInt8]) {
+        FfiConverterString.write(value.staticKeyId, into: &buf)
+        FfiConverterData.write(value.ephemeralPrivateKey, into: &buf)
+        FfiConverterData.write(value.hostStaticPublicKey, into: &buf)
+        FfiConverterUInt64.write(value.identityGeneration, into: &buf)
+        FfiConverterUInt64.write(value.revocationEpoch, into: &buf)
+        FfiConverterUInt16.write(value.requestedCapabilityBits, into: &buf)
+        FfiConverterData.write(value.clientNonce, into: &buf)
+        FfiConverterUInt64.write(value.nowMillis, into: &buf)
+    }
+}
+
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeConnectionStartRequest_lift(_ buf: RustBuffer) throws -> ConnectionStartRequest {
+    return try FfiConverterTypeConnectionStartRequest.lift(buf)
+}
+
+#if swift(>=5.8)
+@_documentation(visibility: private)
+#endif
+public func FfiConverterTypeConnectionStartRequest_lower(_ value: ConnectionStartRequest) -> RustBuffer {
+    return FfiConverterTypeConnectionStartRequest.lower(value)
+}
 
 
 public struct OpenedControllerFrame: Equatable, Hashable {
@@ -2465,6 +2815,24 @@ private let initializationResult: InitializationResult = {
     if bindings_contract_version != scaffolding_contract_version {
         return InitializationResult.contractVersionMismatch
     }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllerconnectionsession_authorize() != 53115) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllerconnectionsession_finish() != 31125) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllerconnectionsession_handshake_outbound() != 39743) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllerconnectionsession_handshake_receive_accept() != 46883) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllerconnectionsession_open_frame() != 59115) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllerconnectionsession_seal_frame() != 37229) {
+        return InitializationResult.apiChecksumMismatch
+    }
     if (uniffi_termirust_controller_bindings_checksum_method_controllerpairingsession_authorize() != 45657) {
         return InitializationResult.apiChecksumMismatch
     }
@@ -2493,6 +2861,12 @@ private let initializationResult: InitializationResult = {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_termirust_controller_bindings_checksum_method_controllerpairingsession_seal_frame() != 38254) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllersecurityengine_connection_prelude() != 51279) {
+        return InitializationResult.apiChecksumMismatch
+    }
+    if (uniffi_termirust_controller_bindings_checksum_method_controllersecurityengine_connection_start() != 44310) {
         return InitializationResult.apiChecksumMismatch
     }
     if (uniffi_termirust_controller_bindings_checksum_method_controllersecurityengine_decode_offer_summary() != 33755) {
