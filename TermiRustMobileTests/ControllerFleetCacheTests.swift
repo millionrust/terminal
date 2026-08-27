@@ -7,7 +7,7 @@ final class ControllerFleetCacheTests: XCTestCase {
         let oversizedCount = SessionSummaryPage(
             revision: 1,
             updateSequence: 1,
-            sessions: (0...ControllerCacheLimits.maxPageRecords).map(session),
+            sessions: (0...ControllerCacheLimits.maxPageRecords).map { session($0) },
             nextCursor: nil
         )
         XCTAssertThrowsError(try oversizedCount.validate())
@@ -95,9 +95,11 @@ final class ControllerFleetCacheTests: XCTestCase {
         )
 
         try await store.save(cache)
-        XCTAssertEqual(try await store.load(), cache)
+        let loaded = try await store.load()
+        XCTAssertEqual(loaded, cache)
         try await store.delete()
-        XCTAssertEqual(try await store.load(), ControllerFleetCache())
+        let deleted = try await store.load()
+        XCTAssertEqual(deleted, ControllerFleetCache())
     }
 
     private func session(_ index: Int, expanded: Bool = false) -> ControllerSessionSummary {

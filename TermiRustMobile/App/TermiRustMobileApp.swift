@@ -13,10 +13,39 @@ struct TermiRustMobileApp: App {
             localDeviceId: deviceIdentityStore.deviceId
         )
     }()
+    @StateObject private var controllerViewModel = ControllerViewModel()
 
     var body: some Scene {
         WindowGroup {
-            ContentView(viewModel: viewModel)
+            MobileRootView(
+                sshViewModel: viewModel,
+                controllerViewModel: controllerViewModel
+            )
+        }
+    }
+}
+
+private struct MobileRootView: View {
+    @ObservedObject var sshViewModel: HostListViewModel
+    @ObservedObject var controllerViewModel: ControllerViewModel
+    @Environment(\.scenePhase) private var scenePhase
+
+    var body: some View {
+        TabView {
+            ControllerRootView(viewModel: controllerViewModel)
+                .tabItem { Label("Fleet", systemImage: "rectangle.3.group") }
+            ContentView(viewModel: sshViewModel)
+                .tabItem { Label("SSH", systemImage: "terminal") }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            switch phase {
+            case .active:
+                controllerViewModel.resume()
+            case .background, .inactive:
+                controllerViewModel.suspend()
+            @unknown default:
+                controllerViewModel.suspend()
+            }
         }
     }
 }

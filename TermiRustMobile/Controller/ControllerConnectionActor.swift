@@ -2,6 +2,19 @@ import Foundation
 @preconcurrency import Network
 import Security
 
+protocol ControllerConnecting: Sendable {
+    func beginPairing(
+        offerText: String,
+        hostName: String,
+        deviceName: String,
+        deviceID: UUID
+    ) async throws -> ControllerPairingChallenge
+    func finishPairing(matches: Bool) async throws -> PairedHostRecord
+    func fetchSessions(host: PairedHostRecord) async throws -> ControllerFleetSnapshot
+    func forgetDeviceSecret(host: PairedHostRecord) async throws
+    func cancel() async
+}
+
 struct ControllerPairingChallenge: Equatable, Sendable {
     let hostFingerprint: String
     let route: HostRoute
@@ -73,7 +86,87 @@ private struct PairingHostAckPayload: Decodable {
     }
 }
 
-actor ControllerConnectionActor {
+private struct ListSessionsCommandEnvelope: Encodable {
+    let version = 1
+    let commandId: UUID
+    let sessionGeneration: UInt64
+    let deadlineMillis: UInt64
+    let command: ListSessionsCommand
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case commandId = "command_id"
+        case sessionGeneration = "session_generation"
+        case deadlineMillis = "deadline_millis"
+        case command
+    }
+}
+
+private struct ListSessionsCommand: Encodable {
+    let kind = "list_sessions"
+    let offset: UInt32
+    let limit: UInt16
+    let expectedRevision: UInt64?
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case offset
+        case limit
+        case expectedRevision = "expected_revision"
+    }
+}
+
+private struct SessionsResponsePayload: Decodable {
+    let kind: String
+    let commandId: UUID
+    let revision: UInt64
+    let updateSequence: UInt64
+    let sessions: [SessionSummaryPayload]
+    let nextOffset: UInt32?
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case commandId = "command_id"
+        case revision
+        case updateSequence = "update_sequence"
+        case sessions
+        case nextOffset = "next_offset"
+    }
+}
+
+private struct SessionSummaryPayload: Decodable {
+    let sessionId: UUID
+    let title: String
+    let lifecycle: String
+    let occupantGeneration: UInt64?
+    let lastOutputSequence: UInt64
+    let hasWriter: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case sessionId = "session_id"
+        case title
+        case lifecycle
+        case occupantGeneration = "occupant_generation"
+        case lastOutputSequence = "last_output_sequence"
+        case hasWriter = "has_writer"
+    }
+}
+
+private struct ErrorResponsePayload: Decodable {
+    let kind: String
+    let commandId: UUID
+    let code: String
+    let completionUnknown: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case commandId = "command_id"
+        case code
+        case completionUnknown = "completion_unknown"
+    }
+}
+
+actor ControllerConnectionActor: ControllerConnecting {
     private static let maxOfferBytes = 4 * 1_024
     private static let maxHandshakeFrameBytes = 1_024
     private static let maxSecureFrameBytes = 64 * 1_024
@@ -89,11 +182,14 @@ actor ControllerConnectionActor {
 
     func beginPairing(
         offerText: String,
+        hostName: String,
         deviceName: String,
         deviceID: UUID
     ) async throws -> ControllerPairingChallenge {
         await cancel()
-        guard !deviceName.isEmpty,
+        guard !hostName.isEmpty,
+              hostName.unicodeScalars.count <= 256,
+              !deviceName.isEmpty,
               deviceName.unicodeScalars.count <= 64,
               !deviceName.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
         else {
@@ -116,7 +212,7 @@ actor ControllerConnectionActor {
             throw ControllerPairingError.publicRouteRejected
         }
 
-        let keyID = "controller.device.\(deviceID.uuidString.lowercased())"
+        let keyID = "controller.device.\(deviceID.uuidString.lowercased()).\(Self.fingerprint(summary.hostStaticPublicKey).prefix(16))"
         var createdKey = false
         if try securityEngine.secureBlobStatus(keyId: keyID) == .missing {
             try securityEngine.storeSecureBlob(keyId: keyID, value: try Self.randomBytes(count: 32))
@@ -166,6 +262,7 @@ actor ControllerConnectionActor {
             pairing = PendingPairing(
                 envelope: envelope,
                 route: route,
+                hostName: hostName,
                 deviceName: deviceName,
                 deviceID: deviceID,
                 keyID: keyID,
@@ -252,7 +349,7 @@ actor ControllerConnectionActor {
             }
             let record = try PairedHostRecord(
                 id: Self.fingerprint(pending.hostKey),
-                displayName: pending.deviceName,
+                displayName: pending.hostName,
                 route: pending.route,
                 hostStaticPublicKey: pending.hostKey,
                 deviceStaticKeyId: pending.keyID,
@@ -268,6 +365,81 @@ actor ControllerConnectionActor {
             await cancel(deleteCreatedKey: false)
             throw error
         }
+    }
+
+    func fetchSessions(host: PairedHostRecord) async throws -> ControllerFleetSnapshot {
+        await cancel()
+        guard host.schemaVersion == PairedHostRecord.currentSchemaVersion,
+              host.capabilityBits & 1 == 1 else {
+            throw ControllerConnectionError.capabilityDenied
+        }
+        let network = try await withTimeout(Self.handshakeTimeout) {
+            try await Self.openConnection(route: host.route)
+        }
+        connection = network
+        let started = Self.uptimeMillis()
+        let request = ConnectionStartRequest(
+            staticKeyId: host.deviceStaticKeyId,
+            ephemeralPrivateKey: try Self.randomBytes(count: 32),
+            hostStaticPublicKey: host.hostStaticPublicKey,
+            identityGeneration: host.identityGeneration,
+            revocationEpoch: host.revocationEpoch,
+            requestedCapabilityBits: 1,
+            clientNonce: try Self.randomBytes(count: 32),
+            nowMillis: started
+        )
+        let authentication: AuthenticatedSessionResult = try await withTimeout(Self.handshakeTimeout) {
+            try await Self.send(Self.authenticationPreface, over: network)
+            let prelude = try self.securityEngine.connectionPrelude(request: request)
+            try await Self.send(prelude, over: network)
+            let challenge = try await Self.receiveExactly(36, over: network)
+            let session = try self.securityEngine.connectionStart(
+                request: request,
+                challengeBytes: challenge
+            )
+            let hello = try session.handshakeOutbound(nowMillis: Self.uptimeMillis())
+            try await Self.sendFrame(
+                hello,
+                maximum: Self.maxHandshakeFrameBytes,
+                over: network
+            )
+            let accept = try await Self.receiveFrame(
+                maximum: Self.maxHandshakeFrameBytes,
+                over: network
+            )
+            let result = try session.handshakeReceiveAccept(
+                message: accept,
+                nowMillis: Self.uptimeMillis()
+            )
+            return AuthenticatedSessionResult(publicResult: result, session: session)
+        }
+        let publicResult = authentication.publicResult
+        let authenticatedSession = authentication.session
+        defer {
+            try? authenticatedSession.finish()
+            network.stateUpdateHandler = nil
+            network.cancel()
+            connection = nil
+        }
+        guard publicResult.hostStaticPublicKey == host.hostStaticPublicKey,
+              publicResult.identityGeneration == host.identityGeneration,
+              publicResult.revocationEpoch == host.revocationEpoch,
+              publicResult.grantedCapabilityBits & 1 == 1 else {
+            throw ControllerConnectionError.authenticationFailed
+        }
+
+        return try await withTimeout(Self.handshakeTimeout) {
+            try await Self.fetchStableSnapshot(
+                host: host,
+                session: authenticatedSession,
+                network: network
+            )
+        }
+    }
+
+    func forgetDeviceSecret(host: PairedHostRecord) async throws {
+        await cancel()
+        try securityEngine.deleteSecureBlob(keyId: host.deviceStaticKeyId)
     }
 
     func cancel() async {
@@ -301,6 +473,155 @@ actor ControllerConnectionActor {
     }
 
     private static let pairingPreface = Data([0x54, 0x52, 0x43, 0x4e, 0x00, 0x01, 0x02, 0x00])
+    private static let authenticationPreface = Data([0x54, 0x52, 0x43, 0x4e, 0x00, 0x01, 0x01, 0x00])
+
+    private static func fetchStableSnapshot(
+        host: PairedHostRecord,
+        session: ControllerConnectionSession,
+        network: NWConnection
+    ) async throws -> ControllerFleetSnapshot {
+        for _ in 0..<3 {
+            var offset: UInt32 = 0
+            var revision: UInt64?
+            var updateSequence: UInt64?
+            var summaries: [ControllerSessionSummary] = []
+            var restart = false
+
+            repeat {
+                let commandID = UUID()
+                let envelope = ListSessionsCommandEnvelope(
+                    commandId: commandID,
+                    sessionGeneration: host.sessionGeneration,
+                    deadlineMillis: wallClockMillis().saturatingAdd(30_000),
+                    command: ListSessionsCommand(
+                        offset: offset,
+                        limit: UInt16(ControllerCacheLimits.maxPageRecords),
+                        expectedRevision: revision
+                    )
+                )
+                let command = try JSONEncoder().encode(envelope)
+                let sealed = try session.sealFrame(
+                    kind: .control,
+                    capability: .observeSessions,
+                    revocationEpoch: host.revocationEpoch,
+                    payload: command
+                )
+                try await sendFrame(sealed, maximum: maxSecureFrameBytes, over: network)
+                let responseFrame = try await receiveFrame(
+                    maximum: maxSecureFrameBytes,
+                    over: network
+                )
+                let opened = try session.openFrame(frame: responseFrame)
+                guard opened.kind == .control,
+                      opened.capability == .observeSessions,
+                      opened.revocationEpoch == host.revocationEpoch else {
+                    throw ControllerConnectionError.malformedResponse
+                }
+
+                if responseKind(opened.payload) == "error" {
+                    let error = try decodeExactError(opened.payload)
+                    guard error.commandId == commandID else {
+                        throw ControllerConnectionError.malformedResponse
+                    }
+                    if error.code == "snapshot_changed" && !error.completionUnknown {
+                        restart = true
+                        break
+                    }
+                    throw ControllerConnectionError.hostError(error.code)
+                }
+
+                let page = try decodeExactSessions(opened.payload)
+                guard page.kind == "sessions",
+                      page.commandId == commandID,
+                      page.revision > 0,
+                      page.updateSequence > 0,
+                      page.sessions.count <= ControllerCacheLimits.maxPageRecords,
+                      revision == nil || revision == page.revision,
+                      updateSequence == nil || updateSequence == page.updateSequence else {
+                    throw ControllerConnectionError.sequenceGap
+                }
+                revision = page.revision
+                updateSequence = page.updateSequence
+                let mapped = try page.sessions.map { value in
+                    let summary = ControllerSessionSummary(
+                        id: value.sessionId,
+                        title: value.title,
+                        project: nil,
+                        group: nil,
+                        lifecycle: value.lifecycle,
+                        occupantGeneration: value.occupantGeneration,
+                        lastOutputSequence: value.lastOutputSequence,
+                        hasWriter: value.hasWriter,
+                        unreadCount: 0
+                    )
+                    try summary.validate()
+                    return summary
+                }
+                summaries.append(contentsOf: mapped)
+                guard summaries.count <= ControllerCacheLimits.maxSessionsPerHost else {
+                    throw ControllerConnectionError.resourceLimit
+                }
+                guard let next = page.nextOffset else { break }
+                guard next > offset, Int(next) == summaries.count else {
+                    throw ControllerConnectionError.sequenceGap
+                }
+                offset = next
+            } while true
+
+            if restart { continue }
+            guard let revision, let updateSequence else {
+                throw ControllerConnectionError.malformedResponse
+            }
+            return ControllerFleetSnapshot(
+                revision: revision,
+                updateSequence: updateSequence,
+                sessions: summaries
+            )
+        }
+        throw ControllerConnectionError.sequenceGap
+    }
+
+    private static func responseKind(_ data: Data) -> String? {
+        (try? JSONSerialization.jsonObject(with: data) as? [String: Any])?["kind"] as? String
+    }
+
+    private static func decodeExactSessions(_ data: Data) throws -> SessionsResponsePayload {
+        let object = try exactObject(
+            data,
+            keys: ["kind", "command_id", "revision", "update_sequence", "sessions", "next_offset"]
+        )
+        guard let sessions = object["sessions"] as? [[String: Any]],
+              sessions.allSatisfy({
+                  Set($0.keys) == [
+                      "session_id", "title", "lifecycle", "occupant_generation",
+                      "last_output_sequence", "has_writer"
+                  ]
+              }) else {
+            throw ControllerConnectionError.malformedResponse
+        }
+        return try JSONDecoder().decode(SessionsResponsePayload.self, from: data)
+    }
+
+    private static func decodeExactError(_ data: Data) throws -> ErrorResponsePayload {
+        _ = try exactObject(
+            data,
+            keys: ["kind", "command_id", "code", "completion_unknown"]
+        )
+        return try JSONDecoder().decode(ErrorResponsePayload.self, from: data)
+    }
+
+    private static func exactObject(_ data: Data, keys: Set<String>) throws -> [String: Any] {
+        guard data.count <= maxSecureFrameBytes,
+              let object = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+              Set(object.keys) == keys else {
+            throw ControllerConnectionError.malformedResponse
+        }
+        return object
+    }
+
+    private static func wallClockMillis() -> UInt64 {
+        UInt64(Date().timeIntervalSince1970 * 1_000)
+    }
 
     private static func openConnection(route: HostRoute) async throws -> NWConnection {
         let host = NWEndpoint.Host(route.address)
@@ -467,9 +788,15 @@ private final class ConnectionStartGate: @unchecked Sendable {
     }
 }
 
+private struct AuthenticatedSessionResult: Sendable {
+    let publicResult: ConnectionPublicResult
+    let session: ControllerConnectionSession
+}
+
 private struct PendingPairing: Sendable {
     let envelope: ControllerPairingOfferEnvelope
     let route: HostRoute
+    let hostName: String
     let deviceName: String
     let deviceID: UUID
     let keyID: String
@@ -494,4 +821,19 @@ enum ControllerPairingError: Error, Equatable {
     case rejected
     case hostIdentityChanged
     case invalidAcknowledgement
+}
+
+enum ControllerConnectionError: Error, Equatable {
+    case capabilityDenied
+    case authenticationFailed
+    case malformedResponse
+    case sequenceGap
+    case resourceLimit
+    case hostError(String)
+}
+
+private extension UInt64 {
+    func saturatingAdd(_ value: UInt64) -> UInt64 {
+        addingReportingOverflow(value).overflow ? .max : self + value
+    }
 }

@@ -72,6 +72,10 @@ struct ControllerFleetCache: Codable, Equatable, Sendable {
         hosts[hostFingerprint] = host
     }
 
+    mutating func remove(hostFingerprint: String) {
+        hosts.removeValue(forKey: hostFingerprint)
+    }
+
     private mutating func evictWholeHostCaches(
         selectedHostFingerprint: String,
         encoder: JSONEncoder

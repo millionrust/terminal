@@ -120,6 +120,12 @@ struct SessionSummaryPage: Codable, Equatable, Sendable {
     }
 }
 
+struct ControllerFleetSnapshot: Equatable, Sendable {
+    let revision: UInt64
+    let updateSequence: UInt64
+    let sessions: [ControllerSessionSummary]
+}
+
 enum ControllerConnectionState: Equatable, Sendable {
     case unpaired
     case pairing
