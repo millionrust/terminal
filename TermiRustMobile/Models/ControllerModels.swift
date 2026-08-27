@@ -26,6 +26,7 @@ struct PairedHostRecord: Codable, Identifiable, Hashable, Sendable {
     let deviceId: UUID
     let identityGeneration: UInt64
     let revocationEpoch: UInt64
+    let sessionGeneration: UInt64
     let capabilityBits: UInt16
     let pairedAt: Date
 
@@ -38,6 +39,7 @@ struct PairedHostRecord: Codable, Identifiable, Hashable, Sendable {
         deviceId: UUID,
         identityGeneration: UInt64,
         revocationEpoch: UInt64,
+        sessionGeneration: UInt64,
         capabilityBits: UInt16,
         pairedAt: Date = .now
     ) throws {
@@ -58,6 +60,7 @@ struct PairedHostRecord: Codable, Identifiable, Hashable, Sendable {
         self.deviceId = deviceId
         self.identityGeneration = identityGeneration
         self.revocationEpoch = revocationEpoch
+        self.sessionGeneration = sessionGeneration
         self.capabilityBits = capabilityBits
         self.pairedAt = pairedAt
     }
