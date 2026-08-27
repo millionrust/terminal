@@ -30,6 +30,8 @@ targets:
         product: Crypto
       - framework: Frameworks/TermiRustMobileCrypto.xcframework
         embed: false
+      - framework: Frameworks/TermiRustControllerSecurity.xcframework
+        embed: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.termirust.mobile
