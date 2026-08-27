@@ -288,6 +288,8 @@ private struct ControllerSessionRow: View {
 private struct PairHostView: View {
     @ObservedObject var viewModel: ControllerViewModel
     @Binding var isPresented: Bool
+    @State private var showingScanner = false
+    @State private var scannerFailure: ControllerScannerFailure?
 
     var body: some View {
         NavigationStack {
@@ -322,6 +324,14 @@ private struct PairHostView: View {
                             .textContentType(.name)
                     }
                     Section("Pairing Offer") {
+                        Button {
+                            scannerFailure = nil
+                            showingScanner = true
+                        } label: {
+                            Label("Scan QR Code", systemImage: "qrcode.viewfinder")
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.bordered)
                         TextEditor(text: $viewModel.pairingOfferText)
                             .font(.system(.footnote, design: .monospaced))
                             .frame(minHeight: 150)
@@ -330,6 +340,13 @@ private struct PairHostView: View {
                         Text("In TermiRust Desktop, open Settings, Remote Devices, Add Controller, then copy the pairing offer here.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
+                        if let scannerFailure {
+                            Text(scannerFailure == .permissionDenied
+                                ? "Camera access is off. Paste the pairing offer instead, or enable Camera in Settings."
+                                : "A camera is unavailable. Paste the pairing offer instead.")
+                                .font(.footnote)
+                                .foregroundStyle(.orange)
+                        }
                     }
                     Section {
                         Button("Continue") { viewModel.beginPairing() }
@@ -360,6 +377,28 @@ private struct PairHostView: View {
                         isPresented = false
                     }
                 }
+            }
+            .fullScreenCover(isPresented: $showingScanner) {
+                ZStack(alignment: .topTrailing) {
+                    ControllerQRCodeScanner { code in
+                        viewModel.pairingOfferText = code
+                        showingScanner = false
+                    } onFailure: { failure in
+                        scannerFailure = failure
+                        showingScanner = false
+                    }
+                    Button {
+                        showingScanner = false
+                    } label: {
+                        Image(systemName: "xmark")
+                            .font(.headline)
+                            .frame(width: 44, height: 44)
+                            .background(.ultraThinMaterial, in: Circle())
+                    }
+                    .accessibilityLabel("Close Scanner")
+                    .padding()
+                }
+                .ignoresSafeArea()
             }
         }
     }
