@@ -17,14 +17,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      printf 'Usage: %s --stage pairing-fleet|readonly-terminal [--require-runtime]\n' "$0" >&2
+      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls [--require-runtime]\n' "$0" >&2
       exit 2
       ;;
   esac
 done
 
-[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" ]] || {
-  printf 'Stage must be pairing-fleet or readonly-terminal.\n' >&2
+[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" ]] || {
+  printf 'Stage must be pairing-fleet, readonly-terminal, or writer-controls.\n' >&2
   exit 2
 }
 
@@ -59,6 +59,7 @@ xcrun xcstringstool compile \
   --dry-run >/dev/null
 
 CONTROLLER_SOURCES=(
+  TermiRustMobile/App/TermiRustMobileApp.swift
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
   TermiRustMobile/Models/ControllerModels.swift
   TermiRustMobile/Controller/ControllerFleetCache.swift
@@ -66,6 +67,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
   TermiRustMobile/Controller/ControllerRetryPolicy.swift
   TermiRustMobile/Controller/ControllerReadOnlyAttach.swift
+  TermiRustMobile/Controller/ControllerWriterControl.swift
   TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
@@ -73,6 +75,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Views/ControllerPresentation.swift
   TermiRustMobile/Views/ControllerRootView.swift
   TermiRustMobile/Views/ControllerReadOnlyTerminalView.swift
+  TermiRustMobile/Views/ControllerTerminalInputView.swift
   TermiRustMobile/Views/ControllerQRCodeScanner.swift
 )
 TEST_SOURCES=(
@@ -83,7 +86,7 @@ RUNTIME_TESTS=(
   -only-testing:TermiRustMobileTests/ControllerPairingFleetTests
   -only-testing:TermiRustMobileTests/ControllerFleetCacheTests
 )
-if [[ "$STAGE" == "readonly-terminal" ]]; then
+if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/BoundedTerminalBufferTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/ControllerTerminalViewModelTests.swift)
@@ -91,9 +94,14 @@ if [[ "$STAGE" == "readonly-terminal" ]]; then
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/BoundedTerminalBufferTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerTerminalViewModelTests)
 fi
+if [[ "$STAGE" == "writer-controls" ]]; then
+  TEST_SOURCES+=(TermiRustMobileTests/ControllerWriterTests.swift)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerWriterTests)
+fi
 
 xcrun swiftc \
   -emit-module \
+  -parse-as-library \
   -enable-testing \
   -module-name TermiRustMobile \
   -swift-version 6 \

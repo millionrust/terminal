@@ -1,6 +1,13 @@
 import Foundation
 import SwiftUI
 
+private enum ControllerTerminalMutation: Sendable {
+    case acquire
+    case release
+    case input
+    case resize
+}
+
 @MainActor
 final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     let id = UUID()
@@ -12,17 +19,30 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     @Published private(set) var outputSequence: UInt64
     @Published private(set) var renderRevision: UInt64 = 0
     @Published private(set) var hasWriterElsewhere = false
+    @Published private(set) var writerLease: WriterLeaseState = .none
+    @Published private(set) var writerMessage: String?
+    @Published private(set) var pendingPasteByteCount = 0
+    @Published private(set) var privacyCovered = false
 
     private let host: PairedHostRecord
-    private let session: ControllerSessionSummary
+    private let identity: ReadOnlyAttachIdentity
     private let connection: any ControllerConnecting
-    private let viewport: TerminalViewportState
+    private var viewport: TerminalViewportState
     private var reducer: ReadOnlyAttachReducer
+    private var writerReducer: WriterControlReducer
     private var terminal: BoundedTerminalBuffer
     private var queue: BoundedTerminalFrameQueue
     private var operation: Task<Void, Never>?
     private var renderTask: Task<Void, Never>?
+    private var resizeTask: Task<Void, Never>?
+    private var operationID = UUID()
     private var intentionallyDetached = false
+    private var interactiveConnection = false
+    private var acquireAfterAttach = false
+    private var pendingMutations: [UUID: ControllerTerminalMutation] = [:]
+    private var inputInFlight: UUID?
+    private var pendingPaste: Data?
+    private var pendingResize: TerminalViewportState?
 
     init(
         host: PairedHostRecord,
@@ -39,12 +59,13 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
             occupantGeneration: generation
         )
         self.host = host
-        self.session = session
+        self.identity = identity
         self.connection = connection
         self.viewport = viewport
         self.hostTitle = host.displayName
         self.sessionTitle = session.title
         self.reducer = try ReadOnlyAttachReducer(identity: identity)
+        self.writerReducer = try WriterControlReducer(identity: identity)
         self.terminal = try BoundedTerminalBuffer(viewport: viewport)
         self.queue = try BoundedTerminalFrameQueue()
         self.screen = terminal.snapshot()
@@ -54,11 +75,195 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     deinit {
         operation?.cancel()
         renderTask?.cancel()
+        resizeTask?.cancel()
+    }
+
+    var supportsWriterControl: Bool {
+        let required: UInt16 = (1 << 1) | (1 << 2)
+        return host.capabilityBits & required == required
+    }
+
+    var supportsResize: Bool {
+        host.capabilityBits & (1 << 3) != 0
+    }
+
+    var canRequestControl: Bool {
+        guard supportsWriterControl, !privacyCovered else { return false }
+        switch writerLease {
+        case .none, .busy, .lost: return true
+        case .requesting, .held: return false
+        }
+    }
+
+    var canSendInput: Bool {
+        writerLease == .held && !privacyCovered && attachState == .live
     }
 
     func start() {
         guard operation == nil else { return }
         intentionallyDetached = false
+        launch(interactive: false, cancelExisting: false)
+    }
+
+    func retry() {
+        guard operation == nil else { return }
+        launch(interactive: interactiveConnection, cancelExisting: true)
+    }
+
+    func requestControl() {
+        guard canRequestControl else { return }
+        writerMessage = nil
+        acquireAfterAttach = true
+        if interactiveConnection, attachState == .live {
+            acquireAfterAttach = false
+            issueAcquire()
+            return
+        }
+        launch(interactive: true, cancelExisting: true)
+    }
+
+    func releaseControl() {
+        guard writerLease == .held else { return }
+        let commandID = UUID()
+        pendingMutations[commandID] = .release
+        writerReducer.releaseLocally()
+        publishWriterState()
+        Task { [weak self, connection, host, identity] in
+            do {
+                try await connection.releaseWriter(
+                    host: host,
+                    identity: identity,
+                    commandID: commandID
+                )
+            } catch {
+                self?.mutationSendFailed(commandID: commandID)
+            }
+        }
+    }
+
+    func sendKeyboardBytes(_ bytes: Data) {
+        enqueueInput(bytes, kind: .keyboard, confirmed: true)
+    }
+
+    func requestPaste(_ string: String) {
+        let bytes = Data(string.utf8)
+        guard !bytes.isEmpty else { return }
+        guard bytes.count <= WriterControlReducer.maxQueuedBytes else {
+            writerMessage = "Paste is larger than the 256 KiB safety limit."
+            return
+        }
+        if writerReducer.pasteRequiresConfirmation(bytes) {
+            pendingPaste = bytes
+            pendingPasteByteCount = bytes.count
+        } else {
+            enqueueInput(bytes, kind: .paste, confirmed: true)
+        }
+    }
+
+    func confirmPaste() {
+        guard let bytes = pendingPaste else { return }
+        cancelPaste()
+        enqueueInput(bytes, kind: .paste, confirmed: true)
+    }
+
+    func cancelPaste() {
+        pendingPaste = nil
+        pendingPasteByteCount = 0
+    }
+
+    func updateViewport(columns: Int, rows: Int, final: Bool = false) {
+        let next = TerminalViewportState(columns: columns, rows: rows)
+        guard (try? TerminalLimits.controllerDefault.validate(viewport: next)) != nil else {
+            writerMessage = "Terminal size was outside the Host safety limits."
+            return
+        }
+        viewport = next
+        pendingResize = next
+        resizeTask?.cancel()
+        let delay: Duration = final ? .zero : .milliseconds(50)
+        resizeTask = Task { [weak self] in
+            if delay != .zero { try? await Task.sleep(for: delay) }
+            guard let self, !Task.isCancelled else { return }
+            sendPendingResize()
+        }
+    }
+
+    func suspend() {
+        privacyCovered = true
+        resizeTask?.cancel()
+        resizeTask = nil
+        pendingResize = nil
+        cancelPaste()
+        let held = writerLease == .held
+        writerReducer.setForeground(false)
+        publishWriterState()
+        let releaseID = UUID()
+        operationID = UUID()
+        operation?.cancel()
+        operation = nil
+        Task { [connection, host, identity] in
+            if held {
+                try? await connection.releaseWriter(
+                    host: host,
+                    identity: identity,
+                    commandID: releaseID
+                )
+            }
+            await connection.cancel()
+        }
+        reducer.markOffline()
+        attachState = .offline
+        scheduleRender()
+    }
+
+    func resume() {
+        guard attachState == .offline else { return }
+        privacyCovered = false
+        writerReducer.setForeground(true)
+        publishWriterState()
+        launch(interactive: interactiveConnection, cancelExisting: true)
+    }
+
+    func detach() {
+        intentionallyDetached = true
+        privacyCovered = false
+        resizeTask?.cancel()
+        resizeTask = nil
+        renderTask?.cancel()
+        renderTask = nil
+        cancelPaste()
+        let held = writerLease == .held
+        writerReducer.releaseLocally()
+        publishWriterState()
+        let releaseID = UUID()
+        operationID = UUID()
+        operation?.cancel()
+        operation = nil
+        Task { [connection, host, identity] in
+            if held {
+                try? await connection.releaseWriter(
+                    host: host,
+                    identity: identity,
+                    commandID: releaseID
+                )
+            }
+            await connection.cancel()
+        }
+        queue.removeAll()
+        pendingMutations.removeAll()
+        inputInFlight = nil
+        reducer.detach()
+        attachState = .detached
+    }
+
+    private func launch(interactive: Bool, cancelExisting: Bool) {
+        operationID = UUID()
+        let launchID = operationID
+        operation?.cancel()
+        interactiveConnection = interactive
+        if reducer.state != .detached && reducer.state != .offline {
+            reducer.markOffline()
+        }
         do {
             try reducer.beginAuthentication()
             attachState = reducer.state
@@ -68,51 +273,41 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
         }
         let cursor = reducer.cursor
         operation = Task { [weak self, connection, host, viewport] in
+            if cancelExisting { await connection.cancel() }
+            guard let self, self.operationID == launchID, !Task.isCancelled else { return }
             do {
-                try await connection.attachReadOnly(
-                    host: host,
-                    cursor: cursor,
-                    viewport: viewport
-                ) { [weak self] event in
-                    guard let self else { throw CancellationError() }
-                    try await self.consume(event)
+                if interactive {
+                    try await connection.attachInteractive(
+                        host: host,
+                        cursor: cursor,
+                        viewport: viewport
+                    ) { [weak self] event in
+                        guard let self else { throw CancellationError() }
+                        try await self.consumeIfCurrent(event, operationID: launchID)
+                    }
+                } else {
+                    try await connection.attachReadOnly(
+                        host: host,
+                        cursor: cursor,
+                        viewport: viewport
+                    ) { [weak self] event in
+                        guard let self else { throw CancellationError() }
+                        try await self.consumeIfCurrent(event, operationID: launchID)
+                    }
                 }
-                self?.finish(error: ControllerConnectionError.malformedResponse)
+                self.finish(error: ControllerConnectionError.malformedResponse, id: launchID)
             } catch {
-                self?.finish(error: error)
+                self.finish(error: error, id: launchID)
             }
         }
     }
 
-    func retry() {
-        guard operation == nil else { return }
-        start()
-    }
-
-    func suspend() {
-        operation?.cancel()
-        operation = nil
-        Task { await connection.cancel() }
-        reducer.markOffline()
-        attachState = .offline
-        scheduleRender()
-    }
-
-    func resume() {
-        guard attachState == .offline else { return }
-        start()
-    }
-
-    func detach() {
-        intentionallyDetached = true
-        operation?.cancel()
-        operation = nil
-        renderTask?.cancel()
-        renderTask = nil
-        Task { await connection.cancel() }
-        queue.removeAll()
-        reducer.detach()
-        attachState = .detached
+    private func consumeIfCurrent(
+        _ event: ControllerReadOnlyWireEvent,
+        operationID: UUID
+    ) throws {
+        guard self.operationID == operationID else { throw CancellationError() }
+        try consume(event)
     }
 
     private func consume(_ event: ControllerReadOnlyWireEvent) throws {
@@ -129,6 +324,10 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
             try reducer.bindReplayBarrier(through: replayThroughSequence)
             hasWriterElsewhere = hasWriterLease
             attachState = reducer.state
+            if acquireAfterAttach {
+                acquireAfterAttach = false
+                issueAcquire()
+            }
         case .output(let frame):
             try queue.enqueue(frame)
             while let queued = queue.dequeue() {
@@ -139,19 +338,214 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
                     break
                 case .gap(let expected, let received):
                     attachState = .gap(expected: expected, received: received)
+                    loseWriter(message: "Control ended because terminal output was incomplete.")
                     scheduleRender()
                     return
                 }
             }
             attachState = reducer.state
+        case .completed(let commandID, let applied):
+            completeMutation(commandID: commandID, applied: applied)
+        case .error(let commandID, let code, let completionUnknown):
+            failMutation(
+                commandID: commandID,
+                code: code,
+                completionUnknown: completionUnknown
+            )
         }
         outputSequence = reducer.cursor.outputSequence
         scheduleRender()
     }
 
-    private func finish(error: Error) {
+    private func issueAcquire() {
+        guard interactiveConnection, canRequestControl else { return }
+        let commandID = UUID()
+        do {
+            try writerReducer.beginAcquire(commandID: commandID)
+        } catch {
+            writerMessage = "Control could not be requested in the current state."
+            return
+        }
+        pendingMutations[commandID] = .acquire
+        publishWriterState()
+        Task { [weak self, connection, host, identity] in
+            do {
+                try await connection.requestWriter(
+                    host: host,
+                    identity: identity,
+                    commandID: commandID
+                )
+            } catch {
+                self?.mutationSendFailed(commandID: commandID)
+            }
+        }
+    }
+
+    private func enqueueInput(
+        _ bytes: Data,
+        kind: PendingInputKind,
+        confirmed: Bool
+    ) {
+        guard canSendInput else {
+            writerMessage = "Request control before sending terminal input."
+            return
+        }
+        guard !bytes.isEmpty, bytes.count <= WriterControlReducer.maxQueuedBytes else {
+            writerMessage = "Input exceeded the 256 KiB queue limit."
+            return
+        }
+        do {
+            for offset in stride(
+                from: 0,
+                to: bytes.count,
+                by: ControllerWriterWireCodec.maxInputChunkBytes
+            ) {
+                let end = min(
+                    offset + ControllerWriterWireCodec.maxInputChunkBytes,
+                    bytes.count
+                )
+                try writerReducer.enqueue(
+                    bytes.subdata(in: offset..<end),
+                    kind: kind,
+                    confirmed: confirmed
+                )
+            }
+            publishWriterState()
+            drainInputQueue()
+        } catch WriterControlFailure.pasteConfirmationRequired {
+            pendingPaste = bytes
+            pendingPasteByteCount = bytes.count
+        } catch {
+            writerMessage = "Input pressure limit reached. Wait before trying again."
+        }
+    }
+
+    private func drainInputQueue() {
+        guard inputInFlight == nil,
+              canSendInput,
+              let pending = writerReducer.dequeue() else { return }
+        inputInFlight = pending.commandID
+        pendingMutations[pending.commandID] = .input
+        publishWriterState()
+        Task { [weak self, connection, host, identity] in
+            do {
+                try await connection.sendInput(
+                    host: host,
+                    identity: identity,
+                    commandID: pending.commandID,
+                    bytes: pending.bytes
+                )
+            } catch {
+                self?.mutationSendFailed(commandID: pending.commandID)
+            }
+        }
+    }
+
+    private func sendPendingResize() {
+        guard canSendInput, supportsResize, let next = pendingResize else { return }
+        pendingResize = nil
+        let commandID = UUID()
+        pendingMutations[commandID] = .resize
+        Task { [weak self, connection, host, identity] in
+            do {
+                try await connection.sendResize(
+                    host: host,
+                    identity: identity,
+                    commandID: commandID,
+                    viewport: next
+                )
+            } catch {
+                self?.mutationSendFailed(commandID: commandID)
+            }
+        }
+    }
+
+    private func completeMutation(commandID: UUID, applied: Bool) {
+        guard let mutation = pendingMutations.removeValue(forKey: commandID) else {
+            loseWriter(message: "Control response did not match a pending action.")
+            return
+        }
+        switch mutation {
+        case .acquire:
+            do {
+                try writerReducer.finishAcquire(commandID: commandID, applied: applied)
+                hasWriterElsewhere = !applied
+                writerMessage = applied ? nil : "This session is controlled from another client."
+            } catch {
+                loseWriter(message: "Control response was stale.")
+                return
+            }
+        case .release:
+            writerReducer.releaseLocally()
+        case .input:
+            guard inputInFlight == commandID else {
+                loseWriter(message: "Input acknowledgement was stale.")
+                return
+            }
+            inputInFlight = nil
+            if !applied {
+                loseWriter(message: "The Host rejected terminal input.")
+                return
+            }
+        case .resize:
+            if !applied { writerMessage = "The Host rejected the terminal resize." }
+        }
+        publishWriterState()
+        if mutation == .input { drainInputQueue() }
+    }
+
+    private func failMutation(
+        commandID: UUID,
+        code: String,
+        completionUnknown: Bool
+    ) {
+        guard let mutation = pendingMutations.removeValue(forKey: commandID) else {
+            loseWriter(message: "An unmatched Host error ended control.")
+            return
+        }
+        if mutation == .input { inputInFlight = nil }
+        if mutation == .acquire, !completionUnknown {
+            do {
+                try writerReducer.finishAcquire(commandID: commandID, applied: false)
+                hasWriterElsewhere = code == "writer_lease_required" || code == "writer_busy"
+                writerMessage = "Control is not available on this session."
+                publishWriterState()
+                return
+            } catch {
+                // Fall through to the fail-closed state.
+            }
+        }
+        let message = completionUnknown
+            ? "The action result is unknown. Control was disabled without retrying it."
+            : "The Host rejected control action: \(code)."
+        loseWriter(message: message)
+    }
+
+    private func mutationSendFailed(commandID: UUID) {
+        guard pendingMutations.removeValue(forKey: commandID) != nil else { return }
+        if inputInFlight == commandID { inputInFlight = nil }
+        loseWriter(message: "Control connection failed. No input was replayed.")
+    }
+
+    private func loseWriter(message: String) {
+        writerReducer.markLeaseLost()
+        pendingMutations.removeAll()
+        inputInFlight = nil
+        writerMessage = message
+        publishWriterState()
+    }
+
+    private func publishWriterState() {
+        writerLease = writerReducer.lease
+    }
+
+    private func finish(error: Error, id: UUID) {
+        guard operationID == id else { return }
         operation = nil
         guard !intentionallyDetached else { return }
+        if writerLease == .held || writerLease.isRequesting {
+            loseWriter(message: "Control connection ended. No input was replayed.")
+        }
         if error is CancellationError {
             reducer.markOffline()
             attachState = .offline
@@ -177,5 +571,12 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
             renderRevision &+= 1
             renderTask = nil
         }
+    }
+}
+
+private extension WriterLeaseState {
+    var isRequesting: Bool {
+        if case .requesting = self { return true }
+        return false
     }
 }

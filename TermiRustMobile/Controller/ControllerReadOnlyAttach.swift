@@ -149,6 +149,8 @@ enum ControllerReadOnlyWireEvent: Equatable, Sendable {
     case snapshot(TerminalSnapshotChunk)
     case attached(replayThroughSequence: UInt64, hasWriterLease: Bool)
     case output(TerminalOutputFrame)
+    case completed(commandID: UUID, applied: Bool)
+    case error(commandID: UUID, code: String, completionUnknown: Bool)
 }
 
 private struct ReadOnlyAttachCommandEnvelope: Encodable {
@@ -252,6 +254,18 @@ private struct ReadOnlyErrorPayload: Decodable {
         case commandId = "command_id"
         case code
         case completionUnknown = "completion_unknown"
+    }
+}
+
+private struct ReadOnlyCompletedPayload: Decodable {
+    let kind: String
+    let commandId: UUID
+    let applied: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case commandId = "command_id"
+        case applied
     }
 }
 
@@ -372,12 +386,24 @@ enum ControllerReadOnlyWireCodec {
             }
             let error = try JSONDecoder().decode(ReadOnlyErrorPayload.self, from: payload)
             guard error.kind == "error",
-                  error.commandId == commandID,
                   !error.code.isEmpty,
                   error.code.utf8.count <= 64 else {
                 throw ControllerReadOnlyWireError.malformedResponse
             }
-            throw ControllerReadOnlyWireError.hostError(error.code)
+            return .error(
+                commandID: error.commandId,
+                code: error.code,
+                completionUnknown: error.completionUnknown
+            )
+        case "completed":
+            guard Set(object.keys) == ["kind", "command_id", "applied"] else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            let completed = try JSONDecoder().decode(ReadOnlyCompletedPayload.self, from: payload)
+            guard completed.kind == "completed" else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            return .completed(commandID: completed.commandId, applied: completed.applied)
         default:
             throw ControllerReadOnlyWireError.malformedResponse
         }

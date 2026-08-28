@@ -3,33 +3,26 @@ options:
   minimumXcodeGenVersion: 2.42.0
   deploymentTarget:
     iOS: "17.0"
-packages:
-  swift-nio:
-    url: https://github.com/apple/swift-nio.git
-    from: 2.81.0
-  swift-nio-ssh:
-    url: https://github.com/apple/swift-nio-ssh.git
-    from: 0.13.0
-  swift-crypto:
-    url: https://github.com/apple/swift-crypto.git
-    from: 4.5.0
 targets:
   TermiRustMobile:
     type: application
     platform: iOS
     sources:
-      - TermiRustMobile
+      - TermiRustMobile/App/TermiRustMobileApp.swift
+      - TermiRustMobile/Controller
+      - TermiRustMobile/Generated/TermiRustControllerSecurity.swift
+      - TermiRustMobile/Models/ControllerModels.swift
+      - TermiRustMobile/Security/ControllerKeychainBlobStore.swift
+      - TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
+      - TermiRustMobile/ViewModels/ControllerTerminalViewModel.swift
+      - TermiRustMobile/ViewModels/ControllerViewModel.swift
+      - TermiRustMobile/Views/ControllerPresentation.swift
+      - TermiRustMobile/Views/ControllerQRCodeScanner.swift
+      - TermiRustMobile/Views/ControllerReadOnlyTerminalView.swift
+      - TermiRustMobile/Views/ControllerRootView.swift
+      - TermiRustMobile/Views/ControllerTerminalInputView.swift
+      - TermiRustMobile/Localizable.xcstrings
     dependencies:
-      - package: swift-nio-ssh
-        product: NIOSSH
-      - package: swift-nio
-        product: NIOCore
-      - package: swift-nio
-        product: NIOPosix
-      - package: swift-crypto
-        product: Crypto
-      - framework: Frameworks/TermiRustMobileCrypto.xcframework
-        embed: false
       - framework: Frameworks/TermiRustControllerSecurity.xcframework
         embed: false
     settings:
@@ -44,15 +37,20 @@ targets:
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight
         SWIFT_VERSION: 6.0
         IPHONEOS_DEPLOYMENT_TARGET: 17.0
+        LEGACY_DIRECT_SSH: 0
   TermiRustMobileTests:
     type: bundle.unit-test
     platform: iOS
     sources:
-      - TermiRustMobileTests
+      - TermiRustMobileTests/BoundedTerminalBufferTests.swift
+      - TermiRustMobileTests/ControllerBindingConformanceTests.swift
+      - TermiRustMobileTests/ControllerFleetCacheTests.swift
+      - TermiRustMobileTests/ControllerPairingFleetTests.swift
+      - TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift
+      - TermiRustMobileTests/ControllerTerminalViewModelTests.swift
+      - TermiRustMobileTests/ControllerWriterTests.swift
     dependencies:
       - target: TermiRustMobile
-      - package: swift-nio-ssh
-        product: NIOSSH
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.termirust.mobile.tests
