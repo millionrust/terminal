@@ -310,6 +310,7 @@ actor ControllerConnectionActor: ControllerConnecting {
             throw ControllerPairingError.rejected
         }
 
+        var registrationSent = false
         do {
             let result = try pending.session.confirmOrReject(
                 confirmation: .confirm,
@@ -329,12 +330,15 @@ actor ControllerConnectionActor: ControllerConnecting {
                 revocationEpoch: pending.envelope.revocationEpoch,
                 payload: registration
             )
-            let ack: PairingHostAckPayload = try await withTimeout(Self.handshakeTimeout) {
+            try await withTimeout(Self.handshakeTimeout) {
                 try await Self.sendFrame(
                     sealed,
                     maximum: Self.maxSecureFrameBytes,
                     over: connection
                 )
+            }
+            registrationSent = true
+            let ack: PairingHostAckPayload = try await withTimeout(Self.handshakeTimeout) {
                 let sealedAck = try await Self.receiveFrame(
                     maximum: Self.maxSecureFrameBytes,
                     over: connection
@@ -371,6 +375,27 @@ actor ControllerConnectionActor: ControllerConnecting {
             return record
         } catch {
             await cancel(deleteCreatedKey: false)
+            if registrationSent {
+                do {
+                    let provisionalRecord = try PairedHostRecord(
+                        id: Self.fingerprint(pending.hostKey),
+                        displayName: pending.hostName,
+                        route: pending.route,
+                        hostStaticPublicKey: pending.hostKey,
+                        deviceStaticKeyId: pending.keyID,
+                        deviceId: pending.deviceID,
+                        identityGeneration: pending.envelope.identityGeneration,
+                        revocationEpoch: pending.envelope.revocationEpoch,
+                        sessionGeneration: pending.envelope.sessionGeneration,
+                        capabilityBits: pending.capabilityBits
+                    )
+                    _ = try await fetchSessions(host: provisionalRecord) { _ in }
+                    return provisionalRecord
+                } catch {
+                    await cancel(deleteCreatedKey: false)
+                    throw ControllerPairingError.acknowledgementUncertain
+                }
+            }
             throw error
         }
     }
@@ -835,6 +860,7 @@ enum ControllerPairingError: Error, Equatable {
     case rejected
     case hostIdentityChanged
     case invalidAcknowledgement
+    case acknowledgementUncertain
 }
 
 enum ControllerConnectionError: Error, Equatable {

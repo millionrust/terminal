@@ -140,6 +140,33 @@ final class ControllerPairingFleetTests: XCTestCase {
         XCTAssertNil(policy.delayAfterFailure(attempt: 1, elapsedSeconds: 90))
     }
 
+    func testUnreconciledPairingAcknowledgementHasExplicitRecoveryState() async throws {
+        let fixture = try Fixture.make()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        let connection = FixtureConnection(
+            record: fixture.record,
+            finishFailure: .acknowledgementUncertain
+        )
+        let viewModel = ControllerViewModel(
+            connectionActor: connection,
+            hostStore: fixture.hostStore,
+            cacheStore: fixture.cacheStore,
+            defaults: UserDefaults(suiteName: UUID().uuidString)!,
+            retryPolicy: .immediateTestPolicy(maxAttempts: 1)
+        )
+        viewModel.pairingOfferText = "bounded-offer"
+        viewModel.pairingHostName = "Office Mac"
+        viewModel.pairingDeviceName = "Test iPhone"
+
+        viewModel.beginPairing()
+        try await waitUntil { viewModel.pairingChallenge != nil }
+        viewModel.finishPairing(matches: true)
+        try await waitUntil { viewModel.state.connection == .failed(.pairingUncertain) }
+
+        let storedHosts = try await fixture.hostStore.load()
+        XCTAssertTrue(storedHosts.isEmpty)
+    }
+
     private func waitUntil(
         attempts: Int = 100,
         condition: @MainActor () -> Bool
@@ -156,16 +183,19 @@ private actor FixtureConnection: ControllerConnecting {
     let record: PairedHostRecord
     private var failures: [ControllerFailure]
     private let repeatingFailure: ControllerFailure?
+    private let finishFailure: ControllerPairingError?
     private(set) var fetchCount = 0
 
     init(
         record: PairedHostRecord,
         failures: [ControllerFailure] = [],
-        repeatingFailure: ControllerFailure? = nil
+        repeatingFailure: ControllerFailure? = nil,
+        finishFailure: ControllerPairingError? = nil
     ) {
         self.record = record
         self.failures = failures
         self.repeatingFailure = repeatingFailure
+        self.finishFailure = finishFailure
     }
 
     func beginPairing(
@@ -184,6 +214,7 @@ private actor FixtureConnection: ControllerConnecting {
 
     func finishPairing(matches: Bool) async throws -> PairedHostRecord {
         guard matches else { throw ControllerPairingError.rejected }
+        if let finishFailure { throw finishFailure }
         return record
     }
 

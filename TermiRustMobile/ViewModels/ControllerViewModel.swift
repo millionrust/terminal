@@ -381,6 +381,7 @@ final class ControllerViewModel: ObservableObject {
             case .timedOut: return .timedOut
             case .rejected: return .sasMismatch
             case .randomUnavailable: return .keychainUnavailable
+            case .acknowledgementUncertain: return .pairingUncertain
             default: return .authenticationFailed
             }
         }

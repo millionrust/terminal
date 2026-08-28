@@ -153,6 +153,7 @@ enum ControllerFailure: String, Codable, Error, Sendable {
     case sequenceGap
     case resourceLimit
     case storageUnavailable
+    case pairingUncertain
 }
 
 struct ControllerViewState: Equatable, Sendable {

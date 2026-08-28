@@ -233,6 +233,7 @@ private struct ControllerStatusBanner: View {
         case .keychainUnavailable: return "Unlock this device or pair again to restore the device key."
         case .malformedResponse: return "The Host returned an incompatible response."
         case .timedOut: return "The Host did not respond before the secure connection deadline."
+        case .pairingUncertain: return "The Host may have saved this device, but confirmation was interrupted. Keep the pairing offer open and try again."
         default: return "Connect to the same LAN or VPN, then retry."
         }
     }
