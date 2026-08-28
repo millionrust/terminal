@@ -84,6 +84,7 @@ struct ControllerSessionSummary: Codable, Identifiable, Hashable, Sendable {
     let project: String?
     let group: String?
     let lifecycle: String
+    let activity: String?
     let occupantGeneration: UInt64?
     let lastOutputSequence: UInt64
     let hasWriter: Bool
@@ -93,6 +94,7 @@ struct ControllerSessionSummary: Codable, Identifiable, Hashable, Sendable {
         guard !title.isEmpty,
               title.unicodeScalars.count <= ControllerCacheLimits.maxTitleScalars,
               lifecycle.utf8.count <= 64,
+              activity?.utf8.count ?? 0 <= 64,
               project?.unicodeScalars.count ?? 0 <= ControllerCacheLimits.maxTitleScalars,
               group?.unicodeScalars.count ?? 0 <= ControllerCacheLimits.maxTitleScalars else {
             throw ControllerModelError.invalidSession

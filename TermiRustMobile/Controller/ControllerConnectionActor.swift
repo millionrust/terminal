@@ -145,18 +145,26 @@ private struct SessionsResponsePayload: Decodable {
 private struct SessionSummaryPayload: Decodable {
     let sessionId: UUID
     let title: String
+    let project: String?
+    let group: String?
     let lifecycle: String
+    let activity: String?
     let occupantGeneration: UInt64?
     let lastOutputSequence: UInt64
     let hasWriter: Bool
+    let unread: Bool?
 
     private enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
         case title
+        case project
+        case group
         case lifecycle
+        case activity
         case occupantGeneration = "occupant_generation"
         case lastOutputSequence = "last_output_sequence"
         case hasWriter = "has_writer"
+        case unread
     }
 }
 
@@ -585,13 +593,14 @@ actor ControllerConnectionActor: ControllerConnecting {
                     let summary = ControllerSessionSummary(
                         id: value.sessionId,
                         title: value.title,
-                        project: nil,
-                        group: nil,
+                        project: value.project,
+                        group: value.group,
                         lifecycle: value.lifecycle,
+                        activity: value.activity,
                         occupantGeneration: value.occupantGeneration,
                         lastOutputSequence: value.lastOutputSequence,
                         hasWriter: value.hasWriter,
-                        unreadCount: 0
+                        unreadCount: value.unread == true ? 1 : 0
                     )
                     try summary.validate()
                     return summary
@@ -629,12 +638,15 @@ actor ControllerConnectionActor: ControllerConnecting {
             data,
             keys: ["kind", "command_id", "revision", "update_sequence", "sessions", "next_offset"]
         )
+        let legacyKeys: Set<String> = [
+            "session_id", "title", "lifecycle", "occupant_generation",
+            "last_output_sequence", "has_writer",
+        ]
+        let enrichedKeys = legacyKeys.union(["project", "group", "activity", "unread"])
         guard let sessions = object["sessions"] as? [[String: Any]],
-              sessions.allSatisfy({
-                  Set($0.keys) == [
-                      "session_id", "title", "lifecycle", "occupant_generation",
-                      "last_output_sequence", "has_writer"
-                  ]
+              sessions.allSatisfy({ summary in
+                  let keys = Set(summary.keys)
+                  return keys == legacyKeys || keys == enrichedKeys
               }) else {
             throw ControllerConnectionError.malformedResponse
         }

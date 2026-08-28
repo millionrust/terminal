@@ -327,8 +327,15 @@ private struct ControllerSessionRow: View {
                         .foregroundStyle(.secondary)
                         .fixedSize(horizontal: false, vertical: true)
                 }
-                HStack(spacing: 8) {
-                    Text(session.lifecycle.capitalized)
+                AnyLayout(
+                    dynamicTypeSize.isAccessibilitySize
+                        ? AnyLayout(VStackLayout(alignment: .leading, spacing: 3))
+                        : AnyLayout(HStackLayout(spacing: 8))
+                ) {
+                    Text(ControllerPresentation.lifecycleLabel(session.lifecycle))
+                    if let activity = session.activity {
+                        Text(ControllerPresentation.activityLabel(activity))
+                    }
                     if session.hasWriter { Text("Writer active") }
                     if session.unreadCount > 0 {
                         Text(ControllerPresentation.unreadDescription(session.unreadCount))
@@ -359,14 +366,14 @@ private struct ControllerSessionRow: View {
 
     private var lifecycleIcon: String {
         switch session.lifecycle {
-        case "running": return "play.circle.fill"
+        case "live", "running", "running_app_attached": return "play.circle.fill"
         case "stopped", "exited": return "stop.circle"
         default: return "circle.dotted"
         }
     }
 
     private var lifecycleColor: Color {
-        session.lifecycle == "running" ? .green : .secondary
+        ["live", "running", "running_app_attached"].contains(session.lifecycle) ? .green : .secondary
     }
 }
 

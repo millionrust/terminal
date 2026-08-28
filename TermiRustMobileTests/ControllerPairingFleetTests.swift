@@ -273,6 +273,7 @@ private struct Fixture {
         project: nil,
         group: nil,
         lifecycle: "running",
+        activity: "busy",
         occupantGeneration: 1,
         lastOutputSequence: 4,
         hasWriter: false,

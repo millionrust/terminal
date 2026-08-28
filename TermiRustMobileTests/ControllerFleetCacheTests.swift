@@ -110,6 +110,7 @@ final class ControllerFleetCacheTests: XCTestCase {
             project: expanded ? long : nil,
             group: expanded ? long : nil,
             lifecycle: "running",
+            activity: nil,
             occupantGeneration: 1,
             lastOutputSequence: UInt64(index),
             hasWriter: false,
