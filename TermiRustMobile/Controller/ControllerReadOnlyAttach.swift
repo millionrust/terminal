@@ -14,6 +14,11 @@ enum ReadOnlyAttachFailure: Error, Equatable, Sendable {
     case sequenceOverflow
 }
 
+enum ControllerReadOnlyWireError: Error, Equatable, Sendable {
+    case malformedResponse
+    case hostError(String)
+}
+
 enum ReadOnlyAttachState: Equatable, Sendable {
     case detached
     case authenticating
@@ -130,6 +135,190 @@ enum ReadOnlyOutputDisposition: Equatable, Sendable {
     case gap(expected: UInt64, received: UInt64)
 }
 
+enum ControllerReadOnlyWireEvent: Equatable, Sendable {
+    case attached(replayThroughSequence: UInt64, hasWriterLease: Bool)
+    case output(TerminalOutputFrame)
+}
+
+private struct ReadOnlyAttachCommandEnvelope: Encodable {
+    let version = 1
+    let commandId: UUID
+    let sessionGeneration: UInt64
+    let deadlineMillis: UInt64
+    let command: ReadOnlyAttachCommand
+
+    private enum CodingKeys: String, CodingKey {
+        case version
+        case commandId = "command_id"
+        case sessionGeneration = "session_generation"
+        case deadlineMillis = "deadline_millis"
+        case command
+    }
+}
+
+private struct ReadOnlyAttachCommand: Encodable {
+    let kind = "attach"
+    let sessionId: UUID
+    let occupantGeneration: UInt64
+    let fromSequence: UInt64
+    let columns: UInt32
+    let rows: UInt32
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case sessionId = "session_id"
+        case occupantGeneration = "occupant_generation"
+        case fromSequence = "from_sequence"
+        case columns
+        case rows
+    }
+}
+
+private struct ReadOnlyAttachedPayload: Decodable {
+    let kind: String
+    let commandId: UUID
+    let sessionId: UUID
+    let occupantGeneration: UInt64
+    let replayThroughSequence: UInt64
+    let hasWriterLease: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case commandId = "command_id"
+        case sessionId = "session_id"
+        case occupantGeneration = "occupant_generation"
+        case replayThroughSequence = "replay_through_sequence"
+        case hasWriterLease = "has_writer_lease"
+    }
+}
+
+private struct ReadOnlyOutputPayload: Decodable {
+    let kind: String
+    let sessionId: UUID
+    let sequence: UInt64
+    let bytes: [UInt8]
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case sessionId = "session_id"
+        case sequence
+        case bytes
+    }
+}
+
+private struct ReadOnlyErrorPayload: Decodable {
+    let kind: String
+    let commandId: UUID
+    let code: String
+    let completionUnknown: Bool
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case commandId = "command_id"
+        case code
+        case completionUnknown = "completion_unknown"
+    }
+}
+
+enum ControllerReadOnlyWireCodec {
+    private static let maxOpenedPayloadBytes = 4 * 1_024 * 1_024
+
+    static func encodeAttach(
+        commandID: UUID,
+        sessionGeneration: UInt64,
+        deadlineMillis: UInt64,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewportState,
+        limits: TerminalLimits = .controllerDefault
+    ) throws -> Data {
+        try cursor.identity.validate()
+        try limits.validate(viewport: viewport)
+        guard sessionGeneration > 0, deadlineMillis > 0 else {
+            throw ControllerReadOnlyWireError.malformedResponse
+        }
+        return try JSONEncoder().encode(ReadOnlyAttachCommandEnvelope(
+            commandId: commandID,
+            sessionGeneration: sessionGeneration,
+            deadlineMillis: deadlineMillis,
+            command: ReadOnlyAttachCommand(
+                sessionId: cursor.identity.sessionID,
+                occupantGeneration: cursor.identity.occupantGeneration,
+                fromSequence: cursor.outputSequence,
+                columns: UInt32(viewport.columns),
+                rows: UInt32(viewport.rows)
+            )
+        ))
+    }
+
+    static func decode(
+        _ payload: Data,
+        commandID: UUID,
+        identity: ReadOnlyAttachIdentity,
+        limits: TerminalLimits = .controllerDefault
+    ) throws -> ControllerReadOnlyWireEvent {
+        try identity.validate()
+        try limits.validate()
+        guard !payload.isEmpty,
+              payload.count <= maxOpenedPayloadBytes,
+              let object = try JSONSerialization.jsonObject(with: payload) as? [String: Any],
+              let kind = object["kind"] as? String else {
+            throw ControllerReadOnlyWireError.malformedResponse
+        }
+
+        switch kind {
+        case "attached":
+            guard Set(object.keys) == [
+                "kind", "command_id", "session_id", "occupant_generation",
+                "replay_through_sequence", "has_writer_lease",
+            ] else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            let attached = try JSONDecoder().decode(ReadOnlyAttachedPayload.self, from: payload)
+            guard attached.kind == "attached",
+                  attached.commandId == commandID,
+                  attached.sessionId == identity.sessionID,
+                  attached.occupantGeneration == identity.occupantGeneration else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            return .attached(
+                replayThroughSequence: attached.replayThroughSequence,
+                hasWriterLease: attached.hasWriterLease
+            )
+        case "output":
+            guard Set(object.keys) == ["kind", "session_id", "sequence", "bytes"] else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            let output = try JSONDecoder().decode(ReadOnlyOutputPayload.self, from: payload)
+            guard output.kind == "output",
+                  output.sessionId == identity.sessionID,
+                  output.sequence > 0,
+                  !output.bytes.isEmpty,
+                  output.bytes.count <= limits.maxFrameBytes else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            return .output(TerminalOutputFrame(
+                sessionID: output.sessionId,
+                sequence: output.sequence,
+                bytes: Data(output.bytes)
+            ))
+        case "error":
+            guard Set(object.keys) == ["kind", "command_id", "code", "completion_unknown"] else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            let error = try JSONDecoder().decode(ReadOnlyErrorPayload.self, from: payload)
+            guard error.kind == "error",
+                  error.commandId == commandID,
+                  !error.code.isEmpty,
+                  error.code.utf8.count <= 64 else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            throw ControllerReadOnlyWireError.hostError(error.code)
+        default:
+            throw ControllerReadOnlyWireError.malformedResponse
+        }
+    }
+}
+
 struct BoundedTerminalFrameQueue: Sendable {
     private let limits: TerminalLimits
     private var frames: [TerminalOutputFrame] = []
@@ -179,6 +368,7 @@ struct ReadOnlyAttachReducer: Sendable {
 
     private(set) var state: ReadOnlyAttachState = .detached
     private(set) var cursor: TerminalStreamCursor
+    private(set) var replayThroughSequence: UInt64?
 
     init(
         identity: ReadOnlyAttachIdentity,
@@ -216,7 +406,16 @@ struct ReadOnlyAttachReducer: Sendable {
 
     mutating func beginReplayWithoutSnapshot() throws {
         guard state == .authenticating else { throw fail(.invalidTransition) }
+        replayThroughSequence = nil
         state = .replaying
+    }
+
+    mutating func beginReplay(through boundary: UInt64) throws {
+        guard state == .authenticating, boundary >= cursor.outputSequence else {
+            throw fail(.invalidTransition)
+        }
+        replayThroughSequence = boundary
+        state = boundary == cursor.outputSequence ? .live : .replaying
     }
 
     mutating func markLive() throws {
@@ -257,6 +456,9 @@ struct ReadOnlyAttachReducer: Sendable {
 
         cursor.outputSequence = frame.sequence
         remember(frame)
+        if state == .replaying, cursor.outputSequence == replayThroughSequence {
+            state = .live
+        }
         return .deliver
     }
 
@@ -272,6 +474,7 @@ struct ReadOnlyAttachReducer: Sendable {
         recentFrames.removeAll(keepingCapacity: false)
         recentOrder.removeAll(keepingCapacity: false)
         recentBytes = 0
+        replayThroughSequence = nil
         state = .detached
     }
 

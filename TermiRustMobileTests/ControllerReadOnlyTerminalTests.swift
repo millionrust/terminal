@@ -3,6 +3,90 @@ import XCTest
 @testable import TermiRustMobile
 
 final class ControllerReadOnlyTerminalTests: XCTestCase {
+    func testAttachCodecBindsCommandToExactCursorAndViewport() throws {
+        let commandID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+        let reducer = try makeReducer(fromSequence: 9)
+        let encoded = try ControllerReadOnlyWireCodec.encodeAttach(
+            commandID: commandID,
+            sessionGeneration: 4,
+            deadlineMillis: 30_000,
+            cursor: reducer.cursor,
+            viewport: TerminalViewportState(columns: 120, rows: 40)
+        )
+        let object = try XCTUnwrap(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+        let command = try XCTUnwrap(object["command"] as? [String: Any])
+
+        XCTAssertEqual(Set(object.keys), [
+            "version", "command_id", "session_generation", "deadline_millis", "command",
+        ])
+        XCTAssertEqual(Set(command.keys), [
+            "kind", "session_id", "occupant_generation", "from_sequence", "columns", "rows",
+        ])
+        XCTAssertEqual(command["kind"] as? String, "attach")
+        XCTAssertEqual(command["session_id"] as? String, sessionID.uuidString)
+        XCTAssertEqual((command["from_sequence"] as? NSNumber)?.uint64Value, 9)
+        XCTAssertEqual((command["columns"] as? NSNumber)?.uint32Value, 120)
+        XCTAssertEqual((command["rows"] as? NSNumber)?.uint32Value, 40)
+    }
+
+    func testAttachCodecDecodesBoundReplayBarrierAndOutput() throws {
+        let commandID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+        let identity = try makeReducer().cursor.identity
+        let attached = try JSONSerialization.data(withJSONObject: [
+            "kind": "attached",
+            "command_id": commandID.uuidString,
+            "session_id": sessionID.uuidString,
+            "occupant_generation": 7,
+            "replay_through_sequence": 12,
+            "has_writer_lease": true,
+        ])
+        XCTAssertEqual(
+            try ControllerReadOnlyWireCodec.decode(
+                attached,
+                commandID: commandID,
+                identity: identity
+            ),
+            .attached(replayThroughSequence: 12, hasWriterLease: true)
+        )
+
+        let output = try JSONSerialization.data(withJSONObject: [
+            "kind": "output",
+            "session_id": sessionID.uuidString,
+            "sequence": 10,
+            "bytes": [65, 66, 67],
+        ])
+        XCTAssertEqual(
+            try ControllerReadOnlyWireCodec.decode(
+                output,
+                commandID: commandID,
+                identity: identity
+            ),
+            .output(frame(sequence: 10, bytes: Data("ABC".utf8)))
+        )
+    }
+
+    func testAttachCodecRejectsCrossSessionAndUnknownFields() throws {
+        let commandID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
+        let identity = try makeReducer().cursor.identity
+        let payload = try JSONSerialization.data(withJSONObject: [
+            "kind": "output",
+            "session_id": "00000000-0000-0000-0000-000000000099",
+            "sequence": 1,
+            "bytes": [65],
+            "unexpected": true,
+        ])
+
+        XCTAssertThrowsError(
+            try ControllerReadOnlyWireCodec.decode(
+                payload,
+                commandID: commandID,
+                identity: identity
+            )
+        ) { error in
+            XCTAssertEqual(error as? ControllerReadOnlyWireError, .malformedResponse)
+        }
+    }
+
     func testLimitsEnforceViewportAndFrameBoundaries() throws {
         let limits = TerminalLimits.controllerDefault
         XCTAssertNoThrow(try limits.validate(viewport: TerminalViewportState(columns: 400, rows: 200)))
@@ -106,6 +190,24 @@ final class ControllerReadOnlyTerminalTests: XCTestCase {
             .deliver
         )
         try reducer.markLive()
+        XCTAssertEqual(reducer.state, .live)
+    }
+
+    func testReplayBarrierTransitionsLiveOnlyAfterBoundary() throws {
+        var reducer = try makeReducer(fromSequence: 4)
+        try reducer.beginAuthentication()
+        try reducer.beginReplay(through: 6)
+
+        XCTAssertEqual(reducer.state, .replaying)
+        XCTAssertEqual(
+            try reducer.observe(frame(sequence: 5, bytes: Data("five".utf8))),
+            .deliver
+        )
+        XCTAssertEqual(reducer.state, .replaying)
+        XCTAssertEqual(
+            try reducer.observe(frame(sequence: 6, bytes: Data("six".utf8))),
+            .deliver
+        )
         XCTAssertEqual(reducer.state, .live)
     }
 
