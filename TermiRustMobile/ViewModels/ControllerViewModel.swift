@@ -9,6 +9,7 @@ final class ControllerViewModel: ObservableObject {
     @Published var pairingOfferText = ""
     @Published var pairingHostName = "My Mac"
     @Published var pairingDeviceName = UIDevice.current.name
+    @Published private(set) var activeTerminal: ControllerTerminalViewModel?
 
     private let connectionActor: (any ControllerConnecting)?
     private let hostStore: PairedHostStore?
@@ -151,6 +152,7 @@ final class ControllerViewModel: ObservableObject {
     }
 
     func suspend() {
+        activeTerminal?.suspend()
         operation?.cancel()
         operation = nil
         Task { await connectionActor?.cancel() }
@@ -165,7 +167,32 @@ final class ControllerViewModel: ObservableObject {
     }
 
     func resume() {
+        if let activeTerminal {
+            activeTerminal.resume()
+            return
+        }
         guard operation == nil else { return }
+        retry()
+    }
+
+    func openReadOnlyTerminal(_ session: ControllerSessionSummary) {
+        guard activeTerminal == nil,
+              !state.isCachedReadOnly,
+              state.connection == .readyReadOnly,
+              let host = selectedHost,
+              let connectionActor,
+              host.capabilityBits & (1 << 1) != 0,
+              session.occupantGeneration != nil else { return }
+        activeTerminal = try? ControllerTerminalViewModel(
+            host: host,
+            session: session,
+            connection: connectionActor
+        )
+    }
+
+    func closeReadOnlyTerminal() {
+        activeTerminal?.detach()
+        activeTerminal = nil
         retry()
     }
 

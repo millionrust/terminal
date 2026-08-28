@@ -69,8 +69,10 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
+  TermiRustMobile/ViewModels/ControllerTerminalViewModel.swift
   TermiRustMobile/Views/ControllerPresentation.swift
   TermiRustMobile/Views/ControllerRootView.swift
+  TermiRustMobile/Views/ControllerReadOnlyTerminalView.swift
   TermiRustMobile/Views/ControllerQRCodeScanner.swift
 )
 TEST_SOURCES=(
@@ -84,8 +86,10 @@ RUNTIME_TESTS=(
 if [[ "$STAGE" == "readonly-terminal" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/BoundedTerminalBufferTests.swift)
+  TEST_SOURCES+=(TermiRustMobileTests/ControllerTerminalViewModelTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerReadOnlyTerminalTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/BoundedTerminalBufferTests)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerTerminalViewModelTests)
 fi
 
 xcrun swiftc \

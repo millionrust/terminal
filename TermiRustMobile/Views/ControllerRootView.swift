@@ -44,7 +44,8 @@ struct ControllerRootView: View {
                 state: viewModel.state,
                 onRetry: viewModel.retry,
                 onForget: { showingForgetConfirmation = true },
-                onShowDetails: { showingHostDetails = true }
+                onShowDetails: { showingHostDetails = true },
+                onOpenSession: viewModel.openReadOnlyTerminal
             )
         }
         .navigationSplitViewStyle(.balanced)
@@ -80,12 +81,27 @@ struct ControllerRootView: View {
         } message: {
             Text("This removes the local pairing key and cache. It does not revoke the device on the Host.")
         }
+        .fullScreenCover(isPresented: terminalPresented) {
+            if let terminal = viewModel.activeTerminal {
+                ControllerReadOnlyTerminalView(
+                    viewModel: terminal,
+                    onClose: viewModel.closeReadOnlyTerminal
+                )
+            }
+        }
     }
 
     private var hostSelection: Binding<String?> {
         Binding(
             get: { viewModel.state.selectedHostID },
             set: { viewModel.selectHost(id: $0) }
+        )
+    }
+
+    private var terminalPresented: Binding<Bool> {
+        Binding(
+            get: { viewModel.activeTerminal != nil },
+            set: { if !$0 { viewModel.closeReadOnlyTerminal() } }
         )
     }
 }
@@ -125,6 +141,7 @@ private struct ControllerSessionFleetView: View {
     let onRetry: () -> Void
     let onForget: () -> Void
     let onShowDetails: () -> Void
+    let onOpenSession: (ControllerSessionSummary) -> Void
 
     var body: some View {
         Group {
@@ -149,7 +166,18 @@ private struct ControllerSessionFleetView: View {
                         ForEach(ControllerPresentation.sessionGroups(state.sessions)) { group in
                             Section {
                                 ForEach(group.sessions) { session in
-                                    ControllerSessionRow(session: session, cached: state.isCachedReadOnly)
+                                    Button { onOpenSession(session) } label: {
+                                        ControllerSessionRow(
+                                            session: session,
+                                            cached: state.isCachedReadOnly
+                                        )
+                                    }
+                                    .buttonStyle(.plain)
+                                    .disabled(
+                                        state.isCachedReadOnly
+                                            || state.connection != .readyReadOnly
+                                            || session.occupantGeneration == nil
+                                    )
                                 }
                             } header: {
                                 if let title = ControllerPresentation.sessionGroupTitle(group.id) {
@@ -562,7 +590,7 @@ private struct ControllerHostSettingsView: View {
                     ForEach(Array(ControllerPresentation.capabilityLabels(bits: host.capabilityBits).enumerated()), id: \.offset) { _, label in
                         Label(label, systemImage: "checkmark.circle")
                     }
-                    Text("This version only reads session summaries. It cannot display terminal output or send input.")
+                    Text("Terminal monitoring is view-only. This app cannot send input unless interactive control is granted separately.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
