@@ -133,6 +133,11 @@ data class ControllerTerminalUiState(
     val screen: BoundedTerminalSnapshot,
     val outputSequence: Long,
     val hasWriterElsewhere: Boolean = false,
+    val writerLease: WriterLeaseState = WriterLeaseState.None,
+    val writerMessage: String? = null,
+    val pendingPasteBytes: Int = 0,
+    val supportsWriter: Boolean = false,
+    val supportsResize: Boolean = false,
     val privacyCovered: Boolean = false,
 )
 

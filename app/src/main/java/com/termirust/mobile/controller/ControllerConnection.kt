@@ -40,6 +40,7 @@ class ControllerConnection(
     private val json = Json { ignoreUnknownKeys = false; encodeDefaults = true; explicitNulls = true }
     private val random = SecureRandom()
     @Volatile private var activeSocket: Socket? = null
+    @Volatile private var activeTerminal: ActiveTerminalConnection? = null
     private var pendingPairing: PendingPairing? = null
 
     suspend fun beginPairing(
@@ -306,6 +307,8 @@ class ControllerConnection(
                             }
                             is ReadOnlyWireEvent.Output ->
                                 require(attached && opened.kind == ControllerFrameKind.TERMINAL)
+                            is ReadOnlyWireEvent.Completed ->
+                                throw IllegalArgumentException("mutation response on read-only attach")
                             is ReadOnlyWireEvent.HostError -> {
                                 require(event.commandId == commandId && opened.kind == ControllerFrameKind.CONTROL)
                                 throw ControllerConnectionException.HostError(event.code)
@@ -324,6 +327,208 @@ class ControllerConnection(
         }
     }
 
+    suspend fun attachInteractive(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewport,
+        onEvent: suspend (ReadOnlyWireEvent) -> Unit,
+    ) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            cancelUnlocked(deleteCreatedKey = true)
+            host.validate()
+            cursor.identity.validate()
+            TerminalLimits().validate(viewport)
+            val required = ATTACH_CAPABILITY or INPUT_CAPABILITY
+            require(host.capabilityBits and required == required && cursor.identity.hostId == host.id)
+            val requested = host.capabilityBits and ALL_INTERACTIVE_CAPABILITIES
+            val socket = open(host.route)
+            activeSocket = socket
+            try {
+                val input = DataInputStream(socket.getInputStream())
+                val output = DataOutputStream(socket.getOutputStream())
+                val hostKey = Base64.getDecoder().decode(host.hostStaticPublicKey)
+                val request = ConnectionStartRequest(
+                    staticKeyId = host.deviceStaticKeyId,
+                    ephemeralPrivateKey = randomBytes(32),
+                    hostStaticPublicKey = hostKey,
+                    identityGeneration = host.identityGeneration.toULong(),
+                    revocationEpoch = host.revocationEpoch.toULong(),
+                    requestedCapabilityBits = requested.toUShort(),
+                    clientNonce = randomBytes(32),
+                    nowMillis = uptimeMillis().toULong(),
+                )
+                output.write(AUTH_PREFACE)
+                output.write(engine.connectionPrelude(request))
+                output.flush()
+                val challenge = ByteArray(36).also(input::readFully)
+                val session = engine.connectionStart(request, challenge)
+                val terminal = ActiveTerminalConnection(
+                    hostId = host.id,
+                    identity = cursor.identity,
+                    grantedCapabilityBits = requested,
+                    output = output,
+                    session = session,
+                )
+                try {
+                    writeFrame(output, session.handshakeOutbound(uptimeMillis().toULong()), MAX_HANDSHAKE_BYTES)
+                    val publicResult = session.handshakeReceiveAccept(
+                        readFrame(input, MAX_HANDSHAKE_BYTES),
+                        uptimeMillis().toULong(),
+                    )
+                    require(publicResult.hostStaticPublicKey.contentEquals(hostKey))
+                    require(publicResult.identityGeneration.toLong() == host.identityGeneration)
+                    require(publicResult.revocationEpoch.toLong() == host.revocationEpoch)
+                    require(publicResult.grantedCapabilityBits.toInt() == requested)
+
+                    val attachCommandId = UUID.randomUUID()
+                    terminal.attachCommandId = attachCommandId
+                    activeTerminal = terminal
+                    val command = ControllerReadOnlyWireCodec.encodeAttach(
+                        attachCommandId,
+                        host.sessionGeneration,
+                        clockMillis() + READ_TIMEOUT_MILLIS,
+                        cursor,
+                        viewport,
+                    )
+                    val sealed = session.sealFrame(
+                        ControllerFrameKind.CONTROL,
+                        ControllerCapability.ATTACH_OUTPUT,
+                        host.revocationEpoch.toULong(),
+                        command,
+                    )
+                    writeFrame(output, sealed, MAX_SECURE_FRAME_BYTES)
+
+                    var attached = false
+                    while (true) {
+                        val sealedResponse = readFrame(input, MAX_TERMINAL_FRAME_BYTES)
+                        val opened = terminal.cryptoMutex.withLock { session.openFrame(sealedResponse) }
+                        require(opened.revocationEpoch.toLong() == host.revocationEpoch)
+                        require(opened.kind == ControllerFrameKind.CONTROL || opened.kind == ControllerFrameKind.TERMINAL)
+                        val event = ControllerReadOnlyWireCodec.decode(
+                            opened.payload,
+                            attachCommandId,
+                            cursor.identity,
+                        )
+                        when (event) {
+                            is ReadOnlyWireEvent.Snapshot ->
+                                require(!attached && opened.kind == ControllerFrameKind.TERMINAL &&
+                                    opened.capability == ControllerCapability.ATTACH_OUTPUT)
+                            is ReadOnlyWireEvent.Attached -> {
+                                require(!attached && opened.kind == ControllerFrameKind.CONTROL &&
+                                    opened.capability == ControllerCapability.ATTACH_OUTPUT)
+                                attached = true
+                            }
+                            is ReadOnlyWireEvent.Output ->
+                                require(attached && opened.kind == ControllerFrameKind.TERMINAL &&
+                                    opened.capability == ControllerCapability.ATTACH_OUTPUT)
+                            is ReadOnlyWireEvent.Completed -> {
+                                require(attached && opened.kind == ControllerFrameKind.CONTROL)
+                                val expected = terminal.pendingMutex.withLock {
+                                    terminal.pendingCapabilities.remove(event.commandId)
+                                }
+                                require(expected != null && opened.capability == expected)
+                            }
+                            is ReadOnlyWireEvent.HostError -> {
+                                if (event.commandId == attachCommandId) {
+                                    throw ControllerConnectionException.HostError(event.code)
+                                }
+                                require(attached && opened.kind == ControllerFrameKind.CONTROL)
+                                val expected = terminal.pendingMutex.withLock {
+                                    terminal.pendingCapabilities.remove(event.commandId)
+                                }
+                                require(expected != null && opened.capability == expected)
+                            }
+                        }
+                        onEvent(event)
+                    }
+                } finally {
+                    if (activeTerminal === terminal) activeTerminal = null
+                    runCatching { session.finish() }
+                    session.close()
+                }
+            } finally {
+                socket.close()
+                if (activeSocket === socket) activeSocket = null
+            }
+        }
+    }
+
+    suspend fun requestWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) {
+        sendTerminalMutation(
+            host,
+            identity,
+            commandId,
+            ControllerCapability.SEND_INPUT,
+            INPUT_CAPABILITY,
+            ControllerWriterWireCodec.encodeAcquire(
+                commandId,
+                host.sessionGeneration,
+                clockMillis() + READ_TIMEOUT_MILLIS,
+                identity,
+            ),
+        )
+    }
+
+    suspend fun releaseWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) {
+        sendTerminalMutation(
+            host,
+            identity,
+            commandId,
+            ControllerCapability.SEND_INPUT,
+            INPUT_CAPABILITY,
+            ControllerWriterWireCodec.encodeRelease(
+                commandId,
+                host.sessionGeneration,
+                clockMillis() + 2_000,
+                identity,
+            ),
+        )
+    }
+
+    suspend fun sendInput(
+        host: PairedHostRecord,
+        identity: ReadOnlyAttachIdentity,
+        commandId: UUID,
+        bytes: ByteArray,
+    ) {
+        sendTerminalMutation(
+            host,
+            identity,
+            commandId,
+            ControllerCapability.SEND_INPUT,
+            INPUT_CAPABILITY,
+            ControllerWriterWireCodec.encodeInput(
+                commandId,
+                host.sessionGeneration,
+                clockMillis() + 10_000,
+                identity,
+                bytes,
+            ),
+        )
+    }
+
+    suspend fun sendResize(
+        host: PairedHostRecord,
+        identity: ReadOnlyAttachIdentity,
+        commandId: UUID,
+        viewport: TerminalViewport,
+    ) {
+        sendTerminalMutation(
+            host,
+            identity,
+            commandId,
+            ControllerCapability.RESIZE,
+            RESIZE_CAPABILITY,
+            ControllerWriterWireCodec.encodeResize(
+                commandId,
+                host.sessionGeneration,
+                clockMillis() + 10_000,
+                identity,
+                viewport,
+            ),
+        )
+    }
+
     suspend fun cancel() {
         // Socket.close is thread-safe and unblocks a pending read before the operation
         // coroutine can reacquire the serialization mutex.
@@ -338,6 +543,38 @@ class ControllerConnection(
         pendingPairing?.session?.close()
         pendingPairing = null
         engine.close()
+    }
+
+    private suspend fun sendTerminalMutation(
+        host: PairedHostRecord,
+        identity: ReadOnlyAttachIdentity,
+        commandId: UUID,
+        capability: ControllerCapability,
+        capabilityBit: Int,
+        payload: ByteArray,
+    ) {
+        require(payload.size <= MAX_SECURE_FRAME_BYTES)
+        val terminal = activeTerminal
+        require(terminal != null && terminal.hostId == host.id && terminal.identity == identity)
+        require(terminal.grantedCapabilityBits and capabilityBit == capabilityBit)
+        terminal.pendingMutex.withLock {
+            require(terminal.pendingCapabilities.size < WriterControlReducer.MAX_QUEUED_CHUNKS)
+            require(terminal.pendingCapabilities.putIfAbsent(commandId, capability) == null)
+        }
+        try {
+            val sealed = terminal.cryptoMutex.withLock {
+                terminal.session.sealFrame(
+                    ControllerFrameKind.CONTROL,
+                    capability,
+                    host.revocationEpoch.toULong(),
+                    payload,
+                )
+            }
+            terminal.writeMutex.withLock { writeFrame(terminal.output, sealed, MAX_SECURE_FRAME_BYTES) }
+        } catch (error: Throwable) {
+            terminal.pendingMutex.withLock { terminal.pendingCapabilities.remove(commandId) }
+            throw error
+        }
     }
 
     private suspend fun fetchSessionsUnlocked(
@@ -477,6 +714,10 @@ class ControllerConnection(
         runCatching { pending?.session?.finish() }
         pending?.session?.close()
         pendingPairing = null
+        val terminal = activeTerminal
+        activeTerminal = null
+        runCatching { terminal?.session?.finish() }
+        terminal?.session?.close()
         activeSocket?.close()
         activeSocket = null
     }
@@ -525,6 +766,11 @@ class ControllerConnection(
         const val READ_TIMEOUT_MILLIS = 30_000
         const val OBSERVE_CAPABILITY = 1
         const val ATTACH_CAPABILITY = 1 shl 1
+        const val INPUT_CAPABILITY = 1 shl 2
+        const val RESIZE_CAPABILITY = 1 shl 3
+        const val APPROVAL_CAPABILITY = 1 shl 4
+        const val ALL_INTERACTIVE_CAPABILITIES = ATTACH_CAPABILITY or INPUT_CAPABILITY or
+            RESIZE_CAPABILITY or APPROVAL_CAPABILITY
         val PAIRING_PREFACE = byteArrayOf(0x54, 0x52, 0x43, 0x4e, 0, 1, 2, 0)
         val AUTH_PREFACE = byteArrayOf(0x54, 0x52, 0x43, 0x4e, 0, 1, 1, 0)
     }
@@ -545,6 +791,19 @@ private data class PendingPairing(
     val sas: String,
     val hostKey: ByteArray,
     val capabilityBits: Int,
+)
+
+private data class ActiveTerminalConnection(
+    val hostId: String,
+    val identity: ReadOnlyAttachIdentity,
+    val grantedCapabilityBits: Int,
+    val output: DataOutputStream,
+    val session: ControllerConnectionSession,
+    val cryptoMutex: Mutex = Mutex(),
+    val writeMutex: Mutex = Mutex(),
+    val pendingMutex: Mutex = Mutex(),
+    val pendingCapabilities: MutableMap<UUID, ControllerCapability> = mutableMapOf(),
+    var attachCommandId: UUID? = null,
 )
 
 @Serializable private data class PairingOfferEnvelope(

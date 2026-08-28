@@ -2,10 +2,12 @@ package com.termirust.mobile.controller
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
@@ -20,6 +22,7 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
@@ -50,8 +53,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -123,7 +128,17 @@ fun ControllerApp(viewModel: ControllerViewModel) {
                     .navigationBarsPadding(),
             ) {
                 if (activeTerminal != null) {
-                    ControllerTerminalScreen(activeTerminal, viewModel::retryTerminal)
+                    ControllerTerminalScreen(
+                        terminal = activeTerminal,
+                        onRetry = viewModel::retryTerminal,
+                        onRequestControl = viewModel::requestTerminalControl,
+                        onReleaseControl = viewModel::releaseTerminalControl,
+                        onBytes = viewModel::sendTerminalBytes,
+                        onPaste = viewModel::requestTerminalPaste,
+                        onConfirmPaste = viewModel::confirmTerminalPaste,
+                        onCancelPaste = viewModel::cancelTerminalPaste,
+                        onViewportChanged = viewModel::updateTerminalViewport,
+                    )
                 } else if (state.hosts.isEmpty()) {
                     EmptyFleet(onPair = { showPairing = true })
                 } else if (maxWidth >= 840.dp) {
@@ -432,10 +447,34 @@ private fun SessionRow(session: ControllerSessionSummary, cached: Boolean, onOpe
 private fun ControllerTerminalScreen(
     terminal: ControllerTerminalUiState,
     onRetry: () -> Unit,
+    onRequestControl: () -> Unit,
+    onReleaseControl: () -> Unit,
+    onBytes: (ByteArray) -> Unit,
+    onPaste: (String) -> Unit,
+    onConfirmPaste: () -> Unit,
+    onCancelPaste: () -> Unit,
+    onViewportChanged: (Int, Int) -> Unit,
 ) {
     var followOutput by remember { mutableStateOf(true) }
+    var focusRequest by remember { mutableStateOf(0L) }
+    var controlModifier by remember { mutableStateOf(false) }
+    var altModifier by remember { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
     val listState = rememberLazyListState()
     val lines = terminal.screen.lines
+    val canInput = terminal.writerLease == WriterLeaseState.Held &&
+        terminal.attachState == ReadOnlyAttachState.Live && !terminal.privacyCovered
+    val submitBytes: (ByteArray) -> Unit = { original ->
+        var bytes = original
+        if (controlModifier && bytes.size == 1) {
+            val value = bytes[0].toInt().toChar().uppercaseChar()
+            if (value in 'A'..'Z') bytes = byteArrayOf((value.code - 'A'.code + 1).toByte())
+        }
+        if (altModifier) bytes = byteArrayOf(0x1b) + bytes
+        controlModifier = false
+        altModifier = false
+        onBytes(bytes)
+    }
     LaunchedEffect(terminal.outputSequence, followOutput, lines.size) {
         if (followOutput && lines.isNotEmpty()) listState.scrollToItem(lines.lastIndex)
     }
@@ -446,7 +485,7 @@ private fun ControllerTerminalScreen(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    AssistChip(onClick = {}, label = { Text(stringResource(com.termirust.mobile.R.string.view_only)) })
+                    AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
                     Column(Modifier.weight(1f)) {
                         Text(isolated(terminal.sessionTitle), fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Text(
@@ -460,7 +499,10 @@ private fun ControllerTerminalScreen(
                         fontFamily = FontFamily.Monospace,
                     )
                 }
-                Row(verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
                     TextButton(onClick = { followOutput = !followOutput }) {
                         Text(
                             stringResource(
@@ -470,6 +512,17 @@ private fun ControllerTerminalScreen(
                         )
                     }
                     Spacer(Modifier.weight(1f))
+                    when {
+                        terminal.writerLease == WriterLeaseState.Held ->
+                            OutlinedButton(onClick = onReleaseControl) {
+                                Text(stringResource(com.termirust.mobile.R.string.release_control))
+                            }
+                        terminal.supportsWriter && terminal.attachState == ReadOnlyAttachState.Live &&
+                            terminal.writerLease !is WriterLeaseState.Requesting ->
+                            Button(onClick = onRequestControl) {
+                                Text(stringResource(com.termirust.mobile.R.string.request_control))
+                            }
+                    }
                     if (terminal.attachState is ReadOnlyAttachState.Offline ||
                         terminal.attachState is ReadOnlyAttachState.Gap ||
                         terminal.attachState is ReadOnlyAttachState.Failed
@@ -482,9 +535,28 @@ private fun ControllerTerminalScreen(
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
+                terminal.writerMessage?.let { code ->
+                    Text(
+                        stringResource(
+                            com.termirust.mobile.R.string.terminal_control_warning,
+                            writerMessage(code),
+                        ),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
             }
         }
-        Box(Modifier.fillMaxSize()) {
+        Box(
+            Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .onSizeChanged { size ->
+                    val columns = (size.width / 8).coerceIn(20, 400)
+                    val rows = (size.height / 20).coerceIn(5, 200)
+                    onViewportChanged(columns, rows)
+                },
+        ) {
             if (lines.all(String::isEmpty)) {
                 Text(
                     terminalEmptyText(terminal.attachState),
@@ -509,6 +581,12 @@ private fun ControllerTerminalScreen(
                     }
                 }
             }
+            ControllerTerminalInputView(
+                enabled = canInput,
+                focusRequest = focusRequest,
+                onBytes = submitBytes,
+                modifier = Modifier.size(2.dp),
+            )
             if (terminal.privacyCovered) {
                 Box(
                     Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
@@ -522,8 +600,92 @@ private fun ControllerTerminalScreen(
                 }
             }
         }
+        if (canInput) {
+            Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+                Row(
+                    Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 8.dp, vertical = 6.dp),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                ) {
+                    TerminalKey("Esc") { submitBytes(byteArrayOf(0x1b)) }
+                    TerminalKey("Ctrl", selected = controlModifier) { controlModifier = !controlModifier }
+                    TerminalKey("Alt", selected = altModifier) { altModifier = !altModifier }
+                    TerminalKey("Tab") { submitBytes(byteArrayOf('\t'.code.toByte())) }
+                    TerminalKey("←") { submitBytes("\u001b[D".encodeToByteArray()) }
+                    TerminalKey("↑") { submitBytes("\u001b[A".encodeToByteArray()) }
+                    TerminalKey("↓") { submitBytes("\u001b[B".encodeToByteArray()) }
+                    TerminalKey("→") { submitBytes("\u001b[C".encodeToByteArray()) }
+                    TextButton(onClick = { clipboard.getText()?.text?.let(onPaste) }) {
+                        Text(stringResource(com.termirust.mobile.R.string.paste))
+                    }
+                    Button(onClick = { focusRequest += 1 }) {
+                        Text(stringResource(com.termirust.mobile.R.string.show_keyboard))
+                    }
+                }
+            }
+        }
+    }
+    if (terminal.pendingPasteBytes > 0) {
+        AlertDialog(
+            onDismissRequest = onCancelPaste,
+            title = { Text(stringResource(com.termirust.mobile.R.string.paste_confirmation_title)) },
+            text = {
+                Text(stringResource(com.termirust.mobile.R.string.paste_confirmation_message, terminal.pendingPasteBytes))
+            },
+            confirmButton = {
+                Button(onClick = onConfirmPaste) { Text(stringResource(com.termirust.mobile.R.string.send_paste)) }
+            },
+            dismissButton = {
+                TextButton(onClick = onCancelPaste) { Text(stringResource(com.termirust.mobile.R.string.cancel)) }
+            },
+        )
     }
 }
+
+@Composable
+private fun TerminalKey(label: String, selected: Boolean = false, onClick: () -> Unit) {
+    if (selected) {
+        Button(
+            onClick = onClick,
+            modifier = Modifier.size(width = 48.dp, height = 48.dp),
+            contentPadding = PaddingValues(0.dp),
+        ) { Text(label) }
+    } else {
+        OutlinedButton(
+            onClick = onClick,
+            modifier = Modifier.size(width = 48.dp, height = 48.dp),
+            contentPadding = PaddingValues(0.dp),
+        ) { Text(label) }
+    }
+}
+
+@Composable
+private fun writerLabel(terminal: ControllerTerminalUiState): String = when (terminal.writerLease) {
+    WriterLeaseState.None -> if (terminal.hasWriterElsewhere) {
+        stringResource(com.termirust.mobile.R.string.controlled_elsewhere)
+    } else stringResource(com.termirust.mobile.R.string.view_only)
+    is WriterLeaseState.Requesting -> stringResource(com.termirust.mobile.R.string.requesting_control)
+    WriterLeaseState.Held -> stringResource(com.termirust.mobile.R.string.you_control)
+    WriterLeaseState.Busy -> stringResource(com.termirust.mobile.R.string.controlled_elsewhere)
+    WriterLeaseState.Lost -> stringResource(com.termirust.mobile.R.string.control_lost)
+}
+
+@Composable
+private fun writerMessage(code: String): String = stringResource(
+    when (code) {
+        "control_unavailable" -> com.termirust.mobile.R.string.writer_error_control_unavailable
+        "controlled_elsewhere" -> com.termirust.mobile.R.string.writer_error_controlled_elsewhere
+        "input_pressure" -> com.termirust.mobile.R.string.writer_error_input_pressure
+        "paste_too_large" -> com.termirust.mobile.R.string.writer_error_paste_too_large
+        "resize_rejected" -> com.termirust.mobile.R.string.writer_error_resize_rejected
+        "completion_unknown" -> com.termirust.mobile.R.string.writer_error_unknown
+        "connection_failed_no_replay" -> com.termirust.mobile.R.string.writer_error_connection
+        else -> com.termirust.mobile.R.string.writer_error_rejected
+    },
+)
 
 @Composable
 private fun terminalStatus(terminal: ControllerTerminalUiState): String = when (val state = terminal.attachState) {

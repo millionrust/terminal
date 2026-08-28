@@ -5,12 +5,14 @@ import android.os.Build
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.net.SocketException
 import java.net.SocketTimeoutException
 import java.security.SecureRandom
@@ -33,6 +35,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     private var cache = ControllerCacheDocument()
     private var operation: Job? = null
     private var terminalRender: Job? = null
+    private var terminalResize: Job? = null
     private var terminalRuntime: ActiveTerminalRuntime? = null
 
     init {
@@ -110,6 +113,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         operation = if (terminal != null) {
             viewModelScope.launch {
                 connection.cancel()
+                terminal.writer.setForeground(true)
                 runTerminal(terminal)
             }
         } else {
@@ -119,12 +123,18 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     fun onBackground() {
         operation?.cancel()
-        operation = viewModelScope.launch { connection.cancel() }
         terminalRuntime?.let { runtime ->
+            val held = runtime.writer.lease == WriterLeaseState.Held
+            runtime.writer.setForeground(false)
             runtime.reducer.markOffline()
             publishTerminal(runtime, privacyCovered = true)
+            operation = viewModelScope.launch {
+                releaseWriterForLifecycle(runtime, held)
+                connection.cancel()
+            }
             return
         }
+        operation = viewModelScope.launch { connection.cancel() }
         val selected = _state.value.selectedHostId
         _state.value = makeState(selected, ControllerConnectionState.PairedOffline)
     }
@@ -139,6 +149,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             host = host,
             session = session,
             reducer = ReadOnlyAttachReducer(identity),
+            writer = WriterControlReducer(identity),
             terminal = BoundedControllerTerminal(viewport),
             queue = BoundedTerminalFrameQueue(),
             viewport = viewport,
@@ -161,15 +172,80 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun requestTerminalControl() {
+        val runtime = terminalRuntime ?: return
+        if (!runtime.supportsWriter || !runtime.writer.isForeground) return
+        runtime.acquireAfterAttach = true
+        if (runtime.interactive && runtime.reducer.state == ReadOnlyAttachState.Live) {
+            runtime.acquireAfterAttach = false
+            issueAcquire(runtime)
+            return
+        }
+        runtime.interactive = true
+        operation?.cancel()
+        operation = viewModelScope.launch {
+            connection.cancel()
+            runTerminal(runtime)
+        }
+    }
+
+    fun releaseTerminalControl() {
+        val runtime = terminalRuntime ?: return
+        if (runtime.writer.lease != WriterLeaseState.Held) return
+        val commandId = UUID.randomUUID()
+        runtime.pendingMutations[commandId] = TerminalMutation.RELEASE
+        runtime.writer.releaseLocally()
+        publishTerminal(runtime)
+        viewModelScope.launch {
+            runCatching { connection.releaseWriter(runtime.host, runtime.writer.identity, commandId) }
+                .onFailure { mutationSendFailed(runtime, commandId) }
+        }
+    }
+
+    fun sendTerminalBytes(bytes: ByteArray) = enqueueTerminalInput(bytes, PendingInputKind.KEYBOARD, true)
+
+    fun requestTerminalPaste(text: String) {
+        val runtime = terminalRuntime ?: return
+        val bytes = text.encodeToByteArray()
+        if (bytes.isEmpty()) return
+        if (bytes.size > WriterControlReducer.MAX_QUEUED_BYTES) {
+            runtime.writerMessage = "paste_too_large"
+            publishTerminal(runtime)
+        } else if (runtime.writer.pasteRequiresConfirmation(bytes)) {
+            runtime.pendingPaste = bytes
+            publishTerminal(runtime)
+        } else {
+            enqueueTerminalInput(bytes, PendingInputKind.PASTE, true)
+        }
+    }
+
+    fun confirmTerminalPaste() {
+        val runtime = terminalRuntime ?: return
+        val bytes = runtime.pendingPaste ?: return
+        runtime.pendingPaste = null
+        enqueueTerminalInput(bytes, PendingInputKind.PASTE, true)
+    }
+
+    fun cancelTerminalPaste() {
+        val runtime = terminalRuntime ?: return
+        runtime.pendingPaste = null
+        publishTerminal(runtime)
+    }
+
     fun detachTerminal() {
+        val runtime = terminalRuntime
+        val held = runtime?.writer?.lease == WriterLeaseState.Held
         operation?.cancel()
         terminalRender?.cancel()
+        terminalResize?.cancel()
         terminalRender = null
         operation = viewModelScope.launch {
+            if (runtime != null) releaseWriterForLifecycle(runtime, held)
             connection.cancel()
             refreshSelected(retry = false)
         }
-        terminalRuntime?.reducer?.detach()
+        runtime?.writer?.releaseLocally()
+        runtime?.reducer?.detach()
         terminalRuntime = null
         _state.value = _state.value.copy(activeTerminal = null)
     }
@@ -178,8 +254,17 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         val runtime = terminalRuntime ?: return
         val viewport = TerminalViewport(columns, rows)
         if (runCatching { TerminalLimits().validate(viewport) }.isFailure) return
+        if (runtime.viewport == viewport) return
         runtime.viewport = viewport
         runtime.terminal.resize(viewport)
+        if (runtime.supportsResize && runtime.writer.lease == WriterLeaseState.Held) {
+            runtime.pendingResize = viewport
+            terminalResize?.cancel()
+            terminalResize = viewModelScope.launch {
+                delay(50)
+                sendPendingResize(runtime)
+            }
+        }
         publishTerminal(runtime)
     }
 
@@ -205,6 +290,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     override fun onCleared() {
         operation?.cancel()
         terminalRender?.cancel()
+        terminalResize?.cancel()
         connection.close()
         super.onCleared()
     }
@@ -286,13 +372,17 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         try {
             runtime.reducer.beginAuthentication()
             publishTerminal(runtime)
-            connection.attachReadOnly(
-                host = runtime.host,
-                cursor = runtime.reducer.cursor,
-                viewport = runtime.viewport,
-            ) { event ->
+            val consume: suspend (ReadOnlyWireEvent) -> Unit = { event ->
                 if (terminalRuntime !== runtime) throw CancellationException()
-                consumeTerminalEvent(runtime, event)
+                withContext(Dispatchers.Main.immediate) {
+                    if (terminalRuntime !== runtime) throw CancellationException()
+                    consumeTerminalEvent(runtime, event)
+                }
+            }
+            if (runtime.interactive) {
+                connection.attachInteractive(runtime.host, runtime.reducer.cursor, runtime.viewport, consume)
+            } else {
+                connection.attachReadOnly(runtime.host, runtime.reducer.cursor, runtime.viewport, consume)
             }
         } catch (error: CancellationException) {
             if (terminalRuntime === runtime && runtime.reducer.state != ReadOnlyAttachState.Detached) {
@@ -302,6 +392,14 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             throw error
         } catch (error: Throwable) {
             if (terminalRuntime !== runtime) return
+            if (runtime.writer.lease == WriterLeaseState.Held ||
+                runtime.writer.lease is WriterLeaseState.Requesting
+            ) {
+                runtime.writer.markLeaseLost()
+                runtime.pendingMutations.clear()
+                runtime.inputInFlight = null
+                runtime.writerMessage = "connection_failed_no_replay"
+            }
             if (runtime.reducer.state !is ReadOnlyAttachState.Gap) {
                 if (error is ControllerConnectionException.HostError && error.code.contains("exit", true)) {
                     runtime.reducer.markExited()
@@ -329,6 +427,10 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             is ReadOnlyWireEvent.Attached -> {
                 runtime.reducer.bindReplayBarrier(event.replayThroughSequence)
                 runtime.hasWriterElsewhere = event.hasWriterLease
+                if (runtime.acquireAfterAttach) {
+                    runtime.acquireAfterAttach = false
+                    issueAcquire(runtime)
+                }
             }
             is ReadOnlyWireEvent.Output -> {
                 runtime.queue.enqueue(event.frame)
@@ -341,7 +443,8 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
                     }
                 }
             }
-            is ReadOnlyWireEvent.HostError -> throw ControllerConnectionException.HostError(event.code)
+            is ReadOnlyWireEvent.HostError -> failMutation(runtime, event.commandId, event.code, event.completionUnknown)
+            is ReadOnlyWireEvent.Completed -> completeMutation(runtime, event.commandId, event.applied)
         }
         if (event is ReadOnlyWireEvent.Output) {
             scheduleTerminalPublish(runtime)
@@ -368,9 +471,133 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
                 screen = runtime.terminal.snapshot(),
                 outputSequence = runtime.reducer.cursor.outputSequence,
                 hasWriterElsewhere = runtime.hasWriterElsewhere,
+                writerLease = runtime.writer.lease,
+                writerMessage = runtime.writerMessage,
+                pendingPasteBytes = runtime.pendingPaste?.size ?: 0,
+                supportsWriter = runtime.supportsWriter,
+                supportsResize = runtime.supportsResize,
                 privacyCovered = privacyCovered,
             ),
         )
+    }
+
+    private fun issueAcquire(runtime: ActiveTerminalRuntime) {
+        if (terminalRuntime !== runtime || !runtime.interactive) return
+        val commandId = UUID.randomUUID()
+        try {
+            runtime.writer.beginAcquire(commandId)
+        } catch (_: IllegalArgumentException) {
+            runtime.writerMessage = "control_unavailable"
+            publishTerminal(runtime)
+            return
+        }
+        runtime.pendingMutations[commandId] = TerminalMutation.ACQUIRE
+        publishTerminal(runtime)
+        viewModelScope.launch {
+            runCatching { connection.requestWriter(runtime.host, runtime.writer.identity, commandId) }
+                .onFailure { mutationSendFailed(runtime, commandId) }
+        }
+    }
+
+    private fun enqueueTerminalInput(bytes: ByteArray, kind: PendingInputKind, confirmed: Boolean) {
+        val runtime = terminalRuntime ?: return
+        if (runtime.writer.lease != WriterLeaseState.Held || bytes.isEmpty()) return
+        try {
+            var offset = 0
+            while (offset < bytes.size) {
+                val end = (offset + ControllerWriterWireCodec.MAX_INPUT_CHUNK_BYTES).coerceAtMost(bytes.size)
+                runtime.writer.enqueue(bytes.copyOfRange(offset, end), kind, confirmed)
+                offset = end
+            }
+            runtime.writerMessage = null
+            drainInput(runtime)
+        } catch (_: IllegalArgumentException) {
+            runtime.writerMessage = "input_pressure"
+        }
+        publishTerminal(runtime)
+    }
+
+    private fun drainInput(runtime: ActiveTerminalRuntime) {
+        if (runtime.inputInFlight != null || runtime.writer.lease != WriterLeaseState.Held) return
+        val pending = runtime.writer.removeFirstOrNull() ?: return
+        runtime.inputInFlight = pending.commandId
+        runtime.pendingMutations[pending.commandId] = TerminalMutation.INPUT
+        viewModelScope.launch {
+            runCatching {
+                connection.sendInput(runtime.host, runtime.writer.identity, pending.commandId, pending.bytes)
+            }.onFailure { mutationSendFailed(runtime, pending.commandId) }
+        }
+    }
+
+    private fun sendPendingResize(runtime: ActiveTerminalRuntime) {
+        val viewport = runtime.pendingResize ?: return
+        if (runtime.writer.lease != WriterLeaseState.Held) return
+        runtime.pendingResize = null
+        val commandId = UUID.randomUUID()
+        runtime.pendingMutations[commandId] = TerminalMutation.RESIZE
+        viewModelScope.launch {
+            runCatching {
+                connection.sendResize(runtime.host, runtime.writer.identity, commandId, viewport)
+            }.onFailure { mutationSendFailed(runtime, commandId) }
+        }
+    }
+
+    private fun completeMutation(runtime: ActiveTerminalRuntime, commandId: UUID, applied: Boolean) {
+        when (runtime.pendingMutations.remove(commandId) ?: return loseWriter(runtime, "stale_response")) {
+            TerminalMutation.ACQUIRE -> {
+                runCatching { runtime.writer.finishAcquire(commandId, applied) }
+                    .onFailure { return loseWriter(runtime, "stale_response") }
+                runtime.hasWriterElsewhere = !applied
+                runtime.writerMessage = if (applied) null else "controlled_elsewhere"
+            }
+            TerminalMutation.RELEASE -> Unit
+            TerminalMutation.INPUT -> {
+                if (runtime.inputInFlight != commandId || !applied) return loseWriter(runtime, "input_rejected")
+                runtime.inputInFlight = null
+                drainInput(runtime)
+            }
+            TerminalMutation.RESIZE -> if (!applied) runtime.writerMessage = "resize_rejected"
+        }
+        publishTerminal(runtime)
+    }
+
+    private fun failMutation(
+        runtime: ActiveTerminalRuntime,
+        commandId: UUID,
+        code: String,
+        completionUnknown: Boolean,
+    ) {
+        val mutation = runtime.pendingMutations.remove(commandId) ?: return loseWriter(runtime, "unmatched_error")
+        if (runtime.inputInFlight == commandId) runtime.inputInFlight = null
+        if (mutation == TerminalMutation.ACQUIRE && !completionUnknown) {
+            runCatching { runtime.writer.finishAcquire(commandId, false) }
+            runtime.hasWriterElsewhere = code == "writer_lease_required" || code == "writer_busy"
+            runtime.writerMessage = "control_unavailable"
+            publishTerminal(runtime)
+        } else {
+            loseWriter(runtime, if (completionUnknown) "completion_unknown" else code)
+        }
+    }
+
+    private fun mutationSendFailed(runtime: ActiveTerminalRuntime, commandId: UUID) {
+        if (runtime.pendingMutations.remove(commandId) == null) return
+        if (runtime.inputInFlight == commandId) runtime.inputInFlight = null
+        loseWriter(runtime, "connection_failed_no_replay")
+    }
+
+    private fun loseWriter(runtime: ActiveTerminalRuntime, message: String) {
+        runtime.writer.markLeaseLost()
+        runtime.pendingMutations.clear()
+        runtime.inputInFlight = null
+        runtime.writerMessage = message
+        publishTerminal(runtime)
+    }
+
+    private suspend fun releaseWriterForLifecycle(runtime: ActiveTerminalRuntime, wasHeld: Boolean) {
+        if (!wasHeld) return
+        val commandId = UUID.randomUUID()
+        runtime.writer.releaseLocally()
+        runCatching { connection.releaseWriter(runtime.host, runtime.writer.identity, commandId) }
     }
 
     private fun selectedHost(): PairedHostRecord? =
@@ -410,8 +637,24 @@ private data class ActiveTerminalRuntime(
     val host: PairedHostRecord,
     val session: ControllerSessionSummary,
     val reducer: ReadOnlyAttachReducer,
+    val writer: WriterControlReducer,
     val terminal: BoundedControllerTerminal,
     val queue: BoundedTerminalFrameQueue,
     var viewport: TerminalViewport,
     var hasWriterElsewhere: Boolean = false,
+    var interactive: Boolean = false,
+    var acquireAfterAttach: Boolean = false,
+    var writerMessage: String? = null,
+    var pendingPaste: ByteArray? = null,
+    var pendingResize: TerminalViewport? = null,
+    var inputInFlight: UUID? = null,
+    val pendingMutations: MutableMap<UUID, TerminalMutation> = mutableMapOf(),
 )
+
+private enum class TerminalMutation { ACQUIRE, RELEASE, INPUT, RESIZE }
+
+private val ActiveTerminalRuntime.supportsWriter: Boolean
+    get() = host.capabilityBits and ((1 shl 1) or (1 shl 2)) == ((1 shl 1) or (1 shl 2))
+
+private val ActiveTerminalRuntime.supportsResize: Boolean
+    get() = host.capabilityBits and (1 shl 3) != 0

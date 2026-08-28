@@ -15,8 +15,22 @@ android {
         targetSdk = 35
         versionCode = 1
         versionName = "0.1.0"
+        manifestPlaceholders["appLabel"] = "@string/app_name"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+    }
+
+    flavorDimensions += "mode"
+    productFlavors {
+        create("controller") {
+            dimension = "mode"
+        }
+        create("legacyDirectSsh") {
+            dimension = "mode"
+            applicationIdSuffix = ".legacy"
+            versionNameSuffix = "-legacy"
+            manifestPlaceholders["appLabel"] = "Legacy Direct SSH - not Host sessions"
+        }
     }
 
     buildFeatures {
@@ -52,8 +66,8 @@ dependencies {
     implementation("androidx.camera:camera-view:1.4.1")
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
-    implementation("com.hierynomus:sshj:0.39.0")
     implementation("net.java.dev.jna:jna:5.17.0@aar")
+    "legacyDirectSshImplementation"("com.hierynomus:sshj:0.39.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 

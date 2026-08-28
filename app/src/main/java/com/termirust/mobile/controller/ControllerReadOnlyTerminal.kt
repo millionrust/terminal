@@ -83,6 +83,7 @@ sealed interface ReadOnlyWireEvent {
     data class Snapshot(val chunk: TerminalSnapshotChunk) : ReadOnlyWireEvent
     data class Attached(val replayThroughSequence: Long, val hasWriterLease: Boolean) : ReadOnlyWireEvent
     data class Output(val frame: TerminalOutputFrame) : ReadOnlyWireEvent
+    data class Completed(val commandId: UUID, val applied: Boolean) : ReadOnlyWireEvent
     data class HostError(val commandId: UUID, val code: String, val completionUnknown: Boolean) : ReadOnlyWireEvent
 }
 
@@ -180,6 +181,10 @@ object ControllerReadOnlyWireCodec {
                 val value = json.decodeFromString<AttachErrorPayload>(text)
                 require(value.code.toByteArray().size in 1..64)
                 ReadOnlyWireEvent.HostError(UUID.fromString(value.commandId), value.code, value.completionUnknown)
+            }
+            "completed" -> {
+                val value = json.decodeFromString<CompletedPayload>(text)
+                ReadOnlyWireEvent.Completed(UUID.fromString(value.commandId), value.applied)
             }
             else -> throw IllegalArgumentException("unsupported event kind")
         }
@@ -377,4 +382,10 @@ class ReadOnlyAttachReducer(
     @SerialName("command_id") val commandId: String,
     val code: String,
     @SerialName("completion_unknown") val completionUnknown: Boolean,
+)
+
+@Serializable private data class CompletedPayload(
+    val kind: String,
+    @SerialName("command_id") val commandId: String,
+    val applied: Boolean,
 )

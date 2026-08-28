@@ -82,4 +82,24 @@
     <string name="terminal_privacy_cover">Terminal hidden while TermiRust is inactive</string>
     <string name="terminal_truncated">Older or oversized output was truncated at the local safety limit.</string>
     <string name="monitor_session">Monitor session %1$s</string>
+    <string name="request_control">Request Control</string>
+    <string name="release_control">Release</string>
+    <string name="you_control">You control</string>
+    <string name="controlled_elsewhere">Controlled elsewhere</string>
+    <string name="requesting_control">Requesting control</string>
+    <string name="control_lost">Control lost</string>
+    <string name="show_keyboard">Keyboard</string>
+    <string name="paste">Paste</string>
+    <string name="paste_confirmation_title">Send pasted text to this terminal?</string>
+    <string name="paste_confirmation_message">The paste contains multiple lines or is large (%1$d bytes). Review the destination before sending it.</string>
+    <string name="send_paste">Send Paste</string>
+    <string name="terminal_control_warning">Terminal control warning: %1$s</string>
+    <string name="writer_error_control_unavailable">Control is not available for this session.</string>
+    <string name="writer_error_controlled_elsewhere">This session is controlled from another client.</string>
+    <string name="writer_error_input_pressure">Input pressure limit reached. Wait before trying again.</string>
+    <string name="writer_error_paste_too_large">Paste is larger than the 256 KiB safety limit.</string>
+    <string name="writer_error_resize_rejected">The Host rejected the terminal resize.</string>
+    <string name="writer_error_unknown">The action result is unknown. Control was disabled without retrying it.</string>
+    <string name="writer_error_connection">Control connection failed. No input was replayed.</string>
+    <string name="writer_error_rejected">The Host rejected the control action.</string>
 </resources>
