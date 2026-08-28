@@ -1,0 +1,83 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "Attach to session output" : {},
+    "Authenticating directly with the selected Host." : {},
+    "Cached" : {},
+    "Cached · Read Only" : {},
+    "Cancel" : {},
+    "Close Scanner" : {},
+    "Codes Match" : {},
+    "Compare on Both Devices" : {},
+    "Connect to the same LAN or VPN, then retry." : {},
+    "Connection" : {},
+    "Continue" : {},
+    "Done" : {},
+    "Fleet" : {},
+    "Forget" : {},
+    "Forget on This Device" : {},
+    "Forget this Host on this device?" : {},
+    "Forgetting removes the local key and cached summaries. It does not revoke this device on the Host." : {},
+    "Granted Capabilities" : {},
+    "Host" : {},
+    "Host Details" : {},
+    "Host Fingerprint" : {},
+    "Host Identity" : {},
+    "Host Unavailable" : {},
+    "Host name" : {},
+    "Live" : {},
+    "Live · Read Only" : {},
+    "Names" : {},
+    "No Paired Hosts" : {},
+    "No Sessions" : {},
+    "Offline" : {},
+    "Pair Host" : {},
+    "Paired Hosts" : {},
+    "Pairing Offer" : {},
+    "Pairing Revoked" : {},
+    "Reconnect" : {},
+    "Refresh" : {},
+    "Reject" : {},
+    "Respond to approvals" : {},
+    "Retry" : {},
+    "Route" : {},
+    "Scan QR Code" : {},
+    "Security code %@" : {},
+    "Select a Host" : {},
+    "Send terminal input" : {},
+    "Session status is current. Terminal content is never downloaded." : {},
+    "Sessions" : {},
+    "SSH" : {},
+    "This device" : {},
+    "This version only reads session summaries. It cannot display terminal output or send input." : {},
+    "Update Required" : {},
+    "View session list" : {},
+    "Waiting for Host confirmation…" : {},
+    "Writer active" : {},
+    "Resize terminal" : {},
+    "session.unread.count" : {
+      "extractionState" : "manual",
+      "localizations" : {
+        "en" : {
+          "variations" : {
+            "plural" : {
+              "one" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld unread"
+                }
+              },
+              "other" : {
+                "stringUnit" : {
+                  "state" : "translated",
+                  "value" : "%lld unread"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

@@ -37,6 +37,10 @@ cd "$ROOT_DIR"
   printf 'Generated Controller Swift binding is missing.\n' >&2
   exit 1
 }
+[[ -f TermiRustMobile/Localizable.xcstrings ]] || {
+  printf 'Controller string catalog is missing.\n' >&2
+  exit 1
+}
 command -v xcodegen >/dev/null || {
   printf 'xcodegen is required.\n' >&2
   exit 1
@@ -49,6 +53,10 @@ HEADERS="Frameworks/TermiRustControllerSecurity.xcframework/ios-arm64/Headers"
 PLATFORM="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
 TEMP_MODULE="$(mktemp -d "${TMPDIR:-/tmp}/termirust-ios-controller.XXXXXX")"
 trap 'find "$TEMP_MODULE" -depth -delete 2>/dev/null || true' EXIT
+xcrun xcstringstool compile \
+  TermiRustMobile/Localizable.xcstrings \
+  --output-directory "$TEMP_MODULE/localization" \
+  --dry-run >/dev/null
 
 CONTROLLER_SOURCES=(
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
@@ -59,6 +67,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Controller/ControllerRetryPolicy.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
+  TermiRustMobile/Views/ControllerPresentation.swift
   TermiRustMobile/Views/ControllerRootView.swift
   TermiRustMobile/Views/ControllerQRCodeScanner.swift
 )

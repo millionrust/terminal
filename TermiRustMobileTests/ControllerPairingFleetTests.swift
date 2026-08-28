@@ -167,6 +167,20 @@ final class ControllerPairingFleetTests: XCTestCase {
         XCTAssertTrue(storedHosts.isEmpty)
     }
 
+    func testControllerPresentationBoundsUserTextAndCapabilities() {
+        XCTAssertEqual(
+            ControllerPresentation.isolated("Host"),
+            "\u{2068}Host\u{2069}"
+        )
+        XCTAssertEqual(
+            ControllerPresentation.fingerprintForSpeech("a1"),
+            "a 1"
+        )
+        XCTAssertEqual(ControllerPresentation.capabilityLabels(bits: 0).count, 0)
+        XCTAssertEqual(ControllerPresentation.capabilityLabels(bits: 0b1_1111).count, 5)
+        XCTAssertFalse(ControllerPresentation.unreadDescription(2).isEmpty)
+    }
+
     private func waitUntil(
         attempts: Int = 100,
         condition: @MainActor () -> Bool

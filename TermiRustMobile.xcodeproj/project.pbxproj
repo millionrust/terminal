@@ -40,10 +40,12 @@
 		D5CA9EA3023DC824DF230848 /* ControllerConnectionActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 70B1AA39878A6F1F7672D621 /* ControllerConnectionActor.swift */; };
 		D8BA92689E637375E707E2D3 /* ControllerFleetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6CC5B14198854939D572F403 /* ControllerFleetCache.swift */; };
 		DB197538F8008F5ADF7AE8E1 /* NativeMobileVaultDecryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 12A4A57E7A9697AA99669AD5 /* NativeMobileVaultDecryptor.swift */; };
+		DB66997E69758EFA7EADEA49 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B8387375125313FDB8A0D114 /* Localizable.xcstrings */; };
 		DE147292714BE99D67F0276D /* ControllerKeychainBlobStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B2C65EFBC84B398E409AEEC /* ControllerKeychainBlobStore.swift */; };
 		E22EA4959B1A3AA8EFA705EC /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6DBD05A37D69F9631D1396BC /* ContentView.swift */; };
 		E89E0397FB0D7FD81C595E09 /* ControllerFleetCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961259E09EB8448FEC2BD91E /* ControllerFleetCacheTests.swift */; };
 		EF2BEF59D3CDDB501B1FE129 /* ControllerQRCodeScanner.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AC5E4850F754EA77CD9057A /* ControllerQRCodeScanner.swift */; };
+		F0CA330D5642833FF41F55D4 /* ControllerPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = 68DB8EB65B9DDECE5D846E6E /* ControllerPresentation.swift */; };
 		F644B10232A8B844230B5959 /* TmuxBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02FF10C3A8E721D4D7A47CD8 /* TmuxBootstrap.swift */; };
 		FD3472E71EC2C77970547C92 /* ControllerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 273C43F93A398A066F1A7EA9 /* ControllerViewModel.swift */; };
 		FD8083E0DF133F4E81AE4E18 /* MobileVaultModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = F376C5C2345ABA90522EF515 /* MobileVaultModels.swift */; };
@@ -70,6 +72,7 @@
 		35651BFBF6D6A54BB8ECCD66 /* DirectSSHIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectSSHIntegrationTests.swift; sourceTree = "<group>"; };
 		4022DC3DBB1883F4FAAF5D22 /* HostListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListViewModel.swift; sourceTree = "<group>"; };
 		4B61FB3E50D5A511492D5C02 /* ControllerPairingFleetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerPairingFleetTests.swift; sourceTree = "<group>"; };
+		68DB8EB65B9DDECE5D846E6E /* ControllerPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerPresentation.swift; sourceTree = "<group>"; };
 		6CC5B14198854939D572F403 /* ControllerFleetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerFleetCache.swift; sourceTree = "<group>"; };
 		6DBD05A37D69F9631D1396BC /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = TermiRustMobileCrypto.xcframework; path = Frameworks/TermiRustMobileCrypto.xcframework; sourceTree = "<group>"; };
@@ -91,6 +94,7 @@
 		A79858D8548840C07D779517 /* MobileVaultImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporter.swift; sourceTree = "<group>"; };
 		AA5F0EB78F4D2A252EADAE8A /* EncryptedVaultStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedVaultStore.swift; sourceTree = "<group>"; };
 		AD7864BC0E07D7F967876BB0 /* TerminalInputEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInputEncoding.swift; sourceTree = "<group>"; };
+		B8387375125313FDB8A0D114 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		BFCBCA3644B906F6E55A4C86 /* TermiRustControllerSecurity.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = TermiRustControllerSecurity.xcframework; path = Frameworks/TermiRustControllerSecurity.xcframework; sourceTree = "<group>"; };
 		C88AF7F2E956BDDCC0084F0F /* ControllerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerModels.swift; sourceTree = "<group>"; };
 		E58C0FFFCA33DD0B192A2B6F /* MobileDeviceIdentityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileDeviceIdentityStore.swift; sourceTree = "<group>"; };
@@ -136,6 +140,7 @@
 		31E357C43FC18557569973DC /* TermiRustMobile */ = {
 			isa = PBXGroup;
 			children = (
+				B8387375125313FDB8A0D114 /* Localizable.xcstrings */,
 				A8D916484C3231E4D32433F7 /* App */,
 				3BAB33ACA36ED1F5EBB6F350 /* Controller */,
 				64197466AE27DB45AACC8F90 /* Generated */,
@@ -241,6 +246,7 @@
 			isa = PBXGroup;
 			children = (
 				6DBD05A37D69F9631D1396BC /* ContentView.swift */,
+				68DB8EB65B9DDECE5D846E6E /* ControllerPresentation.swift */,
 				0AC5E4850F754EA77CD9057A /* ControllerQRCodeScanner.swift */,
 				89D90C7D463E716FBC1B5981 /* ControllerRootView.swift */,
 				A094D79B3532C27E003F0B33 /* HostListView.swift */,
@@ -295,6 +301,7 @@
 			buildConfigurationList = 7E4AD54C0634FBD1183B200A /* Build configuration list for PBXNativeTarget "TermiRustMobile" */;
 			buildPhases = (
 				E0EDCAE263F46408B4AA28C7 /* Sources */,
+				9998CE5234AD1421ED33F571 /* Resources */,
 				423E281E7D6930835019380B /* Frameworks */,
 			);
 			buildRules = (
@@ -378,6 +385,14 @@
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		9998CE5234AD1421ED33F571 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				DB66997E69758EFA7EADEA49 /* Localizable.xcstrings in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXResourcesBuildPhase section */
 
 /* Begin PBXSourcesBuildPhase section */
@@ -402,6 +417,7 @@
 				D8BA92689E637375E707E2D3 /* ControllerFleetCache.swift in Sources */,
 				DE147292714BE99D67F0276D /* ControllerKeychainBlobStore.swift in Sources */,
 				CA407293122C27C2146DFC46 /* ControllerModels.swift in Sources */,
+				F0CA330D5642833FF41F55D4 /* ControllerPresentation.swift in Sources */,
 				EF2BEF59D3CDDB501B1FE129 /* ControllerQRCodeScanner.swift in Sources */,
 				39F125D29A450A78955B9611 /* ControllerRetryPolicy.swift in Sources */,
 				A2D2E472E16B69D4125B70B7 /* ControllerRootView.swift in Sources */,

@@ -90,6 +90,7 @@ final class ControllerViewModel: ObservableObject {
     func finishPairing(matches: Bool) {
         guard let connectionActor, let hostStore else { return }
         operation?.cancel()
+        state = replacing(connection: .pairing, sessions: state.sessions)
         operation = Task { [weak self] in
             guard let self else { return }
             do {
