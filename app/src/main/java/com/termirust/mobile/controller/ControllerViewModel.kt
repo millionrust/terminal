@@ -32,6 +32,8 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     private var hosts: List<PairedHostRecord> = emptyList()
     private var cache = ControllerCacheDocument()
     private var operation: Job? = null
+    private var terminalRender: Job? = null
+    private var terminalRuntime: ActiveTerminalRuntime? = null
 
     init {
         operation = viewModelScope.launch { restore() }
@@ -103,15 +105,82 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun onForeground() {
-        if (operation?.isActive == true) return
-        operation = viewModelScope.launch { refreshSelected(retry = true) }
+        val terminal = terminalRuntime
+        operation?.cancel()
+        operation = if (terminal != null) {
+            viewModelScope.launch {
+                connection.cancel()
+                runTerminal(terminal)
+            }
+        } else {
+            viewModelScope.launch { refreshSelected(retry = true) }
+        }
     }
 
     fun onBackground() {
         operation?.cancel()
         operation = viewModelScope.launch { connection.cancel() }
+        terminalRuntime?.let { runtime ->
+            runtime.reducer.markOffline()
+            publishTerminal(runtime, privacyCovered = true)
+            return
+        }
         val selected = _state.value.selectedHostId
         _state.value = makeState(selected, ControllerConnectionState.PairedOffline)
+    }
+
+    fun attachSession(sessionId: String) {
+        val host = selectedHost() ?: return
+        val session = _state.value.sessions.firstOrNull { it.id == sessionId } ?: return
+        val generation = session.occupantGeneration ?: return
+        val identity = ReadOnlyAttachIdentity(host.id, UUID.fromString(session.id), generation)
+        val viewport = TerminalViewport(120, 40)
+        val runtime = ActiveTerminalRuntime(
+            host = host,
+            session = session,
+            reducer = ReadOnlyAttachReducer(identity),
+            terminal = BoundedControllerTerminal(viewport),
+            queue = BoundedTerminalFrameQueue(),
+            viewport = viewport,
+        )
+        operation?.cancel()
+        terminalRuntime = runtime
+        publishTerminal(runtime)
+        operation = viewModelScope.launch {
+            connection.cancel()
+            runTerminal(runtime)
+        }
+    }
+
+    fun retryTerminal() {
+        val runtime = terminalRuntime ?: return
+        if (operation?.isActive == true) return
+        operation = viewModelScope.launch {
+            connection.cancel()
+            runTerminal(runtime)
+        }
+    }
+
+    fun detachTerminal() {
+        operation?.cancel()
+        terminalRender?.cancel()
+        terminalRender = null
+        operation = viewModelScope.launch {
+            connection.cancel()
+            refreshSelected(retry = false)
+        }
+        terminalRuntime?.reducer?.detach()
+        terminalRuntime = null
+        _state.value = _state.value.copy(activeTerminal = null)
+    }
+
+    fun updateTerminalViewport(columns: Int, rows: Int) {
+        val runtime = terminalRuntime ?: return
+        val viewport = TerminalViewport(columns, rows)
+        if (runCatching { TerminalLimits().validate(viewport) }.isFailure) return
+        runtime.viewport = viewport
+        runtime.terminal.resize(viewport)
+        publishTerminal(runtime)
     }
 
     fun forgetSelectedHost() {
@@ -135,6 +204,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     override fun onCleared() {
         operation?.cancel()
+        terminalRender?.cancel()
         connection.close()
         super.onCleared()
     }
@@ -204,6 +274,102 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             connection = connectionState,
             cachedAtMillis = cached?.updatedAtMillis,
             cachedReadOnly = cached != null && !online,
+            activeTerminal = _state.value.activeTerminal,
+        )
+    }
+
+    private suspend fun runTerminal(runtime: ActiveTerminalRuntime) {
+        if (terminalRuntime !== runtime) return
+        if (runtime.reducer.state != ReadOnlyAttachState.Detached &&
+            runtime.reducer.state != ReadOnlyAttachState.Offline
+        ) runtime.reducer.markOffline()
+        try {
+            runtime.reducer.beginAuthentication()
+            publishTerminal(runtime)
+            connection.attachReadOnly(
+                host = runtime.host,
+                cursor = runtime.reducer.cursor,
+                viewport = runtime.viewport,
+            ) { event ->
+                if (terminalRuntime !== runtime) throw CancellationException()
+                consumeTerminalEvent(runtime, event)
+            }
+        } catch (error: CancellationException) {
+            if (terminalRuntime === runtime && runtime.reducer.state != ReadOnlyAttachState.Detached) {
+                runtime.reducer.markOffline()
+                publishTerminal(runtime, privacyCovered = _state.value.activeTerminal?.privacyCovered == true)
+            }
+            throw error
+        } catch (error: Throwable) {
+            if (terminalRuntime !== runtime) return
+            if (runtime.reducer.state !is ReadOnlyAttachState.Gap) {
+                if (error is ControllerConnectionException.HostError && error.code.contains("exit", true)) {
+                    runtime.reducer.markExited()
+                } else if (error is IllegalArgumentException) {
+                    runtime.reducer.fail("malformed_or_resource_limit")
+                } else {
+                    runtime.reducer.markOffline()
+                }
+            }
+            publishTerminal(runtime)
+        }
+    }
+
+    private fun consumeTerminalEvent(runtime: ActiveTerminalRuntime, event: ReadOnlyWireEvent) {
+        when (event) {
+            is ReadOnlyWireEvent.Snapshot -> {
+                if (event.chunk.chunkIndex == 0) {
+                    runtime.reducer.beginSnapshot()
+                    runtime.terminal.reset(event.chunk.viewport)
+                    runtime.viewport = event.chunk.viewport
+                }
+                runtime.terminal.process(event.chunk.bytes)
+                runtime.reducer.observeSnapshot(event.chunk)
+            }
+            is ReadOnlyWireEvent.Attached -> {
+                runtime.reducer.bindReplayBarrier(event.replayThroughSequence)
+                runtime.hasWriterElsewhere = event.hasWriterLease
+            }
+            is ReadOnlyWireEvent.Output -> {
+                runtime.queue.enqueue(event.frame)
+                while (true) {
+                    val frame = runtime.queue.removeFirstOrNull() ?: break
+                    when (runtime.reducer.observe(frame)) {
+                        OutputDisposition.DELIVER -> runtime.terminal.process(frame.bytes)
+                        OutputDisposition.DUPLICATE -> Unit
+                        OutputDisposition.GAP -> throw ControllerConnectionException.SequenceGap
+                    }
+                }
+            }
+            is ReadOnlyWireEvent.HostError -> throw ControllerConnectionException.HostError(event.code)
+        }
+        if (event is ReadOnlyWireEvent.Output) {
+            scheduleTerminalPublish(runtime)
+        } else {
+            publishTerminal(runtime)
+        }
+    }
+
+    private fun scheduleTerminalPublish(runtime: ActiveTerminalRuntime) {
+        if (terminalRender?.isActive == true) return
+        terminalRender = viewModelScope.launch {
+            delay(16)
+            publishTerminal(runtime)
+        }
+    }
+
+    private fun publishTerminal(runtime: ActiveTerminalRuntime, privacyCovered: Boolean = false) {
+        if (terminalRuntime !== runtime) return
+        _state.value = _state.value.copy(
+            activeTerminal = ControllerTerminalUiState(
+                hostTitle = runtime.host.displayName,
+                sessionTitle = runtime.session.title,
+                attachState = runtime.reducer.state,
+                screen = runtime.terminal.snapshot(),
+                outputSequence = runtime.reducer.cursor.outputSequence,
+                hasWriterElsewhere = runtime.hasWriterElsewhere,
+                privacyCovered = privacyCovered,
+            ),
         )
     }
 
@@ -239,3 +405,13 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         return UUID.randomUUID().also { preferences.edit().putString("device_id", it.toString()).apply() }
     }
 }
+
+private data class ActiveTerminalRuntime(
+    val host: PairedHostRecord,
+    val session: ControllerSessionSummary,
+    val reducer: ReadOnlyAttachReducer,
+    val terminal: BoundedControllerTerminal,
+    val queue: BoundedTerminalFrameQueue,
+    var viewport: TerminalViewport,
+    var hasWriterElsewhere: Boolean = false,
+)

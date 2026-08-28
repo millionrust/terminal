@@ -123,6 +123,17 @@ data class ControllerUiState(
     val connection: ControllerConnectionState = ControllerConnectionState.Unpaired,
     val cachedAtMillis: Long? = null,
     val cachedReadOnly: Boolean = false,
+    val activeTerminal: ControllerTerminalUiState? = null,
+)
+
+data class ControllerTerminalUiState(
+    val hostTitle: String,
+    val sessionTitle: String,
+    val attachState: ReadOnlyAttachState,
+    val screen: BoundedTerminalSnapshot,
+    val outputSequence: Long,
+    val hasWriterElsewhere: Boolean = false,
+    val privacyCovered: Boolean = false,
 )
 
 data class ControllerPairingChallenge(

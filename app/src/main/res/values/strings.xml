@@ -59,4 +59,27 @@
     <string name="camera_scan_hint">Point the camera at the QR code shown by TermiRust Desktop.</string>
     <string name="camera_permission_hint">Camera access is needed only while scanning. You can also paste the pairing offer instead.</string>
     <string name="allow_camera">Allow Camera</string>
+    <string name="detach">Detach</string>
+    <string name="view_only">View only</string>
+    <string name="follow_output">Follow output</string>
+    <string name="following_output">Following output</string>
+    <string name="terminal_sequence">Seq %1$d</string>
+    <string name="terminal_detached">Detached</string>
+    <string name="terminal_authenticating">Authenticating</string>
+    <string name="terminal_snapshot">Restoring retained screen</string>
+    <string name="terminal_replaying">Replaying output</string>
+    <string name="terminal_live">Live</string>
+    <string name="terminal_live_writer">Live · writer active elsewhere</string>
+    <string name="terminal_gap">Output gap · expected %1$d, received %2$d</string>
+    <string name="terminal_exited">Session exited · retained output</string>
+    <string name="terminal_offline">Offline · showing last screen</string>
+    <string name="terminal_failed">Terminal stopped at a safety limit</string>
+    <string name="terminal_waiting">Waiting for terminal output…</string>
+    <string name="terminal_no_visible_output">The session has not produced visible output.</string>
+    <string name="terminal_no_offline_screen">No retained screen is available while this Host is offline.</string>
+    <string name="terminal_render_failed">Terminal output could not be rendered safely.</string>
+    <string name="terminal_no_output">No terminal output.</string>
+    <string name="terminal_privacy_cover">Terminal hidden while TermiRust is inactive</string>
+    <string name="terminal_truncated">Older or oversized output was truncated at the local safety limit.</string>
+    <string name="monitor_session">Monitor session %1$s</string>
 </resources>

@@ -225,6 +225,105 @@ class ControllerConnection(
         withContext(Dispatchers.IO) { fetchSessionsUnlocked(host, progress) }
     }
 
+    suspend fun attachReadOnly(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewport,
+        onEvent: suspend (ReadOnlyWireEvent) -> Unit,
+    ) = mutex.withLock {
+        withContext(Dispatchers.IO) {
+            cancelUnlocked(deleteCreatedKey = true)
+            host.validate()
+            cursor.identity.validate()
+            TerminalLimits().validate(viewport)
+            require(host.capabilityBits and ATTACH_CAPABILITY == ATTACH_CAPABILITY)
+            require(cursor.identity.hostId == host.id)
+            val socket = open(host.route)
+            activeSocket = socket
+            try {
+                val input = DataInputStream(socket.getInputStream())
+                val output = DataOutputStream(socket.getOutputStream())
+                val hostKey = Base64.getDecoder().decode(host.hostStaticPublicKey)
+                val request = ConnectionStartRequest(
+                    staticKeyId = host.deviceStaticKeyId,
+                    ephemeralPrivateKey = randomBytes(32),
+                    hostStaticPublicKey = hostKey,
+                    identityGeneration = host.identityGeneration.toULong(),
+                    revocationEpoch = host.revocationEpoch.toULong(),
+                    requestedCapabilityBits = ATTACH_CAPABILITY.toUShort(),
+                    clientNonce = randomBytes(32),
+                    nowMillis = uptimeMillis().toULong(),
+                )
+                output.write(AUTH_PREFACE)
+                output.write(engine.connectionPrelude(request))
+                output.flush()
+                val challenge = ByteArray(36).also(input::readFully)
+                val session = engine.connectionStart(request, challenge)
+                try {
+                    writeFrame(output, session.handshakeOutbound(uptimeMillis().toULong()), MAX_HANDSHAKE_BYTES)
+                    val publicResult = session.handshakeReceiveAccept(
+                        readFrame(input, MAX_HANDSHAKE_BYTES),
+                        uptimeMillis().toULong(),
+                    )
+                    require(publicResult.hostStaticPublicKey.contentEquals(hostKey))
+                    require(publicResult.identityGeneration.toLong() == host.identityGeneration)
+                    require(publicResult.revocationEpoch.toLong() == host.revocationEpoch)
+                    require(publicResult.grantedCapabilityBits.toInt() == ATTACH_CAPABILITY)
+
+                    val commandId = UUID.randomUUID()
+                    val command = ControllerReadOnlyWireCodec.encodeAttach(
+                        commandId = commandId,
+                        sessionGeneration = host.sessionGeneration,
+                        deadlineMillis = clockMillis() + READ_TIMEOUT_MILLIS,
+                        cursor = cursor,
+                        viewport = viewport,
+                    )
+                    val sealed = session.sealFrame(
+                        ControllerFrameKind.CONTROL,
+                        ControllerCapability.ATTACH_OUTPUT,
+                        host.revocationEpoch.toULong(),
+                        command,
+                    )
+                    writeFrame(output, sealed, MAX_SECURE_FRAME_BYTES)
+
+                    var attached = false
+                    while (true) {
+                        val opened = session.openFrame(readFrame(input, MAX_TERMINAL_FRAME_BYTES))
+                        require(opened.capability == ControllerCapability.ATTACH_OUTPUT)
+                        require(opened.revocationEpoch.toLong() == host.revocationEpoch)
+                        require(opened.kind == ControllerFrameKind.CONTROL || opened.kind == ControllerFrameKind.TERMINAL)
+                        val event = ControllerReadOnlyWireCodec.decode(
+                            opened.payload,
+                            commandId,
+                            cursor.identity,
+                        )
+                        when (event) {
+                            is ReadOnlyWireEvent.Snapshot ->
+                                require(!attached && opened.kind == ControllerFrameKind.TERMINAL)
+                            is ReadOnlyWireEvent.Attached -> {
+                                require(!attached && opened.kind == ControllerFrameKind.CONTROL)
+                                attached = true
+                            }
+                            is ReadOnlyWireEvent.Output ->
+                                require(attached && opened.kind == ControllerFrameKind.TERMINAL)
+                            is ReadOnlyWireEvent.HostError -> {
+                                require(event.commandId == commandId && opened.kind == ControllerFrameKind.CONTROL)
+                                throw ControllerConnectionException.HostError(event.code)
+                            }
+                        }
+                        onEvent(event)
+                    }
+                } finally {
+                    runCatching { session.finish() }
+                    session.close()
+                }
+            } finally {
+                socket.close()
+                if (activeSocket === socket) activeSocket = null
+            }
+        }
+    }
+
     suspend fun cancel() {
         // Socket.close is thread-safe and unblocks a pending read before the operation
         // coroutine can reacquire the serialization mutex.
@@ -421,9 +520,11 @@ class ControllerConnection(
         const val MAX_OFFER_BYTES = 4 * 1_024
         const val MAX_HANDSHAKE_BYTES = 1 * 1_024
         const val MAX_SECURE_FRAME_BYTES = 64 * 1_024
+        const val MAX_TERMINAL_FRAME_BYTES = 1 * 1_024 * 1_024
         const val CONNECT_TIMEOUT_MILLIS = 10_000
         const val READ_TIMEOUT_MILLIS = 30_000
         const val OBSERVE_CAPABILITY = 1
+        const val ATTACH_CAPABILITY = 1 shl 1
         val PAIRING_PREFACE = byteArrayOf(0x54, 0x52, 0x43, 0x4e, 0, 1, 2, 0)
         val AUTH_PREFACE = byteArrayOf(0x54, 0x52, 0x43, 0x4e, 0, 1, 1, 0)
     }

@@ -18,7 +18,10 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
+import androidx.activity.compose.BackHandler
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
@@ -39,6 +42,7 @@ import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +70,9 @@ fun ControllerApp(viewModel: ControllerViewModel) {
     var showScanner by remember { mutableStateOf(false) }
     var showHostDetails by remember { mutableStateOf(false) }
     var confirmForget by remember { mutableStateOf(false) }
+    val activeTerminal = state.activeTerminal
+
+    BackHandler(enabled = activeTerminal != null) { viewModel.detachTerminal() }
 
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
@@ -91,8 +98,14 @@ fun ControllerApp(viewModel: ControllerViewModel) {
                         }
                     },
                     actions = {
-                        TextButton(onClick = { showPairing = true }) { Text(stringResource(com.termirust.mobile.R.string.pair_host)) }
-                        if (state.selectedHostId != null) {
+                        if (activeTerminal != null) {
+                            TextButton(onClick = viewModel::detachTerminal) {
+                                Text(stringResource(com.termirust.mobile.R.string.detach))
+                            }
+                        } else {
+                            TextButton(onClick = { showPairing = true }) { Text(stringResource(com.termirust.mobile.R.string.pair_host)) }
+                        }
+                        if (activeTerminal == null && state.selectedHostId != null) {
                             TextButton(onClick = { showHostDetails = true }) { Text(stringResource(com.termirust.mobile.R.string.details)) }
                         }
                     },
@@ -109,7 +122,9 @@ fun ControllerApp(viewModel: ControllerViewModel) {
                     .padding(padding)
                     .navigationBarsPadding(),
             ) {
-                if (state.hosts.isEmpty()) {
+                if (activeTerminal != null) {
+                    ControllerTerminalScreen(activeTerminal, viewModel::retryTerminal)
+                } else if (state.hosts.isEmpty()) {
                     EmptyFleet(onPair = { showPairing = true })
                 } else if (maxWidth >= 840.dp) {
                     Row(Modifier.fillMaxSize()) {
@@ -119,13 +134,13 @@ fun ControllerApp(viewModel: ControllerViewModel) {
                             modifier = Modifier.width(340.dp).fillMaxHeight(),
                         )
                         VerticalDivider(modifier = Modifier.fillMaxHeight())
-                        FleetDetail(state, viewModel::retry, Modifier.weight(1f))
+                        FleetDetail(state, viewModel::retry, viewModel::attachSession, Modifier.weight(1f))
                     }
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         CompactHostStrip(state, viewModel::selectHost)
                         HorizontalDivider()
-                        FleetDetail(state, viewModel::retry, Modifier.weight(1f))
+                        FleetDetail(state, viewModel::retry, viewModel::attachSession, Modifier.weight(1f))
                     }
                 }
             }
@@ -325,6 +340,7 @@ private fun HostRow(host: PairedHostRecord, selected: Boolean, onClick: () -> Un
 private fun FleetDetail(
     state: ControllerUiState,
     onRetry: () -> Unit,
+    onOpenSession: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
@@ -341,7 +357,9 @@ private fun FleetDetail(
                 Modifier.fillMaxSize().padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                items(state.sessions, key = { it.id }) { session -> SessionRow(session, state.cachedReadOnly) }
+                items(state.sessions, key = { it.id }) { session ->
+                    SessionRow(session, state.cachedReadOnly) { onOpenSession(session.id) }
+                }
             }
         }
     }
@@ -373,8 +391,16 @@ private fun ConnectionBanner(state: ControllerUiState, onRetry: () -> Unit) {
 }
 
 @Composable
-private fun SessionRow(session: ControllerSessionSummary, cached: Boolean) {
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)) {
+private fun SessionRow(session: ControllerSessionSummary, cached: Boolean, onOpen: () -> Unit) {
+    val canOpen = !cached && session.occupantGeneration != null
+    val description = stringResource(com.termirust.mobile.R.string.monitor_session, isolated(session.title))
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(if (canOpen) Modifier.clickable(onClick = onOpen) else Modifier)
+            .semantics { if (canOpen) contentDescription = description },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+    ) {
         Column(
             Modifier.fillMaxWidth().padding(14.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -400,6 +426,129 @@ private fun SessionRow(session: ControllerSessionSummary, cached: Boolean) {
             }
         }
     }
+}
+
+@Composable
+private fun ControllerTerminalScreen(
+    terminal: ControllerTerminalUiState,
+    onRetry: () -> Unit,
+) {
+    var followOutput by remember { mutableStateOf(true) }
+    val listState = rememberLazyListState()
+    val lines = terminal.screen.lines
+    LaunchedEffect(terminal.outputSequence, followOutput, lines.size) {
+        if (followOutput && lines.isNotEmpty()) listState.scrollToItem(lines.lastIndex)
+    }
+    Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
+        Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
+            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                ) {
+                    AssistChip(onClick = {}, label = { Text(stringResource(com.termirust.mobile.R.string.view_only)) })
+                    Column(Modifier.weight(1f)) {
+                        Text(isolated(terminal.sessionTitle), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                        Text(
+                            "${isolated(terminal.hostTitle)} · ${terminalStatus(terminal)}",
+                            style = MaterialTheme.typography.labelSmall,
+                        )
+                    }
+                    Text(
+                        stringResource(com.termirust.mobile.R.string.terminal_sequence, terminal.outputSequence),
+                        style = MaterialTheme.typography.labelSmall,
+                        fontFamily = FontFamily.Monospace,
+                    )
+                }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    TextButton(onClick = { followOutput = !followOutput }) {
+                        Text(
+                            stringResource(
+                                if (followOutput) com.termirust.mobile.R.string.following_output
+                                else com.termirust.mobile.R.string.follow_output,
+                            ),
+                        )
+                    }
+                    Spacer(Modifier.weight(1f))
+                    if (terminal.attachState is ReadOnlyAttachState.Offline ||
+                        terminal.attachState is ReadOnlyAttachState.Gap ||
+                        terminal.attachState is ReadOnlyAttachState.Failed
+                    ) OutlinedButton(onClick = onRetry) { Text(stringResource(com.termirust.mobile.R.string.retry)) }
+                }
+                if (terminal.screen.truncation != null) {
+                    Text(
+                        stringResource(com.termirust.mobile.R.string.terminal_truncated),
+                        style = MaterialTheme.typography.labelSmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+            }
+        }
+        Box(Modifier.fillMaxSize()) {
+            if (lines.all(String::isEmpty)) {
+                Text(
+                    terminalEmptyText(terminal.attachState),
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.62f),
+                    modifier = Modifier.padding(16.dp),
+                )
+            } else {
+                SelectionContainer {
+                    LazyColumn(
+                        state = listState,
+                        modifier = Modifier.fillMaxSize().padding(12.dp),
+                    ) {
+                        items(lines.size) { index ->
+                            Text(
+                                lines[index].ifEmpty { " " },
+                                color = androidx.compose.ui.graphics.Color(0xffe6e6e6),
+                                fontFamily = FontFamily.Monospace,
+                                maxLines = 1,
+                                softWrap = false,
+                            )
+                        }
+                    }
+                }
+            }
+            if (terminal.privacyCovered) {
+                Box(
+                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        stringResource(com.termirust.mobile.R.string.terminal_privacy_cover),
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(24.dp),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun terminalStatus(terminal: ControllerTerminalUiState): String = when (val state = terminal.attachState) {
+    ReadOnlyAttachState.Detached -> stringResource(com.termirust.mobile.R.string.terminal_detached)
+    ReadOnlyAttachState.Authenticating -> stringResource(com.termirust.mobile.R.string.terminal_authenticating)
+    ReadOnlyAttachState.Snapshot -> stringResource(com.termirust.mobile.R.string.terminal_snapshot)
+    ReadOnlyAttachState.Replaying -> stringResource(com.termirust.mobile.R.string.terminal_replaying)
+    ReadOnlyAttachState.Live -> stringResource(
+        if (terminal.hasWriterElsewhere) com.termirust.mobile.R.string.terminal_live_writer
+        else com.termirust.mobile.R.string.terminal_live,
+    )
+    is ReadOnlyAttachState.Gap -> stringResource(com.termirust.mobile.R.string.terminal_gap, state.expected, state.received)
+    ReadOnlyAttachState.Exited -> stringResource(com.termirust.mobile.R.string.terminal_exited)
+    ReadOnlyAttachState.Offline -> stringResource(com.termirust.mobile.R.string.terminal_offline)
+    is ReadOnlyAttachState.Failed -> stringResource(com.termirust.mobile.R.string.terminal_failed)
+}
+
+@Composable
+private fun terminalEmptyText(state: ReadOnlyAttachState): String = when (state) {
+    ReadOnlyAttachState.Authenticating, ReadOnlyAttachState.Snapshot, ReadOnlyAttachState.Replaying ->
+        stringResource(com.termirust.mobile.R.string.terminal_waiting)
+    ReadOnlyAttachState.Live -> stringResource(com.termirust.mobile.R.string.terminal_no_visible_output)
+    ReadOnlyAttachState.Offline -> stringResource(com.termirust.mobile.R.string.terminal_no_offline_screen)
+    is ReadOnlyAttachState.Failed -> stringResource(com.termirust.mobile.R.string.terminal_render_failed)
+    else -> stringResource(com.termirust.mobile.R.string.terminal_no_output)
 }
 
 @Composable
