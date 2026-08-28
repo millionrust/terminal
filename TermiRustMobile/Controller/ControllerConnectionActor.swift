@@ -14,8 +14,26 @@ protocol ControllerConnecting: Sendable {
         host: PairedHostRecord,
         progress: @escaping @Sendable (ControllerConnectionProgress) async -> Void
     ) async throws -> ControllerFleetSnapshot
+    func attachReadOnly(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewportState,
+        onEvent: @escaping @Sendable (ControllerReadOnlyWireEvent) async throws -> Void
+    ) async throws
     func forgetDeviceSecret(host: PairedHostRecord) async throws
     func cancel() async
+}
+
+extension ControllerConnecting {
+    func attachReadOnly(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewportState,
+        onEvent: @escaping @Sendable (ControllerReadOnlyWireEvent) async throws -> Void
+    ) async throws {
+        _ = (host, cursor, viewport, onEvent)
+        throw ControllerConnectionError.capabilityDenied
+    }
 }
 
 enum ControllerConnectionProgress: Sendable {
@@ -186,6 +204,7 @@ actor ControllerConnectionActor: ControllerConnecting {
     private static let maxOfferBytes = 4 * 1_024
     private static let maxHandshakeFrameBytes = 1_024
     private static let maxSecureFrameBytes = 64 * 1_024
+    private static let maxTerminalFrameBytes = 1 * 1_024 * 1_024
     private static let handshakeTimeout: Duration = .seconds(30)
 
     private let securityEngine: ControllerSecurityEngine
@@ -482,6 +501,134 @@ actor ControllerConnectionActor: ControllerConnecting {
                 network: network
             )
         }
+    }
+
+    func attachReadOnly(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewportState,
+        onEvent: @escaping @Sendable (ControllerReadOnlyWireEvent) async throws -> Void
+    ) async throws {
+        await cancel()
+        let attachCapability: UInt16 = 1 << 1
+        guard host.schemaVersion == PairedHostRecord.currentSchemaVersion,
+              host.capabilityBits & attachCapability == attachCapability,
+              cursor.identity.hostID == host.id else {
+            throw ControllerConnectionError.capabilityDenied
+        }
+        try cursor.identity.validate()
+        try TerminalLimits.controllerDefault.validate(viewport: viewport)
+
+        let network = try await withTimeout(Self.handshakeTimeout) {
+            try await Self.openConnection(route: host.route)
+        }
+        connection = network
+        let started = Self.uptimeMillis()
+        let request = ConnectionStartRequest(
+            staticKeyId: host.deviceStaticKeyId,
+            ephemeralPrivateKey: try Self.randomBytes(count: 32),
+            hostStaticPublicKey: host.hostStaticPublicKey,
+            identityGeneration: host.identityGeneration,
+            revocationEpoch: host.revocationEpoch,
+            requestedCapabilityBits: attachCapability,
+            clientNonce: try Self.randomBytes(count: 32),
+            nowMillis: started
+        )
+        let authentication: AuthenticatedSessionResult = try await withTimeout(Self.handshakeTimeout) {
+            try await Self.send(Self.authenticationPreface, over: network)
+            let prelude = try self.securityEngine.connectionPrelude(request: request)
+            try await Self.send(prelude, over: network)
+            let challenge = try await Self.receiveExactly(36, over: network)
+            let session = try self.securityEngine.connectionStart(
+                request: request,
+                challengeBytes: challenge
+            )
+            let hello = try session.handshakeOutbound(nowMillis: Self.uptimeMillis())
+            try await Self.sendFrame(
+                hello,
+                maximum: Self.maxHandshakeFrameBytes,
+                over: network
+            )
+            let accept = try await Self.receiveFrame(
+                maximum: Self.maxHandshakeFrameBytes,
+                over: network
+            )
+            let result = try session.handshakeReceiveAccept(
+                message: accept,
+                nowMillis: Self.uptimeMillis()
+            )
+            return AuthenticatedSessionResult(publicResult: result, session: session)
+        }
+        let publicResult = authentication.publicResult
+        let authenticatedSession = authentication.session
+        defer {
+            try? authenticatedSession.finish()
+            network.stateUpdateHandler = nil
+            network.cancel()
+            if connection === network { connection = nil }
+        }
+        guard publicResult.hostStaticPublicKey == host.hostStaticPublicKey,
+              publicResult.identityGeneration == host.identityGeneration,
+              publicResult.revocationEpoch == host.revocationEpoch,
+              publicResult.grantedCapabilityBits == attachCapability else {
+            throw ControllerConnectionError.authenticationFailed
+        }
+
+        let commandID = UUID()
+        let command = try ControllerReadOnlyWireCodec.encodeAttach(
+            commandID: commandID,
+            sessionGeneration: host.sessionGeneration,
+            deadlineMillis: Self.wallClockMillis().saturatingAdd(30_000),
+            cursor: cursor,
+            viewport: viewport
+        )
+        let sealed = try authenticatedSession.sealFrame(
+            kind: .control,
+            capability: .attachOutput,
+            revocationEpoch: host.revocationEpoch,
+            payload: command
+        )
+        try await Self.sendFrame(
+            sealed,
+            maximum: Self.maxSecureFrameBytes,
+            over: network
+        )
+
+        var attached = false
+        while !Task.isCancelled {
+            let sealedResponse = try await Self.receiveFrame(
+                maximum: Self.maxTerminalFrameBytes,
+                over: network
+            )
+            let opened = try authenticatedSession.openFrame(frame: sealedResponse)
+            guard opened.capability == .attachOutput,
+                  opened.revocationEpoch == host.revocationEpoch,
+                  opened.kind == .control || opened.kind == .terminal else {
+                throw ControllerConnectionError.malformedResponse
+            }
+            let event = try ControllerReadOnlyWireCodec.decode(
+                opened.payload,
+                commandID: commandID,
+                identity: cursor.identity
+            )
+            switch event {
+            case .snapshot:
+                guard !attached, opened.kind == .terminal else {
+                    throw ControllerConnectionError.malformedResponse
+                }
+            case .attached:
+                guard !attached, opened.kind == .control else {
+                    throw ControllerConnectionError.malformedResponse
+                }
+                attached = true
+            case .output:
+                guard attached, opened.kind == .terminal else {
+                    throw ControllerConnectionError.malformedResponse
+                }
+            }
+            try await onEvent(event)
+        }
+        throw CancellationError()
     }
 
     func forgetDeviceSecret(host: PairedHostRecord) async throws {

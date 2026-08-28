@@ -65,6 +65,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Controller/PairedHostStore.swift
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
   TermiRustMobile/Controller/ControllerRetryPolicy.swift
+  TermiRustMobile/Controller/ControllerReadOnlyAttach.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
   TermiRustMobile/Views/ControllerPresentation.swift
@@ -80,7 +81,6 @@ RUNTIME_TESTS=(
   -only-testing:TermiRustMobileTests/ControllerFleetCacheTests
 )
 if [[ "$STAGE" == "readonly-terminal" ]]; then
-  CONTROLLER_SOURCES+=(TermiRustMobile/Controller/ControllerReadOnlyAttach.swift)
   TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerReadOnlyTerminalTests)
 fi
