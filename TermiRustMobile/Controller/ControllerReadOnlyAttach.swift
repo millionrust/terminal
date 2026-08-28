@@ -12,6 +12,7 @@ enum ReadOnlyAttachFailure: Error, Equatable, Sendable {
     case sessionMismatch
     case conflictingDuplicate
     case sequenceOverflow
+    case snapshotOrder
 }
 
 enum ControllerReadOnlyWireError: Error, Equatable, Sendable {
@@ -129,6 +130,15 @@ struct TerminalOutputFrame: Equatable, Sendable {
     let bytes: Data
 }
 
+struct TerminalSnapshotChunk: Equatable, Sendable {
+    let sessionID: UUID
+    let boundarySequence: UInt64
+    let viewport: TerminalViewportState
+    let chunkIndex: UInt32
+    let chunkCount: UInt32
+    let bytes: Data
+}
+
 enum ReadOnlyOutputDisposition: Equatable, Sendable {
     case deliver
     case duplicate
@@ -136,6 +146,7 @@ enum ReadOnlyOutputDisposition: Equatable, Sendable {
 }
 
 enum ControllerReadOnlyWireEvent: Equatable, Sendable {
+    case snapshot(TerminalSnapshotChunk)
     case attached(replayThroughSequence: UInt64, hasWriterLease: Bool)
     case output(TerminalOutputFrame)
 }
@@ -206,6 +217,30 @@ private struct ReadOnlyOutputPayload: Decodable {
     }
 }
 
+private struct ReadOnlySnapshotPayload: Decodable {
+    let kind: String
+    let commandId: UUID
+    let sessionId: UUID
+    let boundarySequence: UInt64
+    let columns: UInt32
+    let rows: UInt32
+    let chunkIndex: UInt32
+    let chunkCount: UInt32
+    let bytes: [UInt8]
+
+    private enum CodingKeys: String, CodingKey {
+        case kind
+        case commandId = "command_id"
+        case sessionId = "session_id"
+        case boundarySequence = "boundary_sequence"
+        case columns
+        case rows
+        case chunkIndex = "chunk_index"
+        case chunkCount = "chunk_count"
+        case bytes
+    }
+}
+
 private struct ReadOnlyErrorPayload: Decodable {
     let kind: String
     let commandId: UUID
@@ -266,6 +301,36 @@ enum ControllerReadOnlyWireCodec {
         }
 
         switch kind {
+        case "snapshot":
+            guard Set(object.keys) == [
+                "kind", "command_id", "session_id", "boundary_sequence", "columns", "rows",
+                "chunk_index", "chunk_count", "bytes",
+            ] else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            let snapshot = try JSONDecoder().decode(ReadOnlySnapshotPayload.self, from: payload)
+            let viewport = TerminalViewportState(
+                columns: Int(snapshot.columns),
+                rows: Int(snapshot.rows)
+            )
+            guard snapshot.kind == "snapshot",
+                  snapshot.commandId == commandID,
+                  snapshot.sessionId == identity.sessionID,
+                  snapshot.chunkCount > 0,
+                  snapshot.chunkIndex < snapshot.chunkCount,
+                  snapshot.bytes.count <= limits.maxFrameBytes,
+                  !snapshot.bytes.isEmpty || snapshot.chunkCount == 1 else {
+                throw ControllerReadOnlyWireError.malformedResponse
+            }
+            try limits.validate(viewport: viewport)
+            return .snapshot(TerminalSnapshotChunk(
+                sessionID: snapshot.sessionId,
+                boundarySequence: snapshot.boundarySequence,
+                viewport: viewport,
+                chunkIndex: snapshot.chunkIndex,
+                chunkCount: snapshot.chunkCount,
+                bytes: Data(snapshot.bytes)
+            ))
         case "attached":
             guard Set(object.keys) == [
                 "kind", "command_id", "session_id", "occupant_generation",
@@ -365,6 +430,9 @@ struct ReadOnlyAttachReducer: Sendable {
     private var recentFrames: [UInt64: Data] = [:]
     private var recentOrder: [UInt64] = []
     private var recentBytes = 0
+    private var snapshotBoundary: UInt64?
+    private var snapshotChunkCount: UInt32?
+    private var nextSnapshotChunk: UInt32 = 0
 
     private(set) var state: ReadOnlyAttachState = .detached
     private(set) var cursor: TerminalStreamCursor
@@ -390,7 +458,41 @@ struct ReadOnlyAttachReducer: Sendable {
 
     mutating func beginSnapshot() throws {
         guard state == .authenticating else { throw fail(.invalidTransition) }
+        snapshotBoundary = nil
+        snapshotChunkCount = nil
+        nextSnapshotChunk = 0
         state = .snapshot
+    }
+
+    mutating func observeSnapshot(_ chunk: TerminalSnapshotChunk) throws -> Bool {
+        guard state == .snapshot,
+              chunk.sessionID == cursor.identity.sessionID,
+              chunk.chunkCount > 0,
+              chunk.chunkIndex == nextSnapshotChunk,
+              chunk.chunkIndex < chunk.chunkCount,
+              chunk.bytes.count <= limits.maxFrameBytes,
+              !chunk.bytes.isEmpty || chunk.chunkCount == 1 else {
+            throw fail(.snapshotOrder)
+        }
+        try limits.validate(viewport: chunk.viewport)
+        if let boundary = snapshotBoundary {
+            guard boundary == chunk.boundarySequence,
+                  snapshotChunkCount == chunk.chunkCount else {
+                throw fail(.snapshotOrder)
+            }
+        } else {
+            guard chunk.boundarySequence >= cursor.outputSequence else {
+                throw fail(.snapshotOrder)
+            }
+            snapshotBoundary = chunk.boundarySequence
+            snapshotChunkCount = chunk.chunkCount
+        }
+        nextSnapshotChunk += 1
+        let complete = nextSnapshotChunk == chunk.chunkCount
+        if complete {
+            try finishSnapshot(boundary: chunk.boundarySequence)
+        }
+        return complete
     }
 
     mutating func finishSnapshot(boundary: UInt64) throws {
@@ -401,6 +503,9 @@ struct ReadOnlyAttachReducer: Sendable {
         recentFrames.removeAll(keepingCapacity: true)
         recentOrder.removeAll(keepingCapacity: true)
         recentBytes = 0
+        snapshotBoundary = nil
+        snapshotChunkCount = nil
+        nextSnapshotChunk = 0
         state = .replaying
     }
 
@@ -412,6 +517,15 @@ struct ReadOnlyAttachReducer: Sendable {
 
     mutating func beginReplay(through boundary: UInt64) throws {
         guard state == .authenticating, boundary >= cursor.outputSequence else {
+            throw fail(.invalidTransition)
+        }
+        replayThroughSequence = boundary
+        state = boundary == cursor.outputSequence ? .live : .replaying
+    }
+
+    mutating func bindReplayBarrier(through boundary: UInt64) throws {
+        guard (state == .authenticating || state == .replaying),
+              boundary >= cursor.outputSequence else {
             throw fail(.invalidTransition)
         }
         replayThroughSequence = boundary
@@ -475,6 +589,9 @@ struct ReadOnlyAttachReducer: Sendable {
         recentOrder.removeAll(keepingCapacity: false)
         recentBytes = 0
         replayThroughSequence = nil
+        snapshotBoundary = nil
+        snapshotChunkCount = nil
+        nextSnapshotChunk = 0
         state = .detached
     }
 

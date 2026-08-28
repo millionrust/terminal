@@ -63,6 +63,33 @@ final class ControllerReadOnlyTerminalTests: XCTestCase {
             ),
             .output(frame(sequence: 10, bytes: Data("ABC".utf8)))
         )
+
+        let snapshot = try JSONSerialization.data(withJSONObject: [
+            "kind": "snapshot",
+            "command_id": commandID.uuidString,
+            "session_id": sessionID.uuidString,
+            "boundary_sequence": 9,
+            "columns": 120,
+            "rows": 40,
+            "chunk_index": 0,
+            "chunk_count": 1,
+            "bytes": [27, 91, 50, 74],
+        ])
+        XCTAssertEqual(
+            try ControllerReadOnlyWireCodec.decode(
+                snapshot,
+                commandID: commandID,
+                identity: identity
+            ),
+            .snapshot(TerminalSnapshotChunk(
+                sessionID: sessionID,
+                boundarySequence: 9,
+                viewport: TerminalViewportState(columns: 120, rows: 40),
+                chunkIndex: 0,
+                chunkCount: 1,
+                bytes: Data([27, 91, 50, 74])
+            ))
+        )
     }
 
     func testAttachCodecRejectsCrossSessionAndUnknownFields() throws {
@@ -191,6 +218,38 @@ final class ControllerReadOnlyTerminalTests: XCTestCase {
         )
         try reducer.markLive()
         XCTAssertEqual(reducer.state, .live)
+    }
+
+    func testSnapshotChunksMustBeOrderedAndBindReplayBarrier() throws {
+        var reducer = try makeReducer(fromSequence: 4)
+        try reducer.beginAuthentication()
+        try reducer.beginSnapshot()
+        let first = TerminalSnapshotChunk(
+            sessionID: sessionID,
+            boundarySequence: 20,
+            viewport: TerminalViewportState(columns: 120, rows: 40),
+            chunkIndex: 0,
+            chunkCount: 2,
+            bytes: Data("first".utf8)
+        )
+        let second = TerminalSnapshotChunk(
+            sessionID: sessionID,
+            boundarySequence: 20,
+            viewport: TerminalViewportState(columns: 120, rows: 40),
+            chunkIndex: 1,
+            chunkCount: 2,
+            bytes: Data("second".utf8)
+        )
+
+        XCTAssertFalse(try reducer.observeSnapshot(first))
+        XCTAssertTrue(try reducer.observeSnapshot(second))
+        try reducer.bindReplayBarrier(through: 22)
+        XCTAssertEqual(reducer.state, .replaying)
+        XCTAssertEqual(reducer.cursor.outputSequence, 20)
+        XCTAssertEqual(
+            try reducer.observe(frame(sequence: 21, bytes: Data("next".utf8))),
+            .deliver
+        )
     }
 
     func testReplayBarrierTransitionsLiveOnlyAfterBoundary() throws {
