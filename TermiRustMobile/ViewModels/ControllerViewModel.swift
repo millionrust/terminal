@@ -13,6 +13,7 @@ final class ControllerViewModel: ObservableObject {
     private let connectionActor: (any ControllerConnecting)?
     private let hostStore: PairedHostStore?
     private let cacheStore: ControllerFleetCacheStore?
+    private let retryPolicy: ControllerRetryPolicy
     private var hostRecords: [PairedHostRecord] = []
     private var cache = ControllerFleetCache()
     private let deviceID: UUID
@@ -22,9 +23,11 @@ final class ControllerViewModel: ObservableObject {
         connectionActor: (any ControllerConnecting)? = nil,
         hostStore: PairedHostStore? = nil,
         cacheStore: ControllerFleetCacheStore? = nil,
-        defaults: UserDefaults = .standard
+        defaults: UserDefaults = .standard,
+        retryPolicy: ControllerRetryPolicy = .live
     ) {
         self.deviceID = Self.loadDeviceID(defaults: defaults)
+        self.retryPolicy = retryPolicy
         if let connectionActor, let hostStore, let cacheStore {
             self.connectionActor = connectionActor
             self.hostStore = hostStore
@@ -215,41 +218,119 @@ final class ControllerViewModel: ObservableObject {
 
     private func refresh(host: PairedHostRecord) async {
         guard let connectionActor, let cacheStore else { return }
-        state = replacing(connection: .connecting, sessions: state.sessions)
-        do {
-            let snapshot = try await connectionActor.fetchSessions(host: host)
-            guard !Task.isCancelled, state.selectedHostID == host.id else { return }
-            if cache.hosts[host.id]?.revision != snapshot.revision
-                || cache.hosts[host.id]?.updateSequence != snapshot.updateSequence {
-                try cache.replace(
-                    hostFingerprint: host.id,
-                    revision: snapshot.revision,
-                    updateSequence: snapshot.updateSequence,
+        let startedAt = Date()
+        var attempt = 1
+
+        while !Task.isCancelled, state.selectedHostID == host.id {
+            state = replacing(connection: .connecting, sessions: state.sessions)
+            do {
+                let snapshot = try await connectionActor.fetchSessions(host: host) { [weak self] progress in
+                    await self?.apply(progress: progress, forHostID: host.id)
+                }
+                guard !Task.isCancelled, state.selectedHostID == host.id else { return }
+                if cache.hosts[host.id]?.revision != snapshot.revision
+                    || cache.hosts[host.id]?.updateSequence != snapshot.updateSequence {
+                    try cache.replace(
+                        hostFingerprint: host.id,
+                        revision: snapshot.revision,
+                        updateSequence: snapshot.updateSequence,
+                        sessions: snapshot.sessions,
+                        selectedHostFingerprint: host.id,
+                        now: .now
+                    )
+                    try await cacheStore.save(cache)
+                }
+                let stored = cache.hosts[host.id]
+                state = makeState(
+                    selectedHostID: host.id,
                     sessions: snapshot.sessions,
-                    selectedHostFingerprint: host.id,
-                    now: .now
+                    connection: .readyReadOnly,
+                    cacheUpdatedAt: stored?.updatedAt,
+                    isCached: false
                 )
-                try await cacheStore.save(cache)
+                return
+            } catch {
+                guard !Task.isCancelled, state.selectedHostID == host.id else { return }
+                let elapsed = Date().timeIntervalSince(startedAt)
+                guard Self.shouldRetry(error),
+                      let delay = retryPolicy.delayAfterFailure(
+                          attempt: attempt,
+                          elapsedSeconds: elapsed
+                      ) else {
+                    applyTerminalFailure(error, for: host)
+                    return
+                }
+                attempt += 1
+                do {
+                    try await retryPolicy.sleep(for: delay)
+                } catch {
+                    return
+                }
             }
-            let stored = cache.hosts[host.id]
-            state = makeState(
-                selectedHostID: host.id,
-                sessions: snapshot.sessions,
-                connection: .readyReadOnly,
-                cacheUpdatedAt: stored?.updatedAt,
-                isCached: false
-            )
-        } catch {
-            guard !Task.isCancelled, state.selectedHostID == host.id else { return }
-            let cached = cache.hosts[host.id]
-            state = makeState(
-                selectedHostID: host.id,
-                sessions: cached?.sessions ?? [],
-                connection: .failed(Self.failure(error)),
-                cacheUpdatedAt: cached?.updatedAt,
-                isCached: cached != nil
-            )
         }
+    }
+
+    private func apply(progress: ControllerConnectionProgress, forHostID hostID: String) {
+        guard !Task.isCancelled, state.selectedHostID == hostID else { return }
+        let connection: ControllerConnectionState = switch progress {
+        case .authenticating: .authenticating
+        case .syncing: .syncing
+        }
+        state = replacing(connection: connection, sessions: state.sessions)
+    }
+
+    private func applyTerminalFailure(_ error: Error, for host: PairedHostRecord) {
+        let cached = cache.hosts[host.id]
+        let connection: ControllerConnectionState
+        if case ControllerBindingError.IncompatibleVersion = error {
+            connection = .incompatible
+        } else if let error = error as? ControllerConnectionError,
+                  case .hostError(let code) = error,
+                  Self.isRevocationCode(code) {
+            connection = .revoked
+        } else {
+            connection = .failed(Self.failure(error))
+        }
+        state = makeState(
+            selectedHostID: host.id,
+            sessions: cached?.sessions ?? [],
+            connection: connection,
+            cacheUpdatedAt: cached?.updatedAt,
+            isCached: cached != nil
+        )
+    }
+
+    private static func shouldRetry(_ error: Error) -> Bool {
+        if error is CancellationError || error is SecureBlobError { return false }
+        if let error = error as? ControllerConnectionError {
+            switch error {
+            case .authenticationFailed, .capabilityDenied, .malformedResponse, .resourceLimit:
+                return false
+            case .hostError(let code):
+                return !isTerminalHostCode(code)
+            case .sequenceGap:
+                return true
+            }
+        }
+        if let error = error as? ControllerBindingError {
+            switch error {
+            case .TimedOut, .Unexpected:
+                return true
+            default:
+                return false
+            }
+        }
+        return true
+    }
+
+    private static func isTerminalHostCode(_ code: String) -> Bool {
+        let normalized = code.lowercased()
+        return ["auth", "denied", "forbidden", "incompatible", "policy", "revoked", "unauthorized", "version"]
+            .contains { normalized.contains($0) }
+    }
+
+    private static func isRevocationCode(_ code: String) -> Bool {
+        code.lowercased().contains("revok")
     }
 
     private func replacing(

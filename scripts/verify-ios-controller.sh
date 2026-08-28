@@ -56,6 +56,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Controller/ControllerFleetCache.swift
   TermiRustMobile/Controller/PairedHostStore.swift
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
+  TermiRustMobile/Controller/ControllerRetryPolicy.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
   TermiRustMobile/Views/ControllerRootView.swift

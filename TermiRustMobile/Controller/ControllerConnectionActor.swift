@@ -10,9 +10,17 @@ protocol ControllerConnecting: Sendable {
         deviceID: UUID
     ) async throws -> ControllerPairingChallenge
     func finishPairing(matches: Bool) async throws -> PairedHostRecord
-    func fetchSessions(host: PairedHostRecord) async throws -> ControllerFleetSnapshot
+    func fetchSessions(
+        host: PairedHostRecord,
+        progress: @escaping @Sendable (ControllerConnectionProgress) async -> Void
+    ) async throws -> ControllerFleetSnapshot
     func forgetDeviceSecret(host: PairedHostRecord) async throws
     func cancel() async
+}
+
+enum ControllerConnectionProgress: Sendable {
+    case authenticating
+    case syncing
 }
 
 struct ControllerPairingChallenge: Equatable, Sendable {
@@ -367,7 +375,10 @@ actor ControllerConnectionActor: ControllerConnecting {
         }
     }
 
-    func fetchSessions(host: PairedHostRecord) async throws -> ControllerFleetSnapshot {
+    func fetchSessions(
+        host: PairedHostRecord,
+        progress: @escaping @Sendable (ControllerConnectionProgress) async -> Void
+    ) async throws -> ControllerFleetSnapshot {
         await cancel()
         guard host.schemaVersion == PairedHostRecord.currentSchemaVersion,
               host.capabilityBits & 1 == 1 else {
@@ -377,6 +388,7 @@ actor ControllerConnectionActor: ControllerConnecting {
             try await Self.openConnection(route: host.route)
         }
         connection = network
+        await progress(.authenticating)
         let started = Self.uptimeMillis()
         let request = ConnectionStartRequest(
             staticKeyId: host.deviceStaticKeyId,
@@ -427,6 +439,8 @@ actor ControllerConnectionActor: ControllerConnecting {
               publicResult.grantedCapabilityBits & 1 == 1 else {
             throw ControllerConnectionError.authenticationFailed
         }
+
+        await progress(.syncing)
 
         return try await withTimeout(Self.handshakeTimeout) {
             try await Self.fetchStableSnapshot(

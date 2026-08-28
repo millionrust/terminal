@@ -16,6 +16,7 @@
 		20F7AB4BF1E1DA68E24F8E3D /* TerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */; };
 		304086417473B388F4742CBB /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = A79858D8548840C07D779517 /* MobileVaultImporter.swift */; };
 		37E4220D6E3FCC19C5F77C3A /* OpenSSHPrivateKeyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 909BACBBFFB76FA023EBDB9A /* OpenSSHPrivateKeyParser.swift */; };
+		39F125D29A450A78955B9611 /* ControllerRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 040C5E5C66631E78C30FD313 /* ControllerRetryPolicy.swift */; };
 		3BDA4D8CBA0D6C8DF9F7F371 /* EncryptedVaultStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5F0EB78F4D2A252EADAE8A /* EncryptedVaultStore.swift */; };
 		4F6A15013CC0F979AC488612 /* DirectSSHIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35651BFBF6D6A54BB8ECCD66 /* DirectSSHIntegrationTests.swift */; };
 		5D22C51CF4953ECA53DF4274 /* TerminalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A85EB62200FB06A4581F84 /* TerminalGrid.swift */; };
@@ -60,6 +61,7 @@
 
 /* Begin PBXFileReference section */
 		02FF10C3A8E721D4D7A47CD8 /* TmuxBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxBootstrap.swift; sourceTree = "<group>"; };
+		040C5E5C66631E78C30FD313 /* ControllerRetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerRetryPolicy.swift; sourceTree = "<group>"; };
 		0AC5E4850F754EA77CD9057A /* ControllerQRCodeScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerQRCodeScanner.swift; sourceTree = "<group>"; };
 		12A4A57E7A9697AA99669AD5 /* NativeMobileVaultDecryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMobileVaultDecryptor.swift; sourceTree = "<group>"; };
 		24A85EB62200FB06A4581F84 /* TerminalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalGrid.swift; sourceTree = "<group>"; };
@@ -172,6 +174,7 @@
 			children = (
 				70B1AA39878A6F1F7672D621 /* ControllerConnectionActor.swift */,
 				6CC5B14198854939D572F403 /* ControllerFleetCache.swift */,
+				040C5E5C66631E78C30FD313 /* ControllerRetryPolicy.swift */,
 				A728948F14BBF8EDB24ED953 /* PairedHostStore.swift */,
 			);
 			path = Controller;
@@ -400,6 +403,7 @@
 				DE147292714BE99D67F0276D /* ControllerKeychainBlobStore.swift in Sources */,
 				CA407293122C27C2146DFC46 /* ControllerModels.swift in Sources */,
 				EF2BEF59D3CDDB501B1FE129 /* ControllerQRCodeScanner.swift in Sources */,
+				39F125D29A450A78955B9611 /* ControllerRetryPolicy.swift in Sources */,
 				A2D2E472E16B69D4125B70B7 /* ControllerRootView.swift in Sources */,
 				FD3472E71EC2C77970547C92 /* ControllerViewModel.swift in Sources */,
 				3BDA4D8CBA0D6C8DF9F7F371 /* EncryptedVaultStore.swift in Sources */,

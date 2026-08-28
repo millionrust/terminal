@@ -46,12 +46,13 @@ final class ControllerPairingFleetTests: XCTestCase {
         )
         _ = try await fixture.hostStore.upsert(fixture.record)
         try await fixture.cacheStore.save(cache)
-        let connection = FixtureConnection(record: fixture.record, failure: .networkUnavailable)
+        let connection = FixtureConnection(record: fixture.record, failures: [.networkUnavailable])
         let viewModel = ControllerViewModel(
             connectionActor: connection,
             hostStore: fixture.hostStore,
             cacheStore: fixture.cacheStore,
-            defaults: UserDefaults(suiteName: UUID().uuidString)!
+            defaults: UserDefaults(suiteName: UUID().uuidString)!,
+            retryPolicy: .immediateTestPolicy(maxAttempts: 1)
         )
 
         try await waitUntil {
@@ -60,6 +61,83 @@ final class ControllerPairingFleetTests: XCTestCase {
 
         XCTAssertEqual(viewModel.state.sessions, [Fixture.session])
         XCTAssertEqual(viewModel.state.cacheUpdatedAt, Date(timeIntervalSince1970: 5))
+    }
+
+    func testTransientFailuresRetryThenRecover() async throws {
+        let fixture = try Fixture.make()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        _ = try await fixture.hostStore.upsert(fixture.record)
+        let connection = FixtureConnection(
+            record: fixture.record,
+            failures: [.networkUnavailable, .timedOut]
+        )
+        let viewModel = ControllerViewModel(
+            connectionActor: connection,
+            hostStore: fixture.hostStore,
+            cacheStore: fixture.cacheStore,
+            defaults: UserDefaults(suiteName: UUID().uuidString)!,
+            retryPolicy: .immediateTestPolicy(maxAttempts: 8)
+        )
+
+        try await waitUntil { viewModel.state.connection == .readyReadOnly }
+
+        let fetchCount = await connection.fetchCount
+        XCTAssertEqual(fetchCount, 3)
+    }
+
+    func testRetryStopsAtConfiguredAttemptLimit() async throws {
+        let fixture = try Fixture.make()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        _ = try await fixture.hostStore.upsert(fixture.record)
+        let connection = FixtureConnection(record: fixture.record, repeatingFailure: .networkUnavailable)
+        let viewModel = ControllerViewModel(
+            connectionActor: connection,
+            hostStore: fixture.hostStore,
+            cacheStore: fixture.cacheStore,
+            defaults: UserDefaults(suiteName: UUID().uuidString)!,
+            retryPolicy: .immediateTestPolicy(maxAttempts: 8)
+        )
+
+        try await waitUntil { viewModel.state.connection == .failed(.networkUnavailable) }
+
+        let fetchCount = await connection.fetchCount
+        XCTAssertEqual(fetchCount, 8)
+    }
+
+    func testAuthenticationFailureDoesNotRetry() async throws {
+        let fixture = try Fixture.make()
+        defer { try? FileManager.default.removeItem(at: fixture.directory) }
+        _ = try await fixture.hostStore.upsert(fixture.record)
+        let connection = FixtureConnection(record: fixture.record, repeatingFailure: .authenticationFailed)
+        let viewModel = ControllerViewModel(
+            connectionActor: connection,
+            hostStore: fixture.hostStore,
+            cacheStore: fixture.cacheStore,
+            defaults: UserDefaults(suiteName: UUID().uuidString)!,
+            retryPolicy: .immediateTestPolicy(maxAttempts: 8)
+        )
+
+        try await waitUntil { viewModel.state.connection == .failed(.authenticationFailed) }
+
+        let fetchCount = await connection.fetchCount
+        XCTAssertEqual(fetchCount, 1)
+    }
+
+    func testFullJitterDelayIsBoundedByBackoffAndDeadline() {
+        let policy = ControllerRetryPolicy(
+            maxAttempts: 8,
+            maxElapsedSeconds: 90,
+            baseDelaySeconds: 1,
+            maxDelaySeconds: 30,
+            randomUnit: { 0.75 },
+            sleep: { _ in }
+        )
+
+        XCTAssertEqual(policy.delayAfterFailure(attempt: 1, elapsedSeconds: 0), 0.75)
+        XCTAssertEqual(policy.delayAfterFailure(attempt: 6, elapsedSeconds: 0), 22.5)
+        XCTAssertEqual(policy.delayAfterFailure(attempt: 6, elapsedSeconds: 89), 1)
+        XCTAssertNil(policy.delayAfterFailure(attempt: 8, elapsedSeconds: 0))
+        XCTAssertNil(policy.delayAfterFailure(attempt: 1, elapsedSeconds: 90))
     }
 
     private func waitUntil(
@@ -76,11 +154,18 @@ final class ControllerPairingFleetTests: XCTestCase {
 
 private actor FixtureConnection: ControllerConnecting {
     let record: PairedHostRecord
-    let failure: ControllerFailure?
+    private var failures: [ControllerFailure]
+    private let repeatingFailure: ControllerFailure?
+    private(set) var fetchCount = 0
 
-    init(record: PairedHostRecord, failure: ControllerFailure? = nil) {
+    init(
+        record: PairedHostRecord,
+        failures: [ControllerFailure] = [],
+        repeatingFailure: ControllerFailure? = nil
+    ) {
         self.record = record
-        self.failure = failure
+        self.failures = failures
+        self.repeatingFailure = repeatingFailure
     }
 
     func beginPairing(
@@ -102,13 +187,33 @@ private actor FixtureConnection: ControllerConnecting {
         return record
     }
 
-    func fetchSessions(host: PairedHostRecord) async throws -> ControllerFleetSnapshot {
-        if let failure { throw failure }
+    func fetchSessions(
+        host: PairedHostRecord,
+        progress: @escaping @Sendable (ControllerConnectionProgress) async -> Void
+    ) async throws -> ControllerFleetSnapshot {
+        fetchCount += 1
+        await progress(.authenticating)
+        if !failures.isEmpty { throw failures.removeFirst() }
+        if let repeatingFailure { throw repeatingFailure }
+        await progress(.syncing)
         return ControllerFleetSnapshot(revision: 1, updateSequence: 1, sessions: [Fixture.session])
     }
 
     func forgetDeviceSecret(host: PairedHostRecord) async throws {}
     func cancel() async {}
+}
+
+private extension ControllerRetryPolicy {
+    static func immediateTestPolicy(maxAttempts: Int) -> Self {
+        Self(
+            maxAttempts: maxAttempts,
+            maxElapsedSeconds: 90,
+            baseDelaySeconds: 1,
+            maxDelaySeconds: 30,
+            randomUnit: { 0 },
+            sleep: { _ in }
+        )
+    }
 }
 
 private struct Fixture {
