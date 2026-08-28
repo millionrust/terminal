@@ -17,14 +17,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      printf 'Usage: %s --stage pairing-fleet [--require-runtime]\n' "$0" >&2
+      printf 'Usage: %s --stage pairing-fleet|readonly-terminal [--require-runtime]\n' "$0" >&2
       exit 2
       ;;
   esac
 done
 
-[[ "$STAGE" == "pairing-fleet" ]] || {
-  printf 'Only --stage pairing-fleet is supported.\n' >&2
+[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" ]] || {
+  printf 'Stage must be pairing-fleet or readonly-terminal.\n' >&2
   exit 2
 }
 
@@ -71,6 +71,19 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Views/ControllerRootView.swift
   TermiRustMobile/Views/ControllerQRCodeScanner.swift
 )
+TEST_SOURCES=(
+  TermiRustMobileTests/ControllerFleetCacheTests.swift
+  TermiRustMobileTests/ControllerPairingFleetTests.swift
+)
+RUNTIME_TESTS=(
+  -only-testing:TermiRustMobileTests/ControllerPairingFleetTests
+  -only-testing:TermiRustMobileTests/ControllerFleetCacheTests
+)
+if [[ "$STAGE" == "readonly-terminal" ]]; then
+  CONTROLLER_SOURCES+=(TermiRustMobile/Controller/ControllerReadOnlyAttach.swift)
+  TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerReadOnlyTerminalTests)
+fi
 
 xcrun swiftc \
   -emit-module \
@@ -94,8 +107,7 @@ xcrun swiftc \
   -I "$PLATFORM/usr/lib" \
   -I "$TEMP_MODULE" \
   -I "$HEADERS" \
-  TermiRustMobileTests/ControllerFleetCacheTests.swift \
-  TermiRustMobileTests/ControllerPairingFleetTests.swift
+  "${TEST_SOURCES[@]}"
 
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
 git diff --check
@@ -109,8 +121,7 @@ if [[ -n "$SIMULATOR_NAME" ]]; then
     -project TermiRustMobile.xcodeproj \
     -scheme TermiRustMobile \
     -destination "platform=iOS Simulator,name=$SIMULATOR_NAME,OS=latest" \
-    -only-testing:TermiRustMobileTests/ControllerPairingFleetTests \
-    -only-testing:TermiRustMobileTests/ControllerFleetCacheTests \
+    "${RUNTIME_TESTS[@]}" \
     CODE_SIGNING_ALLOWED=NO
   printf 'Controller iOS runtime tests passed on %s.\n' "$SIMULATOR_NAME"
 elif [[ "$REQUIRE_RUNTIME" == "1" ]]; then
