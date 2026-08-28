@@ -181,6 +181,44 @@ final class ControllerPairingFleetTests: XCTestCase {
         XCTAssertFalse(ControllerPresentation.unreadDescription(2).isEmpty)
     }
 
+    func testControllerPresentationGroupsSessionsInHostOrder() {
+        let release = ControllerSessionSummary(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!,
+            title: "Release",
+            project: "Console",
+            group: "Deploy",
+            lifecycle: "live",
+            activity: "busy",
+            occupantGeneration: 1,
+            lastOutputSequence: 5,
+            hasWriter: false,
+            unreadCount: 1
+        )
+        let monitor = ControllerSessionSummary(
+            id: UUID(uuidString: "00000000-0000-0000-0000-000000000003")!,
+            title: "Monitor",
+            project: "Console",
+            group: "Deploy",
+            lifecycle: "live",
+            activity: "idle",
+            occupantGeneration: 1,
+            lastOutputSequence: 6,
+            hasWriter: false,
+            unreadCount: 0
+        )
+
+        let groups = ControllerPresentation.sessionGroups([Fixture.session, release, monitor])
+
+        XCTAssertEqual(groups.count, 2)
+        XCTAssertEqual(groups[0].sessions.map(\.id), [Fixture.session.id])
+        XCTAssertNil(ControllerPresentation.sessionGroupTitle(groups[0].id))
+        XCTAssertEqual(groups[1].sessions.map(\.id), [release.id, monitor.id])
+        XCTAssertEqual(
+            ControllerPresentation.sessionGroupTitle(groups[1].id),
+            "\u{2068}Console\u{2069} · \u{2068}Deploy\u{2069}"
+        )
+    }
+
     private func waitUntil(
         attempts: Int = 100,
         condition: @MainActor () -> Bool

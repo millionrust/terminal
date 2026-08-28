@@ -1,6 +1,16 @@
 import Foundation
 import SwiftUI
 
+struct ControllerSessionGroupID: Hashable, Sendable {
+    let project: String?
+    let group: String?
+}
+
+struct ControllerSessionGroup: Identifiable, Equatable, Sendable {
+    let id: ControllerSessionGroupID
+    var sessions: [ControllerSessionSummary]
+}
+
 enum ControllerPresentation {
     static func isolated(_ value: String) -> String {
         "\u{2068}\(value)\u{2069}"
@@ -60,5 +70,26 @@ enum ControllerPresentation {
         case "failed": return "Failed"
         default: return "Activity unknown"
         }
+    }
+
+    static func sessionGroups(_ sessions: [ControllerSessionSummary]) -> [ControllerSessionGroup] {
+        var positions: [ControllerSessionGroupID: Int] = [:]
+        var groups: [ControllerSessionGroup] = []
+        for session in sessions {
+            let id = ControllerSessionGroupID(project: session.project, group: session.group)
+            if let index = positions[id] {
+                groups[index].sessions.append(session)
+            } else {
+                positions[id] = groups.count
+                groups.append(ControllerSessionGroup(id: id, sessions: [session]))
+            }
+        }
+        return groups
+    }
+
+    static func sessionGroupTitle(_ id: ControllerSessionGroupID) -> String? {
+        let names = [id.project, id.group].compactMap { $0 }
+        guard !names.isEmpty else { return nil }
+        return names.map(isolated).joined(separator: " · ")
     }
 }

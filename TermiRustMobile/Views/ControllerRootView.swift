@@ -146,9 +146,17 @@ private struct ControllerSessionFleetView: View {
                             .listRowBackground(Color.clear)
                         }
                     } else {
-                        Section("Sessions") {
-                            ForEach(state.sessions) { session in
-                                ControllerSessionRow(session: session, cached: state.isCachedReadOnly)
+                        ForEach(ControllerPresentation.sessionGroups(state.sessions)) { group in
+                            Section {
+                                ForEach(group.sessions) { session in
+                                    ControllerSessionRow(session: session, cached: state.isCachedReadOnly)
+                                }
+                            } header: {
+                                if let title = ControllerPresentation.sessionGroupTitle(group.id) {
+                                    Text(title)
+                                } else {
+                                    Text("Sessions")
+                                }
                             }
                         }
                     }
