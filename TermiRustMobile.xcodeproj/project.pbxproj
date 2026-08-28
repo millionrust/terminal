@@ -19,12 +19,14 @@
 		39F125D29A450A78955B9611 /* ControllerRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = 040C5E5C66631E78C30FD313 /* ControllerRetryPolicy.swift */; };
 		3BDA4D8CBA0D6C8DF9F7F371 /* EncryptedVaultStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA5F0EB78F4D2A252EADAE8A /* EncryptedVaultStore.swift */; };
 		4F6A15013CC0F979AC488612 /* DirectSSHIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35651BFBF6D6A54BB8ECCD66 /* DirectSSHIntegrationTests.swift */; };
+		52E92EE902885313F5441C44 /* BoundedTerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = E734739413F062B77BE40BD1 /* BoundedTerminalBuffer.swift */; };
 		5D22C51CF4953ECA53DF4274 /* TerminalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = 24A85EB62200FB06A4581F84 /* TerminalGrid.swift */; };
 		6933AECC104D7F8CE33CE5E0 /* ControllerReadOnlyAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = E27B9759AF59A85DBB72D953 /* ControllerReadOnlyAttach.swift */; };
 		7B2DA522ED797A9A7FF55235 /* HostListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A094D79B3532C27E003F0B33 /* HostListView.swift */; };
 		81AAE37D864D4860FB6C07F5 /* MobileSSHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79B01326772388C06F4F275E /* MobileSSHSession.swift */; };
 		8999D7D40482A28A2DC06AEE /* ControllerBindingConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5EED30009CAECFDB014CB0F /* ControllerBindingConformanceTests.swift */; };
 		8C26F90956DB52008830EFEC /* controller-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = F08B3160F16265E1EA24A5D2 /* controller-v1.json */; };
+		90B03BA0136A9B4E35151F23 /* BoundedTerminalBufferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */; };
 		968B6E9F01DA1A92575E0A35 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = 003E451655DE70492275F55A /* Crypto */; };
 		99EB986DA9ED3C19DFFB95F0 /* KeychainSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 76237639D6037947840EF355 /* KeychainSecretStore.swift */; };
 		9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = A430BDF58539E9AB20C42A19 /* NIOSSH */; };
@@ -102,8 +104,10 @@
 		C88AF7F2E956BDDCC0084F0F /* ControllerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerModels.swift; sourceTree = "<group>"; };
 		E27B9759AF59A85DBB72D953 /* ControllerReadOnlyAttach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerReadOnlyAttach.swift; sourceTree = "<group>"; };
 		E58C0FFFCA33DD0B192A2B6F /* MobileDeviceIdentityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileDeviceIdentityStore.swift; sourceTree = "<group>"; };
+		E734739413F062B77BE40BD1 /* BoundedTerminalBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTerminalBuffer.swift; sourceTree = "<group>"; };
 		F08B3160F16265E1EA24A5D2 /* controller-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "controller-v1.json"; sourceTree = "<group>"; };
 		F376C5C2345ABA90522EF515 /* MobileVaultModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultModels.swift; sourceTree = "<group>"; };
+		F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTerminalBufferTests.swift; sourceTree = "<group>"; };
 		FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermiRustMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
@@ -237,6 +241,7 @@
 		CCC1708406BAB5C307C75403 /* TermiRustMobileTests */ = {
 			isa = PBXGroup;
 			children = (
+				F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */,
 				A5EED30009CAECFDB014CB0F /* ControllerBindingConformanceTests.swift */,
 				961259E09EB8448FEC2BD91E /* ControllerFleetCacheTests.swift */,
 				4B61FB3E50D5A511492D5C02 /* ControllerPairingFleetTests.swift */,
@@ -264,6 +269,7 @@
 		DDC8BC0ACA2E6A7A544D5C7D /* Terminal */ = {
 			isa = PBXGroup;
 			children = (
+				E734739413F062B77BE40BD1 /* BoundedTerminalBuffer.swift */,
 				9305D50DEB3FDAB60B584C2B /* TerminalBuffer.swift */,
 				24A85EB62200FB06A4581F84 /* TerminalGrid.swift */,
 				AD7864BC0E07D7F967876BB0 /* TerminalInputEncoding.swift */,
@@ -406,6 +412,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				90B03BA0136A9B4E35151F23 /* BoundedTerminalBufferTests.swift in Sources */,
 				8999D7D40482A28A2DC06AEE /* ControllerBindingConformanceTests.swift in Sources */,
 				E89E0397FB0D7FD81C595E09 /* ControllerFleetCacheTests.swift in Sources */,
 				D056CFA9C2DD3AAA806615A8 /* ControllerPairingFleetTests.swift in Sources */,
@@ -419,6 +426,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				52E92EE902885313F5441C44 /* BoundedTerminalBuffer.swift in Sources */,
 				E22EA4959B1A3AA8EFA705EC /* ContentView.swift in Sources */,
 				D5CA9EA3023DC824DF230848 /* ControllerConnectionActor.swift in Sources */,
 				D8BA92689E637375E707E2D3 /* ControllerFleetCache.swift in Sources */,
