@@ -78,11 +78,15 @@ class UniversalSessionGoldenPathTest {
 
         val reconnected = WriterControlReducer(identity)
         assertNull(reconnected.removeFirstOrNull())
-        reconnected.beginAcquire(UUID.fromString(fixture.commands.release))
-        reconnected.finishAcquire(UUID.fromString(fixture.commands.release), applied = true)
+        reconnected.beginAcquire(UUID.fromString(fixture.commands.reconnectWriter))
+        reconnected.finishAcquire(UUID.fromString(fixture.commands.reconnectWriter), applied = true)
         reconnected.markLeaseLost()
         assertThrows(IllegalArgumentException::class.java) {
-            reconnected.enqueue(input, PendingInputKind.KEYBOARD)
+            reconnected.enqueue(
+                input,
+                PendingInputKind.KEYBOARD,
+                commandId = UUID.fromString(fixture.commands.deniedInput),
+            )
         }
         TerminalLimits().validate(TerminalViewport(fixture.viewport.columns, fixture.viewport.rows))
     }
@@ -122,6 +126,11 @@ private data class UniversalSessionFixture(
         @SerialName("second_writer") val secondWriter: String,
         val input: String,
         val release: String,
+        @SerialName("second_after_release") val secondAfterRelease: String,
+        @SerialName("denied_input") val deniedInput: String,
+        @SerialName("reconnect_writer") val reconnectWriter: String,
+        val resize: String,
+        val stop: String,
     )
 
     @Serializable
