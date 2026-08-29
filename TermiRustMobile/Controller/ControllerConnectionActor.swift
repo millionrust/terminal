@@ -238,6 +238,10 @@ private struct SessionsResponsePayload: Decodable {
 
 private struct SessionSummaryPayload: Decodable {
     let sessionId: UUID
+    let hostInstanceId: UUID?
+    let origin: ControllerSessionOrigin?
+    let runtime: String?
+    let capabilities: [ControllerSessionCapability]?
     let title: String
     let project: String?
     let group: String?
@@ -250,6 +254,10 @@ private struct SessionSummaryPayload: Decodable {
 
     private enum CodingKeys: String, CodingKey {
         case sessionId = "session_id"
+        case hostInstanceId = "host_instance_id"
+        case origin
+        case runtime
+        case capabilities
         case title
         case project
         case group
@@ -1123,6 +1131,10 @@ actor ControllerConnectionActor: ControllerConnecting {
                 let mapped = try page.sessions.map { value in
                     let summary = ControllerSessionSummary(
                         id: value.sessionId,
+                        hostInstanceID: value.hostInstanceId,
+                        origin: value.origin ?? .unknown,
+                        runtime: value.runtime,
+                        capabilities: value.capabilities ?? [],
                         title: value.title,
                         project: value.project,
                         group: value.group,

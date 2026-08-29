@@ -78,8 +78,27 @@ struct HostSummary: Codable, Identifiable, Hashable, Sendable {
     let capabilityBits: UInt16
 }
 
+enum ControllerSessionOrigin: String, Codable, Hashable, Sendable {
+    case terminal
+    case managedAgent = "managed_agent"
+    case observedAgent = "observed_agent"
+    case unknown
+}
+
+enum ControllerSessionCapability: String, Codable, Hashable, Sendable {
+    case observeSessions = "observe_sessions"
+    case attachOutput = "attach_output"
+    case sendInput = "send_input"
+    case resize
+    case respondToApproval = "respond_to_approval"
+}
+
 struct ControllerSessionSummary: Codable, Identifiable, Hashable, Sendable {
     let id: UUID
+    let hostInstanceID: UUID?
+    let origin: ControllerSessionOrigin
+    let runtime: String?
+    let capabilities: [ControllerSessionCapability]
     let title: String
     let project: String?
     let group: String?
@@ -90,10 +109,82 @@ struct ControllerSessionSummary: Codable, Identifiable, Hashable, Sendable {
     let hasWriter: Bool
     let unreadCount: UInt32
 
+    init(
+        id: UUID,
+        hostInstanceID: UUID? = nil,
+        origin: ControllerSessionOrigin = .unknown,
+        runtime: String? = nil,
+        capabilities: [ControllerSessionCapability] = [],
+        title: String,
+        project: String?,
+        group: String?,
+        lifecycle: String,
+        activity: String?,
+        occupantGeneration: UInt64?,
+        lastOutputSequence: UInt64,
+        hasWriter: Bool,
+        unreadCount: UInt32
+    ) {
+        self.id = id
+        self.hostInstanceID = hostInstanceID
+        self.origin = origin
+        self.runtime = runtime
+        self.capabilities = capabilities
+        self.title = title
+        self.project = project
+        self.group = group
+        self.lifecycle = lifecycle
+        self.activity = activity
+        self.occupantGeneration = occupantGeneration
+        self.lastOutputSequence = lastOutputSequence
+        self.hasWriter = hasWriter
+        self.unreadCount = unreadCount
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case hostInstanceID
+        case origin
+        case runtime
+        case capabilities
+        case title
+        case project
+        case group
+        case lifecycle
+        case activity
+        case occupantGeneration
+        case lastOutputSequence
+        case hasWriter
+        case unreadCount
+    }
+
+    init(from decoder: Decoder) throws {
+        let values = try decoder.container(keyedBy: CodingKeys.self)
+        self.init(
+            id: try values.decode(UUID.self, forKey: .id),
+            hostInstanceID: try values.decodeIfPresent(UUID.self, forKey: .hostInstanceID),
+            origin: try values.decodeIfPresent(ControllerSessionOrigin.self, forKey: .origin) ?? .unknown,
+            runtime: try values.decodeIfPresent(String.self, forKey: .runtime),
+            capabilities: try values.decodeIfPresent([ControllerSessionCapability].self, forKey: .capabilities) ?? [],
+            title: try values.decode(String.self, forKey: .title),
+            project: try values.decodeIfPresent(String.self, forKey: .project),
+            group: try values.decodeIfPresent(String.self, forKey: .group),
+            lifecycle: try values.decode(String.self, forKey: .lifecycle),
+            activity: try values.decodeIfPresent(String.self, forKey: .activity),
+            occupantGeneration: try values.decodeIfPresent(UInt64.self, forKey: .occupantGeneration),
+            lastOutputSequence: try values.decode(UInt64.self, forKey: .lastOutputSequence),
+            hasWriter: try values.decode(Bool.self, forKey: .hasWriter),
+            unreadCount: try values.decode(UInt32.self, forKey: .unreadCount)
+        )
+    }
+
     func validate() throws {
         guard !title.isEmpty,
               title.unicodeScalars.count <= ControllerCacheLimits.maxTitleScalars,
               lifecycle.utf8.count <= 64,
+              runtime?.utf8.count ?? 0 <= 128,
+              capabilities.count <= 5,
+              Set(capabilities).count == capabilities.count,
               activity?.utf8.count ?? 0 <= 64,
               project?.unicodeScalars.count ?? 0 <= ControllerCacheLimits.maxTitleScalars,
               group?.unicodeScalars.count ?? 0 <= ControllerCacheLimits.maxTitleScalars else {

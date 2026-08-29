@@ -182,6 +182,7 @@ final class ControllerViewModel: ObservableObject {
               let host = selectedHost,
               let connectionActor,
               host.capabilityBits & (1 << 1) != 0,
+              session.capabilities.isEmpty || session.capabilities.contains(.attachOutput),
               session.occupantGeneration != nil else { return }
         activeTerminal = try? ControllerTerminalViewModel(
             host: host,

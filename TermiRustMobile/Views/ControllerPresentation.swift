@@ -72,6 +72,15 @@ enum ControllerPresentation {
         }
     }
 
+    static func originLabel(_ origin: ControllerSessionOrigin) -> LocalizedStringKey {
+        switch origin {
+        case .terminal: return "Terminal"
+        case .managedAgent: return "Managed agent"
+        case .observedAgent: return "Observed agent"
+        case .unknown: return "Session"
+        }
+    }
+
     static func sessionGroups(_ sessions: [ControllerSessionSummary]) -> [ControllerSessionGroup] {
         var positions: [ControllerSessionGroupID: Int] = [:]
         var groups: [ControllerSessionGroup] = []

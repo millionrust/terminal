@@ -43,6 +43,7 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     private var inputInFlight: UUID?
     private var pendingPaste: Data?
     private var pendingResize: TerminalViewportState?
+    private let sessionCapabilities: [ControllerSessionCapability]
 
     init(
         host: PairedHostRecord,
@@ -55,10 +56,12 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
         }
         let identity = ReadOnlyAttachIdentity(
             hostID: host.id,
+            hostInstanceID: session.hostInstanceID,
             sessionID: session.id,
             occupantGeneration: generation
         )
         self.host = host
+        self.sessionCapabilities = session.capabilities
         self.identity = identity
         self.connection = connection
         self.viewport = viewport
@@ -80,11 +83,16 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
 
     var supportsWriterControl: Bool {
         let required: UInt16 = (1 << 1) | (1 << 2)
-        return host.capabilityBits & required == required
+        let hostAllows = host.capabilityBits & required == required
+        let sessionAllows = sessionCapabilities.isEmpty
+            || (sessionCapabilities.contains(.attachOutput)
+                && sessionCapabilities.contains(.sendInput))
+        return hostAllows && sessionAllows
     }
 
     var supportsResize: Bool {
         host.capabilityBits & (1 << 3) != 0
+            && (sessionCapabilities.isEmpty || sessionCapabilities.contains(.resize))
     }
 
     var canRequestControl: Bool {

@@ -17,14 +17,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls [--require-runtime]\n' "$0" >&2
+      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls|universal-session [--require-runtime]\n' "$0" >&2
       exit 2
       ;;
   esac
 done
 
-[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" ]] || {
-  printf 'Stage must be pairing-fleet, readonly-terminal, or writer-controls.\n' >&2
+[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]] || {
+  printf 'Stage must be pairing-fleet, readonly-terminal, writer-controls, or universal-session.\n' >&2
   exit 2
 }
 
@@ -86,7 +86,7 @@ RUNTIME_TESTS=(
   -only-testing:TermiRustMobileTests/ControllerPairingFleetTests
   -only-testing:TermiRustMobileTests/ControllerFleetCacheTests
 )
-if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" ]]; then
+if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/BoundedTerminalBufferTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/ControllerTerminalViewModelTests.swift)
@@ -94,9 +94,13 @@ if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" ]]; then
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/BoundedTerminalBufferTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerTerminalViewModelTests)
 fi
-if [[ "$STAGE" == "writer-controls" ]]; then
+if [[ "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerWriterTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerWriterTests)
+fi
+if [[ "$STAGE" == "universal-session" ]]; then
+  TEST_SOURCES+=(TermiRustMobileTests/UniversalSessionGoldenPathTests.swift)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/UniversalSessionGoldenPathTests)
 fi
 
 xcrun swiftc \

@@ -34,8 +34,21 @@ enum ReadOnlyAttachState: Equatable, Sendable {
 
 struct ReadOnlyAttachIdentity: Equatable, Hashable, Sendable {
     let hostID: String
+    let hostInstanceID: UUID?
     let sessionID: UUID
     let occupantGeneration: UInt64
+
+    init(
+        hostID: String,
+        hostInstanceID: UUID? = nil,
+        sessionID: UUID,
+        occupantGeneration: UInt64
+    ) {
+        self.hostID = hostID
+        self.hostInstanceID = hostInstanceID
+        self.sessionID = sessionID
+        self.occupantGeneration = occupantGeneration
+    }
 
     func validate() throws {
         guard !hostID.isEmpty,

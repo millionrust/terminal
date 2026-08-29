@@ -357,6 +357,20 @@ private struct ControllerSessionRow: View {
                 Text(ControllerPresentation.isolated(session.title))
                     .font(.body.weight(.medium))
                     .fixedSize(horizontal: false, vertical: true)
+                HStack(spacing: 8) {
+                    Text(ControllerPresentation.originLabel(session.origin))
+                    if let runtime = session.runtime {
+                        Text(ControllerPresentation.isolated(runtime))
+                            .fontDesign(.monospaced)
+                    }
+                    Text(
+                        session.capabilities.contains(.sendInput)
+                            ? LocalizedStringKey("Control available")
+                            : LocalizedStringKey("View only")
+                    )
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
                 if session.project != nil || session.group != nil {
                     Text(metadata)
                         .font(.caption)
