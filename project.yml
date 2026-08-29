@@ -23,6 +23,7 @@ targets:
       - TermiRustMobile/Generated/TermiRustControllerSecurity.swift
       - TermiRustMobile/Models/ControllerModels.swift
       - TermiRustMobile/Models/MobileRouteContract.swift
+      - TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
       - TermiRustMobile/Models/MobileVaultModels.swift
       - TermiRustMobile/Security/ControllerKeychainBlobStore.swift
       - TermiRustMobile/Security/KeychainSecretStore.swift
@@ -92,6 +93,7 @@ targets:
       - TermiRustMobileTests/TerminalInteractionTests.swift
       - TermiRustMobileTests/TerminalAcceptanceTests.swift
       - TermiRustMobileTests/MobileRouteContractTests.swift
+      - TermiRustMobileTests/MobileCrossRouteAcceptanceTests.swift
       - TermiRustMobileTests/MobileVaultImporterTests.swift
       - TermiRustMobileTests/UnifiedRouteLifecycleTests.swift
       - TermiRustMobileTests/DirectSSHIntegrationTests.swift

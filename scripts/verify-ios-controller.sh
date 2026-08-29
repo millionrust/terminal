@@ -62,6 +62,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
   TermiRustMobile/Models/ControllerModels.swift
   TermiRustMobile/Models/MobileRouteContract.swift
+  TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
   TermiRustMobile/Controller/ControllerFleetCache.swift
   TermiRustMobile/Controller/PairedHostStore.swift
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
@@ -142,7 +143,9 @@ if [[ "$STAGE" == "terminal-acceptance" || "$STAGE" == "route-contract" ]]; then
 fi
 if [[ "$STAGE" == "route-contract" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/MobileRouteContractTests.swift)
+  TEST_SOURCES+=(TermiRustMobileTests/MobileCrossRouteAcceptanceTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/MobileRouteContractTests)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/MobileCrossRouteAcceptanceTests)
   xcrun swiftc \
     -swift-version 6 \
     -strict-concurrency=complete \

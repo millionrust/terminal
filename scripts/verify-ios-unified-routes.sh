@@ -116,6 +116,7 @@ UNIFIED_SOURCES=(
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
   TermiRustMobile/Models/ControllerModels.swift
   TermiRustMobile/Models/MobileRouteContract.swift
+  TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
   TermiRustMobile/Models/MobileVaultModels.swift
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
   TermiRustMobile/Security/KeychainSecretStore.swift
