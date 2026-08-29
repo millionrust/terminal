@@ -20,19 +20,6 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
-    flavorDimensions += "mode"
-    productFlavors {
-        create("controller") {
-            dimension = "mode"
-        }
-        create("legacyDirectSsh") {
-            dimension = "mode"
-            applicationIdSuffix = ".legacy"
-            versionNameSuffix = "-direct-ssh-dev"
-            manifestPlaceholders["appLabel"] = "Direct SSH Compatibility (Development Only)"
-        }
-    }
-
     buildFeatures {
         compose = true
     }
@@ -57,6 +44,7 @@ dependencies {
     implementation(platform("androidx.compose:compose-bom:2024.12.01"))
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.compose.ui:ui")
     implementation("androidx.compose.ui:ui-tooling-preview")
     implementation("androidx.graphics:graphics-path:1.1.0")
@@ -67,7 +55,7 @@ dependencies {
     implementation("com.google.mlkit:barcode-scanning:17.3.0")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.8.0")
     implementation("net.java.dev.jna:jna:5.17.0@aar")
-    "legacyDirectSshImplementation"("com.hierynomus:sshj:0.39.0")
+    implementation("com.hierynomus:sshj:0.39.0")
 
     debugImplementation("androidx.compose.ui:ui-tooling")
 

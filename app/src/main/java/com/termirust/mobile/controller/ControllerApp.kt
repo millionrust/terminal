@@ -47,7 +47,6 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.material3.VerticalDivider
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -77,15 +76,11 @@ import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import androidx.lifecycle.Lifecycle
-import androidx.lifecycle.LifecycleEventObserver
-import androidx.lifecycle.compose.LocalLifecycleOwner
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun ControllerApp(viewModel: ControllerViewModel) {
+fun ControllerApp(viewModel: ControllerViewModel, modifier: Modifier = Modifier) {
     val state by viewModel.state.collectAsState()
-    val lifecycleOwner = LocalLifecycleOwner.current
     var showPairing by remember { mutableStateOf(false) }
     var showScanner by remember { mutableStateOf(false) }
     var showHostDetails by remember { mutableStateOf(false) }
@@ -94,21 +89,9 @@ fun ControllerApp(viewModel: ControllerViewModel) {
 
     BackHandler(enabled = activeTerminal != null) { viewModel.detachTerminal() }
 
-    DisposableEffect(lifecycleOwner) {
-        val observer = LifecycleEventObserver { _, event ->
-            when (event) {
-                Lifecycle.Event.ON_START -> viewModel.onForeground()
-                Lifecycle.Event.ON_STOP -> viewModel.onBackground()
-                else -> Unit
-            }
-        }
-        lifecycleOwner.lifecycle.addObserver(observer)
-        onDispose { lifecycleOwner.lifecycle.removeObserver(observer) }
-    }
-
     MaterialTheme {
         Scaffold(
-            modifier = Modifier.fillMaxSize(),
+            modifier = modifier.fillMaxSize(),
             topBar = {
                 TopAppBar(
                     title = {
@@ -560,13 +543,14 @@ private fun ControllerTerminalScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween,
                         ) {
-                            AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
+                            AssistChip(onClick = {}, label = { Text(stringResource(com.termirust.mobile.R.string.device_session)) })
                             Text(
                                 stringResource(com.termirust.mobile.R.string.terminal_sequence, terminal.outputSequence),
                                 style = MaterialTheme.typography.labelSmall,
                                 fontFamily = FontFamily.Monospace,
                             )
                         }
+                        AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
                         Text(isolated(terminal.sessionTitle), fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Text(
                             "${isolated(terminal.hostTitle)} · ${terminalStatus(terminal)}",
@@ -577,6 +561,7 @@ private fun ControllerTerminalScreen(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(10.dp),
                         ) {
+                            AssistChip(onClick = {}, label = { Text(stringResource(com.termirust.mobile.R.string.device_session)) })
                             AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
                             Column(Modifier.weight(1f)) {
                                 Text(isolated(terminal.sessionTitle), fontWeight = FontWeight.SemiBold, maxLines = 1)

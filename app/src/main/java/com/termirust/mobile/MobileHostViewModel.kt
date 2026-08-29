@@ -14,6 +14,8 @@ import com.termirust.mobile.ssh.DirectSshSessionClient
 import com.termirust.mobile.ssh.MobileSshSessionClient
 import com.termirust.mobile.ssh.TerminalConnectionState
 import com.termirust.mobile.terminal.TerminalBuffer
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -42,7 +44,11 @@ class MobileHostViewModel(
     private val _hasStoredEncryptedVault = MutableStateFlow(encryptedVaultStore?.hasEncryptedVault() == true)
     val hasStoredEncryptedVault: StateFlow<Boolean> = _hasStoredEncryptedVault
 
+    private val _privacyCovered = MutableStateFlow(false)
+    val privacyCovered: StateFlow<Boolean> = _privacyCovered
+
     val terminalBuffer = TerminalBuffer()
+    private var connectionJob: Job? = null
 
     val localDeviceIdForDisplay: String
         get() = localDeviceId.ifBlank { "Unavailable" }
@@ -171,27 +177,31 @@ class MobileHostViewModel(
     }
 
     fun connectSelectedHost() {
+        if (_privacyCovered.value) return
         val host = _selectedHost.value ?: return
         val knownHost = knownHostFor(host)
         _connectionState.value = TerminalConnectionState.Connecting
         terminalBuffer.clear()
         terminalBuffer.append("Connecting to ${host.username}@${host.host}:${host.port}")
 
-        viewModelScope.launch {
-            runCatching {
+        connectionJob?.cancel()
+        connectionJob = viewModelScope.launch {
+            try {
                 sshClient.connect(host, knownHost) { bytes ->
                     terminalBuffer.append(bytes)
                 }
+                _connectionState.value = TerminalConnectionState.Connected
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Throwable) {
+                _connectionState.value = TerminalConnectionState.Failed(error.message ?: "Connection failed.")
+                terminalBuffer.append(error.message ?: "Connection failed.")
             }
-                .onSuccess { _connectionState.value = TerminalConnectionState.Connected }
-                .onFailure {
-                    _connectionState.value = TerminalConnectionState.Failed(it.message ?: "Connection failed.")
-                    terminalBuffer.append(it.message ?: "Connection failed.")
-                }
         }
     }
 
     fun sendTerminalInput(input: String) {
+        if (_privacyCovered.value) return
         viewModelScope.launch {
             runCatching { sshClient.send("$input\n".encodeToByteArray()) }
                 .onFailure { terminalBuffer.append(it.message ?: "Unable to send input.") }
@@ -199,6 +209,7 @@ class MobileHostViewModel(
     }
 
     fun sendTerminalBytes(bytes: ByteArray) {
+        if (_privacyCovered.value) return
         viewModelScope.launch {
             runCatching { sshClient.send(bytes) }
                 .onFailure { terminalBuffer.append(it.message ?: "Unable to send input.") }
@@ -206,6 +217,7 @@ class MobileHostViewModel(
     }
 
     fun resizeTerminal(columns: Int, rows: Int) {
+        if (_privacyCovered.value) return
         terminalBuffer.resize(columns, rows)
         viewModelScope.launch {
             runCatching { sshClient.resize(columns, rows) }
@@ -214,10 +226,22 @@ class MobileHostViewModel(
     }
 
     fun disconnect() {
+        connectionJob?.cancel()
+        connectionJob = null
         viewModelScope.launch {
             sshClient.disconnect()
             _connectionState.value = TerminalConnectionState.Disconnected
         }
+    }
+
+    fun onBackground() {
+        if (_privacyCovered.value) return
+        _privacyCovered.value = true
+        disconnect()
+    }
+
+    fun onForeground() {
+        _privacyCovered.value = false
     }
 
     private companion object {

@@ -26,21 +26,21 @@ esac
 
 cd "$ROOT"
 export ANDROID_HOME=${ANDROID_HOME:-"$HOME/Library/Android/sdk"}
-./gradlew testControllerDebugUnitTest --tests "$FILTER" --console=plain
+./gradlew testDebugUnitTest --tests "$FILTER" --console=plain
 if [ "$STAGE" = "terminal-interaction" ] || [ "$STAGE" = "terminal-acceptance" ] || [ "$STAGE" = "route-contract" ]; then
-  ./gradlew testControllerDebugUnitTest \
+  ./gradlew testDebugUnitTest \
     --tests '*TerminalConformanceV*Test' \
     --tests '*ControllerReadOnlyTerminalTest' \
     --tests '*ControllerWriterTest' \
     --console=plain
 fi
 if [ "$STAGE" = "terminal-acceptance" ] || [ "$STAGE" = "route-contract" ]; then
-  ./gradlew testControllerDebugUnitTest \
+  ./gradlew testDebugUnitTest \
     --tests '*TerminalAcceptanceTest' \
     --tests '*TerminalInteractionTest' \
     --console=plain
 fi
-./scripts/verify-android-no-legacy-ssh.sh --variant controllerDebug
+./scripts/verify-android-unified-routes.sh --structural
 
 if [ -n "$AVD" ]; then
   if command -v adb >/dev/null 2>&1 && adb get-state >/dev/null 2>&1; then

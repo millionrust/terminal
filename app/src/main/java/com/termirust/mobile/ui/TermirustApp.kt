@@ -55,6 +55,8 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -193,6 +195,7 @@ fun TermirustApp(
     viewModel: MobileHostViewModel,
     onImportVault: (String) -> Unit,
     onImportCredentialFile: () -> Unit,
+    modifier: Modifier = Modifier,
 ) {
     val dark = isSystemInDarkTheme()
     val mobileColors = if (dark) DarkMobileColors else LightMobileColors
@@ -214,7 +217,7 @@ fun TermirustApp(
         var showVaultDialog by remember { mutableStateOf(false) }
         CompositionLocalProvider(LocalTermirustMobileColors provides mobileColors) {
             Box(
-                modifier = Modifier
+                modifier = modifier
                     .fillMaxSize()
                     .background(mobileColors.appBackground)
                     .imePadding(),
@@ -310,7 +313,7 @@ private fun HostPanel(
             ProductHeader()
             ImportVaultCard(viewModel = viewModel, onImportVault = onImportVault)
             Text(
-                "Hosts",
+                "Connections",
                 style = MaterialTheme.typography.titleSmall,
                 fontWeight = FontWeight.SemiBold,
                 color = PrimaryText,
@@ -351,7 +354,7 @@ private fun CompactTopBar(
                 subtitle = if (vault?.hosts.isNullOrEmpty()) {
                     "Import vault to begin"
                 } else {
-                    "${vault?.hosts?.size ?: 0} hosts available"
+                    "${vault?.hosts?.size ?: 0} Connections"
                 },
                 modifier = Modifier.weight(1f),
             )
@@ -581,6 +584,7 @@ private fun SessionPanel(
     val vault by viewModel.vault.collectAsState()
     val lines by viewModel.terminalBuffer.lines.collectAsState()
     val state by viewModel.connectionState.collectAsState()
+    val privacyCovered by viewModel.privacyCovered.collectAsState()
     var command by remember { mutableStateOf("") }
     var credential by remember(selectedHost?.id) { mutableStateOf("") }
     var terminalFontSize by remember { mutableStateOf(14) }
@@ -601,6 +605,16 @@ private fun SessionPanel(
     LaunchedEffect(terminalGrid, state) {
         if (terminalGrid != null && state == TerminalConnectionState.Connected) {
             viewModel.resizeTerminal(terminalGrid.columns, terminalGrid.rows)
+        }
+    }
+
+    LaunchedEffect(privacyCovered) {
+        if (privacyCovered) {
+            command = ""
+            credential = ""
+            pendingMultilinePaste = null
+            controlModifierActive = false
+            altModifierActive = false
         }
     }
 
@@ -629,7 +643,10 @@ private fun SessionPanel(
     }
 
     val content: @Composable () -> Unit = {
-        Column(modifier = Modifier.fillMaxSize()) {
+        if (privacyCovered) {
+            DirectSshPrivacyCover()
+        } else {
+            Column(modifier = Modifier.fillMaxSize()) {
             SessionHeader(
                 host = selectedHost,
                 state = state,
@@ -697,6 +714,7 @@ private fun SessionPanel(
                 },
                 onSend = { sendCommandWithPasteGuard() },
             )
+            }
         }
     }
 
@@ -778,19 +796,43 @@ private fun SessionHeader(
 @Composable
 private fun SessionTitle(host: MobileHost?, modifier: Modifier = Modifier) {
     Column(modifier = modifier) {
-        Text(
-            host?.label ?: "No host selected",
-            style = MaterialTheme.typography.titleLarge,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-        )
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(
+                host?.label ?: "No host selected",
+                modifier = Modifier.weight(1f, fill = false),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+            )
+            StatusPill("Direct SSH", Accent)
+        }
         Text(
             host?.let { "${it.username}@${it.host}:${it.port}" } ?: "Import a vault and select a host",
             style = MaterialTheme.typography.bodySmall,
             color = SecondaryText,
             maxLines = 1,
             overflow = TextOverflow.Ellipsis,
+        )
+    }
+}
+
+@Composable
+private fun DirectSshPrivacyCover() {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(PanelBackground)
+            .clearAndSetSemantics {
+                contentDescription = "Direct SSH terminal content hidden for privacy"
+            },
+        contentAlignment = Alignment.Center,
+    ) {
+        Text(
+            "Direct SSH terminal hidden while TermiRust is inactive",
+            style = MaterialTheme.typography.titleMedium,
+            color = PrimaryText,
+            modifier = Modifier.padding(24.dp),
         )
     }
 }

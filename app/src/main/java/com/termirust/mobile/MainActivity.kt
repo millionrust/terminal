@@ -15,6 +15,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import androidx.lifecycle.viewmodel.CreationExtras
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.termirust.mobile.controller.ControllerViewModel
 import com.termirust.mobile.data.MobileVaultImporter
 import com.termirust.mobile.data.NativeMobileVaultDecryptor
 import com.termirust.mobile.data.SharedPreferencesDeviceIdentityStore
@@ -22,7 +23,7 @@ import com.termirust.mobile.data.SharedPreferencesEncryptedVaultStore
 import com.termirust.mobile.security.KeystoreSecretStore
 import com.termirust.mobile.ssh.DirectSshSessionClient
 import com.termirust.mobile.ssh.MobileSshSecretProvider
-import com.termirust.mobile.ui.TermirustApp
+import com.termirust.mobile.ui.UnifiedMobileApp
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -30,46 +31,46 @@ class MainActivity : ComponentActivity() {
         enableEdgeToEdge()
         setContent {
             val context = LocalContext.current.applicationContext
-            val factory = remember {
+            val hostFactory = remember {
                 val secretStore = KeystoreSecretStore(context)
                 val encryptedVaultStore = SharedPreferencesEncryptedVaultStore(context)
-                val deviceIdentityStore = SharedPreferencesDeviceIdentityStore(context)
-                val vaultImporter = MobileVaultImporter(decryptor = NativeMobileVaultDecryptor())
-                val sshClient = DirectSshSessionClient(
-                    secretProvider = MobileSshSecretProvider { reference ->
-                        secretStore.readSecret(reference)?.toCharArray()
-                    },
-                )
+                val identityStore = SharedPreferencesDeviceIdentityStore(context)
                 MobileHostViewModelFactory(
-                    vaultImporter,
-                    secretStore,
-                    encryptedVaultStore,
-                    sshClient,
-                    deviceIdentityStore.deviceId(),
+                    vaultImporter = MobileVaultImporter(decryptor = NativeMobileVaultDecryptor()),
+                    secretStore = secretStore,
+                    encryptedVaultStore = encryptedVaultStore,
+                    sshClient = DirectSshSessionClient(
+                        secretProvider = MobileSshSecretProvider { reference ->
+                            secretStore.readSecret(reference)?.toCharArray()
+                        },
+                    ),
+                    localDeviceId = identityStore.deviceId(),
                 )
             }
-            val hostViewModel: MobileHostViewModel = viewModel(factory = factory)
+            val connections: MobileHostViewModel = viewModel(factory = hostFactory)
+            val controller: ControllerViewModel = viewModel()
             var pendingVaultPassphrase by remember { mutableStateOf("") }
             val vaultPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) {
                     runCatching {
                         requireNotNull(context.contentResolver.openInputStream(uri)).use { it.readBytes() }
                     }.onSuccess { bytes ->
-                        hostViewModel.importEncryptedVault(bytes, pendingVaultPassphrase.toCharArray())
+                        connections.importEncryptedVault(bytes, pendingVaultPassphrase.toCharArray())
                         pendingVaultPassphrase = ""
-                    }.onFailure { hostViewModel.reportStatus(it.message ?: "Unable to import vault.") }
+                    }.onFailure { connections.reportStatus(it.message ?: "Unable to import vault.") }
                 }
             }
             val keyPicker = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
                 if (uri != null) {
                     runCatching {
                         requireNotNull(context.contentResolver.openInputStream(uri)).bufferedReader().use { it.readText() }
-                    }.onSuccess(hostViewModel::saveCredentialForSelectedHost)
-                        .onFailure { hostViewModel.reportStatus(it.message ?: "Unable to import key.") }
+                    }.onSuccess(connections::saveCredentialForSelectedHost)
+                        .onFailure { connections.reportStatus(it.message ?: "Unable to import key.") }
                 }
             }
-            TermirustApp(
-                viewModel = hostViewModel,
+            UnifiedMobileApp(
+                connections = connections,
+                controller = controller,
                 onImportVault = { passphrase ->
                     pendingVaultPassphrase = passphrase
                     vaultPicker.launch(arrayOf("application/json", "application/octet-stream", "text/*", "*/*"))

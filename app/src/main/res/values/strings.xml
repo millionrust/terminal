@@ -1,6 +1,7 @@
 <resources>
     <string name="app_name">TermiRust</string>
     <string name="controller_fleet">Controller Fleet</string>
+    <string name="device_session">Device Session</string>
     <string name="pair_host">Pair Host</string>
     <string name="details">Details</string>
     <string name="forget_host_title">Forget this Host on this device?</string>
