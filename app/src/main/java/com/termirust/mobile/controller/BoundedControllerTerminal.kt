@@ -12,6 +12,20 @@ enum class TerminalTruncationReason {
     MODEL_LIMIT,
 }
 
+enum class TerminalMouseMode(val wireName: String) {
+    NONE("none"),
+    PRESS("press"),
+    PRESS_RELEASE("press_release"),
+    BUTTON_MOTION("button_motion"),
+    ANY_MOTION("any_motion"),
+}
+
+enum class TerminalMouseEncoding(val wireName: String) {
+    DEFAULT("default"),
+    UTF8("utf8"),
+    SGR("sgr"),
+}
+
 data class BoundedTerminalSnapshot(
     val lines: List<String>,
     val cursorRow: Int,
@@ -19,6 +33,13 @@ data class BoundedTerminalSnapshot(
     val retainedCells: Int,
     val accountedBytes: Int,
     val truncation: TerminalTruncationReason?,
+    val cursorVisible: Boolean,
+    val applicationCursor: Boolean,
+    val alternateScreen: Boolean,
+    val bracketedPaste: Boolean,
+    val mouseMode: TerminalMouseMode,
+    val mouseEncoding: TerminalMouseEncoding,
+    val scrollbackRows: Int,
 )
 
 class BoundedControllerTerminal(
@@ -31,6 +52,17 @@ class BoundedControllerTerminal(
         data class Csi(val bytes: MutableList<Byte>) : ParserMode
         data class Osc(val count: Int, val escapePending: Boolean) : ParserMode
     }
+
+    private data class StoredScreen(
+        val rows: List<List<String>>,
+        val cursorRow: Int,
+        val cursorColumn: Int,
+        val savedCursorRow: Int,
+        val savedCursorColumn: Int,
+        val retainedCells: Int,
+        val graphemeBytes: Int,
+        val styleBytes: Int,
+    )
 
     var viewport: TerminalViewport = viewport
         private set
@@ -45,6 +77,13 @@ class BoundedControllerTerminal(
     private var graphemeBytes = 0
     private var styleBytes = 0
     private var truncation: TerminalTruncationReason? = null
+    private var primaryScreen: StoredScreen? = null
+    private var cursorVisible = true
+    private var applicationCursor = false
+    private var alternateScreen = false
+    private var bracketedPaste = false
+    private var mouseMode = TerminalMouseMode.NONE
+    private var mouseEncoding = TerminalMouseEncoding.DEFAULT
 
     init {
         limits.validate(viewport)
@@ -66,6 +105,13 @@ class BoundedControllerTerminal(
         graphemeBytes = 0
         styleBytes = 0
         truncation = null
+        primaryScreen = null
+        cursorVisible = true
+        applicationCursor = false
+        alternateScreen = false
+        bracketedPaste = false
+        mouseMode = TerminalMouseMode.NONE
+        mouseEncoding = TerminalMouseEncoding.DEFAULT
     }
 
     fun resize(nextViewport: TerminalViewport) {
@@ -98,11 +144,18 @@ class BoundedControllerTerminal(
 
     fun snapshot(): BoundedTerminalSnapshot = BoundedTerminalSnapshot(
         lines = rows.map { it.joinToString("") },
-        cursorRow = cursorRow,
+        cursorRow = (cursorRow - scrollbackRows).coerceAtLeast(0),
         cursorColumn = cursorColumn,
         retainedCells = retainedCells,
         accountedBytes = accountedBytes,
         truncation = truncation,
+        cursorVisible = cursorVisible,
+        applicationCursor = applicationCursor,
+        alternateScreen = alternateScreen,
+        bracketedPaste = bracketedPaste,
+        mouseMode = mouseMode,
+        mouseEncoding = mouseEncoding,
+        scrollbackRows = scrollbackRows,
     )
 
     private fun consume(byte: Int) {
@@ -235,7 +288,79 @@ class BoundedControllerTerminal(
                 cursorRow = savedCursorRow.coerceAtMost(rows.lastIndex)
                 cursorColumn = savedCursorColumn.coerceAtMost(viewport.columns - 1)
             }
+            0x68 -> if (raw.firstOrNull()?.toInt() == 0x3f) setPrivateModes(parameters, true)
+            0x6c -> if (raw.firstOrNull()?.toInt() == 0x3f) setPrivateModes(parameters, false)
         }
+    }
+
+    private fun setPrivateModes(modes: List<Int>, enabled: Boolean) {
+        for (mode in modes) {
+            when (mode) {
+                1 -> applicationCursor = enabled
+                9 -> updateMouseMode(TerminalMouseMode.PRESS, enabled)
+                25 -> cursorVisible = enabled
+                1000 -> updateMouseMode(TerminalMouseMode.PRESS_RELEASE, enabled)
+                1002 -> updateMouseMode(TerminalMouseMode.BUTTON_MOTION, enabled)
+                1003 -> updateMouseMode(TerminalMouseMode.ANY_MOTION, enabled)
+                1005 -> updateMouseEncoding(TerminalMouseEncoding.UTF8, enabled)
+                1006 -> updateMouseEncoding(TerminalMouseEncoding.SGR, enabled)
+                1049 -> if (enabled) enterAlternateScreen() else leaveAlternateScreen()
+                2004 -> bracketedPaste = enabled
+            }
+        }
+    }
+
+    private fun updateMouseMode(mode: TerminalMouseMode, enabled: Boolean) {
+        if (enabled) mouseMode = mode else if (mouseMode == mode) mouseMode = TerminalMouseMode.NONE
+    }
+
+    private fun updateMouseEncoding(encoding: TerminalMouseEncoding, enabled: Boolean) {
+        if (enabled) {
+            mouseEncoding = encoding
+        } else if (mouseEncoding == encoding) {
+            mouseEncoding = TerminalMouseEncoding.DEFAULT
+        }
+    }
+
+    private fun enterAlternateScreen() {
+        if (alternateScreen) return
+        primaryScreen = StoredScreen(
+            rows = rows.map { it.toList() },
+            cursorRow = cursorRow,
+            cursorColumn = cursorColumn,
+            savedCursorRow = savedCursorRow,
+            savedCursorColumn = savedCursorColumn,
+            retainedCells = retainedCells,
+            graphemeBytes = graphemeBytes,
+            styleBytes = styleBytes,
+        )
+        rows.clear()
+        repeat(viewport.rows) { rows.addLast(mutableListOf()) }
+        cursorRow = 0
+        cursorColumn = 0
+        savedCursorRow = 0
+        savedCursorColumn = 0
+        retainedCells = 0
+        graphemeBytes = 0
+        styleBytes = 0
+        alternateScreen = true
+    }
+
+    private fun leaveAlternateScreen() {
+        if (!alternateScreen) return
+        primaryScreen?.let { primary ->
+            rows.clear()
+            primary.rows.forEach { rows.addLast(it.toMutableList()) }
+            cursorRow = primary.cursorRow
+            cursorColumn = primary.cursorColumn
+            savedCursorRow = primary.savedCursorRow
+            savedCursorColumn = primary.savedCursorColumn
+            retainedCells = primary.retainedCells
+            graphemeBytes = primary.graphemeBytes
+            styleBytes = primary.styleBytes
+        }
+        primaryScreen = null
+        alternateScreen = false
     }
 
     private fun clearScreen() {
@@ -278,6 +403,7 @@ class BoundedControllerTerminal(
     }
 
     private fun enforceLimits() {
+        while (alternateScreen && rows.size > viewport.rows) evictOldestRow()
         var evictedForRows = false
         while (rows.size > viewport.rows && (
                 scrollbackRows > limits.maxScrollbackRows ||
@@ -287,17 +413,21 @@ class BoundedControllerTerminal(
                     accountedBytes > limits.maxModelBytes
                 )) {
             if (scrollbackRows > limits.maxScrollbackRows) evictedForRows = true
-            val removed = rows.removeFirst()
-            retainedCells -= removed.size
-            graphemeBytes -= removed.sumOf { it.toByteArray().size }
-            styleBytes -= removed.size
-            cursorRow = (cursorRow - 1).coerceAtLeast(0)
-            savedCursorRow = (savedCursorRow - 1).coerceAtLeast(0)
+            evictOldestRow()
         }
         if (evictedForRows) truncation = TerminalTruncationReason.RETAINED_ROWS_LIMIT
         if (retainedCells > limits.maxRetainedCells || graphemeBytes > limits.maxGraphemeBytes ||
             styleBytes > limits.maxStyleBytes || accountedBytes > limits.maxModelBytes
         ) truncateActiveRow()
+    }
+
+    private fun evictOldestRow() {
+        val removed = rows.removeFirst()
+        retainedCells -= removed.size
+        graphemeBytes -= removed.sumOf { it.toByteArray().size }
+        styleBytes -= removed.size
+        cursorRow = (cursorRow - 1).coerceAtLeast(0)
+        savedCursorRow = (savedCursorRow - 1).coerceAtLeast(0)
     }
 
     private fun truncateActiveRow() {
