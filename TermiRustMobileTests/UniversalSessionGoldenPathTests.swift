@@ -63,10 +63,16 @@ final class UniversalSessionGoldenPathTests: XCTestCase {
 
         var reconnected = try WriterControlReducer(identity: identity)
         XCTAssertNil(reconnected.dequeue(), "acknowledged input must not be reconstructed on reconnect")
-        try reconnected.beginAcquire(commandID: fixture.commands.release)
-        try reconnected.finishAcquire(commandID: fixture.commands.release, applied: true)
+        try reconnected.beginAcquire(commandID: fixture.commands.reconnectWriter)
+        try reconnected.finishAcquire(commandID: fixture.commands.reconnectWriter, applied: true)
         reconnected.markLeaseLost()
-        XCTAssertThrowsError(try reconnected.enqueue(input, kind: .keyboard))
+        XCTAssertThrowsError(
+            try reconnected.enqueue(
+                input,
+                kind: .keyboard,
+                commandID: fixture.commands.deniedInput
+            )
+        )
 
         let viewport = TerminalViewportState(
             columns: fixture.viewport.columns,
@@ -112,12 +118,22 @@ private struct UniversalSessionFixture: Decodable {
         let secondWriter: UUID
         let input: UUID
         let release: UUID
+        let secondAfterRelease: UUID
+        let deniedInput: UUID
+        let reconnectWriter: UUID
+        let resize: UUID
+        let stop: UUID
 
         private enum CodingKeys: String, CodingKey {
             case firstWriter = "first_writer"
             case secondWriter = "second_writer"
             case input
             case release
+            case secondAfterRelease = "second_after_release"
+            case deniedInput = "denied_input"
+            case reconnectWriter = "reconnect_writer"
+            case resize
+            case stop
         }
     }
 
