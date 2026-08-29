@@ -59,7 +59,6 @@ xcrun xcstringstool compile \
   --dry-run >/dev/null
 
 CONTROLLER_SOURCES=(
-  TermiRustMobile/App/TermiRustMobileApp.swift
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
   TermiRustMobile/Models/ControllerModels.swift
   TermiRustMobile/Models/MobileRouteContract.swift

@@ -9,33 +9,56 @@
 /* Begin PBXBuildFile section */
 		004842E2EB33142C220EBFA5 /* ControllerFleetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC34F0E3B404895E7409A163 /* ControllerFleetCache.swift */; };
 		006FA436F83154FCB17E2A5E /* GeneratedTerminalCellWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5577D1581F88666316B5F0 /* GeneratedTerminalCellWidth.swift */; };
+		00DC68D847EAA6431EC2AF40 /* OpenSSHPrivateKeyParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6607B45E761A907718C7B501 /* OpenSSHPrivateKeyParser.swift */; };
 		0187101A4F70C33D4E063D20 /* TerminalAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A8C3A317C5ECF8CB3439A /* TerminalAcceptanceTests.swift */; };
+		0842825D1B1A44C19B1E4509 /* TermiRustMobileCrypto.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = 6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */; };
+		11B42406FC878DBE6DBDCD09 /* MobileVaultImporterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */; };
 		11DE6D4B812FCAB2549D352A /* terminal-conformance-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 8469494854C891EFB7A1F62A /* terminal-conformance-v1.json */; };
+		12A5A4F3F309524684539EEF /* NIOCore in Frameworks */ = {isa = PBXBuildFile; productRef = 8F7C73A723AFCB7818FF79FB /* NIOCore */; };
 		1496F409B977283CBB781841 /* TermiRustControllerSecurity.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFCBCA3644B906F6E55A4C86 /* TermiRustControllerSecurity.xcframework */; };
 		175706732C642F24060F71D5 /* ControllerReadOnlyTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE2126D151AC4C903C6094B /* ControllerReadOnlyTerminalView.swift */; };
+		1D028CE6B6A5A3D9212A7CE1 /* TerminalSessionView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0D52C3569C68C273CCD11319 /* TerminalSessionView.swift */; };
 		2B24DEAFB6911BFC68CC526D /* TermiRustMobileApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8105A27383715548B5D62957 /* TermiRustMobileApp.swift */; };
 		2D178A539F6B0915B3417A2D /* ControllerRetryPolicy.swift in Sources */ = {isa = PBXBuildFile; fileRef = C82BE73314E8B1CDAC19DF92 /* ControllerRetryPolicy.swift */; };
 		3362D87D95C5128F748A796A /* ControllerTerminalViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = 45ADAEE8F8C761105B93C634 /* ControllerTerminalViewModel.swift */; };
 		38C73FA0B03B285F469013E7 /* MobileRouteContractTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = EE77A14B5817F4A38B3F57F0 /* MobileRouteContractTests.swift */; };
+		3CBC437CC8FD2A7CAFE1CCDA /* EncryptedVaultStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 277131147B3185EC9831827E /* EncryptedVaultStore.swift */; };
+		3EFF07897B04FDA7E0BB9B82 /* MobileVaultModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = C2FD0C7D7FEBD3CB7E9E482B /* MobileVaultModels.swift */; };
 		4554DFF015C84A481D396F06 /* ControllerWriterControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8836B5648A2FB0D8897C5F7D /* ControllerWriterControl.swift */; };
 		4BB82480F92834CDF72A902D /* mobile-route-contract-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = B820A5D658D609799EC6CC7C /* mobile-route-contract-v1.json */; };
 		4DE7BEE9BED018F20891B4B9 /* ControllerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA020905FCA3B0895422D575 /* ControllerViewModel.swift */; };
+		4F6A15013CC0F979AC488612 /* DirectSSHIntegrationTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35651BFBF6D6A54BB8ECCD66 /* DirectSSHIntegrationTests.swift */; };
 		5B6E6EF3C90E8AD989362F7D /* TerminalInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340634489256C66C5BA35498 /* TerminalInteractionTests.swift */; };
+		5FDD3AC5075BF49968505C12 /* MobileSSHSession.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8080B6D16BFE0ADEE7114B0B /* MobileSSHSession.swift */; };
 		635BC172E2D861D53D25D06A /* terminal-acceptance-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 59FF87EDAB4C4C33227940A4 /* terminal-acceptance-v1.json */; };
+		656CF7568650C8FA3684BE09 /* MobileDeviceIdentityStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0C3EDF911ECDB4FEBCA941E8 /* MobileDeviceIdentityStore.swift */; };
 		68F2ADF8D554D3C7E8E43446 /* ControllerRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4808B8FAD8D18B154844FEB /* ControllerRootView.swift */; };
+		7146C0C03DB5F09728C36DFD /* UnifiedRouteLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A401F88097A4050D1187C33 /* UnifiedRouteLifecycleTests.swift */; };
+		772A35B8595785DF03EE098E /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC21F9172941D89CFE3131A7 /* MobileVaultImporter.swift */; };
 		79A6A8B2381FB2C9319EFD99 /* ControllerReadOnlyAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = C71FF821F9BC71B9C9F14692 /* ControllerReadOnlyAttach.swift */; };
 		7A740E922F044472CD76815E /* controller-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 26B5CDEA33B10C29FDE1E103 /* controller-v1.json */; };
 		7F3B1423EA45161ABAA62A33 /* TerminalInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E45128AD706AEC225C1F294 /* TerminalInteraction.swift */; };
 		842AE4985FCB208E1989689D /* ControllerModels.swift in Sources */ = {isa = PBXBuildFile; fileRef = 65E63E0CD0058EC2B95291EA /* ControllerModels.swift */; };
+		86C24C98934FA85F83D98AAB /* TmuxBootstrap.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA16ACD0D263656AC038DB1F /* TmuxBootstrap.swift */; };
 		8999D7D40482A28A2DC06AEE /* ControllerBindingConformanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5EED30009CAECFDB014CB0F /* ControllerBindingConformanceTests.swift */; };
 		90B03BA0136A9B4E35151F23 /* BoundedTerminalBufferTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */; };
+		9492F234F348A4D0F4E26CCC /* TerminalInputEncoding.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7132D479444ADF7486E77018 /* TerminalInputEncoding.swift */; };
 		95322AEB55F110F954149897 /* ControllerPresentation.swift in Sources */ = {isa = PBXBuildFile; fileRef = AA63124BE85CD3F731534E4C /* ControllerPresentation.swift */; };
+		968B6E9F01DA1A92575E0A35 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = 003E451655DE70492275F55A /* Crypto */; };
+		98E1CFC243A43C8FBDCFFB87 /* HostListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = BBB97A039F68CD753DB6852F /* HostListViewModel.swift */; };
+		9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = A430BDF58539E9AB20C42A19 /* NIOSSH */; };
 		9EA398E918762D8923338E08 /* ControllerWriterTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1EB20052E78613D8BC81E141 /* ControllerWriterTests.swift */; };
 		A414E1BCA5235F102E33F6A8 /* ControllerTerminalViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02192D208584BF947DEC5276 /* ControllerTerminalViewModelTests.swift */; };
+		A7016DD06887878E00C9219C /* TerminalGrid.swift in Sources */ = {isa = PBXBuildFile; fileRef = B93220992F2C832439502E21 /* TerminalGrid.swift */; };
+		A8904D00FF0F1BC603301077 /* NIOPosix in Frameworks */ = {isa = PBXBuildFile; productRef = B719687746D6E74C57ECB3D9 /* NIOPosix */; };
+		AAB0819E064995753EAA1A3D /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DB3530D0D1EF49F4483F0D0C /* ContentView.swift */; };
+		ADB4199A0D6BD9F233718F1E /* KeychainSecretStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = EFF4D03BE0E942591F6EEC4A /* KeychainSecretStore.swift */; };
 		AE436BA7DDF91FD54C091DD6 /* PairedHostStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFF20F68CB9FD0EEA4534F9 /* PairedHostStore.swift */; };
+		B8FC3EC2C31B987320EE15B1 /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = F47930E681508B6A92D67201 /* NIOSSH */; };
 		BE4EBED45208D33F158CBC33 /* TerminalConformanceV1Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6613EB256CEB11627A9B8B66 /* TerminalConformanceV1Tests.swift */; };
 		C2A05DA308882B343BC98D3B /* TerminalAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD2AA45226B7A2132C61464 /* TerminalAcceptance.swift */; };
 		C2B72EDE31D500D5BD8D4D94 /* MobileRouteContract.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57E4611CBFB4855809D086F6 /* MobileRouteContract.swift */; };
+		C34D36BE18BC66E39BB20D3B /* HostListView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 92D39B67AFDC7D7C61741A03 /* HostListView.swift */; };
 		C5BAA9DE89A477E8EDBF6395 /* terminal-conformance-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = 10648273CFCFBD06CD01ACA3 /* terminal-conformance-v2.json */; };
 		CA1638BF93C47BE16A206B13 /* ControllerReadOnlyTerminalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2ECD181B74FAB21D7A682 /* ControllerReadOnlyTerminalTests.swift */; };
 		CAAF48322DB451D14F70287D /* UniversalSessionGoldenPathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED017EE6CA078EB56D2B75D9 /* UniversalSessionGoldenPathTests.swift */; };
@@ -47,9 +70,11 @@
 		D6786F14C3494923A91388A9 /* terminal-interaction-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 9602C2DB16DA29C6C9736CE0 /* terminal-interaction-v1.json */; };
 		DB66997E69758EFA7EADEA49 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = B8387375125313FDB8A0D114 /* Localizable.xcstrings */; };
 		DED7BE7953D0C47B99D16B98 /* ControllerConnectionActor.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71E5A5A35F189CA5BC2F20B5 /* ControllerConnectionActor.swift */; };
+		E3C0525DDB2A9AEF9D9C2A5C /* NativeMobileVaultDecryptor.swift in Sources */ = {isa = PBXBuildFile; fileRef = AB27C662BBB0427BE57EAD95 /* NativeMobileVaultDecryptor.swift */; };
 		E6B48065F3DFFAE60DF55301 /* TermiRustControllerSecurity.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE28279348591AEB341AE8D /* TermiRustControllerSecurity.swift */; };
 		E89E0397FB0D7FD81C595E09 /* ControllerFleetCacheTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 961259E09EB8448FEC2BD91E /* ControllerFleetCacheTests.swift */; };
 		F0F6F22ED785C9BEA81E10F1 /* ControllerTerminalInputView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3D3E11BE5BC0BF55360124E4 /* ControllerTerminalInputView.swift */; };
+		F1044EA7B6FDD02A9EABAF7C /* TerminalBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = C651FFCD87A3634799CA663F /* TerminalBuffer.swift */; };
 		F9170B64BB23CA3EF084EABF /* universal-session-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 0BB16F651E78CEA014BAC41F /* universal-session-v1.json */; };
 /* End PBXBuildFile section */
 
@@ -67,28 +92,39 @@
 		02192D208584BF947DEC5276 /* ControllerTerminalViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerTerminalViewModelTests.swift; sourceTree = "<group>"; };
 		0BB16F651E78CEA014BAC41F /* universal-session-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "universal-session-v1.json"; sourceTree = "<group>"; };
 		0BFF20F68CB9FD0EEA4534F9 /* PairedHostStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairedHostStore.swift; sourceTree = "<group>"; };
+		0C3EDF911ECDB4FEBCA941E8 /* MobileDeviceIdentityStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileDeviceIdentityStore.swift; sourceTree = "<group>"; };
+		0D52C3569C68C273CCD11319 /* TerminalSessionView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalSessionView.swift; sourceTree = "<group>"; };
 		10648273CFCFBD06CD01ACA3 /* terminal-conformance-v2.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "terminal-conformance-v2.json"; sourceTree = "<group>"; };
 		17E88D0BA032D6C65164F74E /* ControllerKeychainBlobStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerKeychainBlobStore.swift; sourceTree = "<group>"; };
 		1E45128AD706AEC225C1F294 /* TerminalInteraction.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInteraction.swift; sourceTree = "<group>"; };
 		1EB20052E78613D8BC81E141 /* ControllerWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerWriterTests.swift; sourceTree = "<group>"; };
 		211167AA57A499461175EBFA /* BoundedTerminalBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTerminalBuffer.swift; sourceTree = "<group>"; };
 		26B5CDEA33B10C29FDE1E103 /* controller-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "controller-v1.json"; sourceTree = "<group>"; };
+		277131147B3185EC9831827E /* EncryptedVaultStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = EncryptedVaultStore.swift; sourceTree = "<group>"; };
 		296A8C3A317C5ECF8CB3439A /* TerminalAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAcceptanceTests.swift; sourceTree = "<group>"; };
 		2BE28279348591AEB341AE8D /* TermiRustControllerSecurity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermiRustControllerSecurity.swift; sourceTree = "<group>"; };
 		340634489256C66C5BA35498 /* TerminalInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInteractionTests.swift; sourceTree = "<group>"; };
+		35651BFBF6D6A54BB8ECCD66 /* DirectSSHIntegrationTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DirectSSHIntegrationTests.swift; sourceTree = "<group>"; };
 		39F2ECD181B74FAB21D7A682 /* ControllerReadOnlyTerminalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerReadOnlyTerminalTests.swift; sourceTree = "<group>"; };
 		3D3E11BE5BC0BF55360124E4 /* ControllerTerminalInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerTerminalInputView.swift; sourceTree = "<group>"; };
 		45ADAEE8F8C761105B93C634 /* ControllerTerminalViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerTerminalViewModel.swift; sourceTree = "<group>"; };
+		4A401F88097A4050D1187C33 /* UnifiedRouteLifecycleTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UnifiedRouteLifecycleTests.swift; sourceTree = "<group>"; };
 		4B61FB3E50D5A511492D5C02 /* ControllerPairingFleetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerPairingFleetTests.swift; sourceTree = "<group>"; };
 		57E4611CBFB4855809D086F6 /* MobileRouteContract.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileRouteContract.swift; sourceTree = "<group>"; };
 		59FF87EDAB4C4C33227940A4 /* terminal-acceptance-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "terminal-acceptance-v1.json"; sourceTree = "<group>"; };
 		65E63E0CD0058EC2B95291EA /* ControllerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerModels.swift; sourceTree = "<group>"; };
+		6607B45E761A907718C7B501 /* OpenSSHPrivateKeyParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenSSHPrivateKeyParser.swift; sourceTree = "<group>"; };
 		6613EB256CEB11627A9B8B66 /* TerminalConformanceV1Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConformanceV1Tests.swift; sourceTree = "<group>"; };
+		6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = TermiRustMobileCrypto.xcframework; path = Frameworks/TermiRustMobileCrypto.xcframework; sourceTree = "<group>"; };
+		7132D479444ADF7486E77018 /* TerminalInputEncoding.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInputEncoding.swift; sourceTree = "<group>"; };
 		71E5A5A35F189CA5BC2F20B5 /* ControllerConnectionActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerConnectionActor.swift; sourceTree = "<group>"; };
+		7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporterTests.swift; sourceTree = "<group>"; };
+		8080B6D16BFE0ADEE7114B0B /* MobileSSHSession.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileSSHSession.swift; sourceTree = "<group>"; };
 		8105A27383715548B5D62957 /* TermiRustMobileApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermiRustMobileApp.swift; sourceTree = "<group>"; };
 		8469494854C891EFB7A1F62A /* terminal-conformance-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "terminal-conformance-v1.json"; sourceTree = "<group>"; };
 		8836B5648A2FB0D8897C5F7D /* ControllerWriterControl.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerWriterControl.swift; sourceTree = "<group>"; };
 		8AE2126D151AC4C903C6094B /* ControllerReadOnlyTerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerReadOnlyTerminalView.swift; sourceTree = "<group>"; };
+		92D39B67AFDC7D7C61741A03 /* HostListView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListView.swift; sourceTree = "<group>"; };
 		9602C2DB16DA29C6C9736CE0 /* terminal-interaction-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "terminal-interaction-v1.json"; sourceTree = "<group>"; };
 		961259E09EB8448FEC2BD91E /* ControllerFleetCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerFleetCacheTests.swift; sourceTree = "<group>"; };
 		9D5283F9C9C5C0322F38E46C /* ControllerQRCodeScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerQRCodeScanner.swift; sourceTree = "<group>"; };
@@ -96,16 +132,25 @@
 		A4808B8FAD8D18B154844FEB /* ControllerRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerRootView.swift; sourceTree = "<group>"; };
 		A5EED30009CAECFDB014CB0F /* ControllerBindingConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerBindingConformanceTests.swift; sourceTree = "<group>"; };
 		AA63124BE85CD3F731534E4C /* ControllerPresentation.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerPresentation.swift; sourceTree = "<group>"; };
+		AB27C662BBB0427BE57EAD95 /* NativeMobileVaultDecryptor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = NativeMobileVaultDecryptor.swift; sourceTree = "<group>"; };
+		AC21F9172941D89CFE3131A7 /* MobileVaultImporter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultImporter.swift; sourceTree = "<group>"; };
 		B820A5D658D609799EC6CC7C /* mobile-route-contract-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "mobile-route-contract-v1.json"; sourceTree = "<group>"; };
 		B8387375125313FDB8A0D114 /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		B93220992F2C832439502E21 /* TerminalGrid.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalGrid.swift; sourceTree = "<group>"; };
+		BBB97A039F68CD753DB6852F /* HostListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HostListViewModel.swift; sourceTree = "<group>"; };
 		BFCBCA3644B906F6E55A4C86 /* TermiRustControllerSecurity.xcframework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.xcframework; name = TermiRustControllerSecurity.xcframework; path = Frameworks/TermiRustControllerSecurity.xcframework; sourceTree = "<group>"; };
+		C2FD0C7D7FEBD3CB7E9E482B /* MobileVaultModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileVaultModels.swift; sourceTree = "<group>"; };
+		C651FFCD87A3634799CA663F /* TerminalBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalBuffer.swift; sourceTree = "<group>"; };
 		C71FF821F9BC71B9C9F14692 /* ControllerReadOnlyAttach.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerReadOnlyAttach.swift; sourceTree = "<group>"; };
 		C82BE73314E8B1CDAC19DF92 /* ControllerRetryPolicy.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerRetryPolicy.swift; sourceTree = "<group>"; };
+		DA16ACD0D263656AC038DB1F /* TmuxBootstrap.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TmuxBootstrap.swift; sourceTree = "<group>"; };
+		DB3530D0D1EF49F4483F0D0C /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		DC34F0E3B404895E7409A163 /* ControllerFleetCache.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerFleetCache.swift; sourceTree = "<group>"; };
 		EA020905FCA3B0895422D575 /* ControllerViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerViewModel.swift; sourceTree = "<group>"; };
 		EB1F176CEE7530958483AE9D /* TerminalConformanceV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConformanceV2Tests.swift; sourceTree = "<group>"; };
 		ED017EE6CA078EB56D2B75D9 /* UniversalSessionGoldenPathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalSessionGoldenPathTests.swift; sourceTree = "<group>"; };
 		EE77A14B5817F4A38B3F57F0 /* MobileRouteContractTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileRouteContractTests.swift; sourceTree = "<group>"; };
+		EFF4D03BE0E942591F6EEC4A /* KeychainSecretStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainSecretStore.swift; sourceTree = "<group>"; };
 		F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTerminalBufferTests.swift; sourceTree = "<group>"; };
 		FCD2AA45226B7A2132C61464 /* TerminalAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAcceptance.swift; sourceTree = "<group>"; };
 		FE5577D1581F88666316B5F0 /* GeneratedTerminalCellWidth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedTerminalCellWidth.swift; sourceTree = "<group>"; };
@@ -117,7 +162,20 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				9ACD83D4411095EBBB385F6E /* NIOSSH in Frameworks */,
+				12A5A4F3F309524684539EEF /* NIOCore in Frameworks */,
+				A8904D00FF0F1BC603301077 /* NIOPosix in Frameworks */,
+				968B6E9F01DA1A92575E0A35 /* Crypto in Frameworks */,
+				0842825D1B1A44C19B1E4509 /* TermiRustMobileCrypto.xcframework in Frameworks */,
 				1496F409B977283CBB781841 /* TermiRustControllerSecurity.xcframework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5EE96937487363BC9224FDA8 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				B8FC3EC2C31B987320EE15B1 /* NIOSSH in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -136,6 +194,7 @@
 			isa = PBXGroup;
 			children = (
 				BFCBCA3644B906F6E55A4C86 /* TermiRustControllerSecurity.xcframework */,
+				6DD9DB903CBD0DE616F7B7E4 /* TermiRustMobileCrypto.xcframework */,
 			);
 			name = Frameworks;
 			sourceTree = "<group>";
@@ -163,11 +222,34 @@
 			path = TermiRustMobile/Controller;
 			sourceTree = "<group>";
 		};
+		7989BF7346EAA9A5B4CFEC10 /* SSH */ = {
+			isa = PBXGroup;
+			children = (
+				8080B6D16BFE0ADEE7114B0B /* MobileSSHSession.swift */,
+				6607B45E761A907718C7B501 /* OpenSSHPrivateKeyParser.swift */,
+				DA16ACD0D263656AC038DB1F /* TmuxBootstrap.swift */,
+			);
+			name = SSH;
+			path = TermiRustMobile/SSH;
+			sourceTree = "<group>";
+		};
+		7EB103D386A0A21A9F51493C /* Vault */ = {
+			isa = PBXGroup;
+			children = (
+				277131147B3185EC9831827E /* EncryptedVaultStore.swift */,
+				AC21F9172941D89CFE3131A7 /* MobileVaultImporter.swift */,
+				AB27C662BBB0427BE57EAD95 /* NativeMobileVaultDecryptor.swift */,
+			);
+			name = Vault;
+			path = TermiRustMobile/Vault;
+			sourceTree = "<group>";
+		};
 		8C6D014A573360C3C92A83B3 /* ViewModels */ = {
 			isa = PBXGroup;
 			children = (
 				45ADAEE8F8C761105B93C634 /* ControllerTerminalViewModel.swift */,
 				EA020905FCA3B0895422D575 /* ControllerViewModel.swift */,
+				BBB97A039F68CD753DB6852F /* HostListViewModel.swift */,
 			);
 			name = ViewModels;
 			path = TermiRustMobile/ViewModels;
@@ -177,6 +259,8 @@
 			isa = PBXGroup;
 			children = (
 				17E88D0BA032D6C65164F74E /* ControllerKeychainBlobStore.swift */,
+				EFF4D03BE0E942591F6EEC4A /* KeychainSecretStore.swift */,
+				0C3EDF911ECDB4FEBCA941E8 /* MobileDeviceIdentityStore.swift */,
 			);
 			name = Security;
 			path = TermiRustMobile/Security;
@@ -188,6 +272,9 @@
 				211167AA57A499461175EBFA /* BoundedTerminalBuffer.swift */,
 				FE5577D1581F88666316B5F0 /* GeneratedTerminalCellWidth.swift */,
 				FCD2AA45226B7A2132C61464 /* TerminalAcceptance.swift */,
+				C651FFCD87A3634799CA663F /* TerminalBuffer.swift */,
+				B93220992F2C832439502E21 /* TerminalGrid.swift */,
+				7132D479444ADF7486E77018 /* TerminalInputEncoding.swift */,
 				1E45128AD706AEC225C1F294 /* TerminalInteraction.swift */,
 			);
 			name = Terminal;
@@ -199,6 +286,7 @@
 			children = (
 				65E63E0CD0058EC2B95291EA /* ControllerModels.swift */,
 				57E4611CBFB4855809D086F6 /* MobileRouteContract.swift */,
+				C2FD0C7D7FEBD3CB7E9E482B /* MobileVaultModels.swift */,
 			);
 			name = Models;
 			path = TermiRustMobile/Models;
@@ -207,11 +295,14 @@
 		B74E324A6D1D878CD3FE4556 /* Views */ = {
 			isa = PBXGroup;
 			children = (
+				DB3530D0D1EF49F4483F0D0C /* ContentView.swift */,
 				AA63124BE85CD3F731534E4C /* ControllerPresentation.swift */,
 				9D5283F9C9C5C0322F38E46C /* ControllerQRCodeScanner.swift */,
 				8AE2126D151AC4C903C6094B /* ControllerReadOnlyTerminalView.swift */,
 				A4808B8FAD8D18B154844FEB /* ControllerRootView.swift */,
 				3D3E11BE5BC0BF55360124E4 /* ControllerTerminalInputView.swift */,
+				92D39B67AFDC7D7C61741A03 /* HostListView.swift */,
+				0D52C3569C68C273CCD11319 /* TerminalSessionView.swift */,
 			);
 			name = Views;
 			path = TermiRustMobile/Views;
@@ -227,11 +318,14 @@
 				39F2ECD181B74FAB21D7A682 /* ControllerReadOnlyTerminalTests.swift */,
 				02192D208584BF947DEC5276 /* ControllerTerminalViewModelTests.swift */,
 				1EB20052E78613D8BC81E141 /* ControllerWriterTests.swift */,
+				35651BFBF6D6A54BB8ECCD66 /* DirectSSHIntegrationTests.swift */,
 				EE77A14B5817F4A38B3F57F0 /* MobileRouteContractTests.swift */,
+				7EE76EC7D67CB1EAE446215D /* MobileVaultImporterTests.swift */,
 				296A8C3A317C5ECF8CB3439A /* TerminalAcceptanceTests.swift */,
 				6613EB256CEB11627A9B8B66 /* TerminalConformanceV1Tests.swift */,
 				EB1F176CEE7530958483AE9D /* TerminalConformanceV2Tests.swift */,
 				340634489256C66C5BA35498 /* TerminalInteractionTests.swift */,
+				4A401F88097A4050D1187C33 /* UnifiedRouteLifecycleTests.swift */,
 				ED017EE6CA078EB56D2B75D9 /* UniversalSessionGoldenPathTests.swift */,
 			);
 			path = TermiRustMobileTests;
@@ -270,9 +364,11 @@
 				FF680700BB06A093CEAE2984 /* Generated */,
 				B6886CEBB1BBA374F3F9F79D /* Models */,
 				9551AC611E1546B624C7790D /* Security */,
+				7989BF7346EAA9A5B4CFEC10 /* SSH */,
 				A4BCA14E3EB843D3BF11244E /* Terminal */,
 				31E357C43FC18557569973DC /* TermiRustMobile */,
 				CCC1708406BAB5C307C75403 /* TermiRustMobileTests */,
+				7EB103D386A0A21A9F51493C /* Vault */,
 				8C6D014A573360C3C92A83B3 /* ViewModels */,
 				B74E324A6D1D878CD3FE4556 /* Views */,
 				379150458C4431587D1D3C6C /* Frameworks */,
@@ -306,6 +402,10 @@
 			);
 			name = TermiRustMobile;
 			packageProductDependencies = (
+				A430BDF58539E9AB20C42A19 /* NIOSSH */,
+				8F7C73A723AFCB7818FF79FB /* NIOCore */,
+				B719687746D6E74C57ECB3D9 /* NIOPosix */,
+				003E451655DE70492275F55A /* Crypto */,
 			);
 			productName = TermiRustMobile;
 			productReference = A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */;
@@ -317,6 +417,7 @@
 			buildPhases = (
 				D7EA32D6C23AED2059018C91 /* Sources */,
 				59AA0AC6EF6B1E3D5A306314 /* Resources */,
+				5EE96937487363BC9224FDA8 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -325,6 +426,7 @@
 			);
 			name = TermiRustMobileTests;
 			packageProductDependencies = (
+				F47930E681508B6A92D67201 /* NIOSSH */,
 			);
 			productName = TermiRustMobileTests;
 			productReference = FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */;
@@ -350,6 +452,11 @@
 			);
 			mainGroup = F43FBAFBB30FB25D5F3E2967;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				10DAF3A06365C74FFC930F9C /* XCRemoteSwiftPackageReference "swift-crypto" */,
+				A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */,
+				40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 5DBDBA063676A27697E38797 /* Products */;
 			projectDirPath = "";
@@ -398,11 +505,14 @@
 				CA1638BF93C47BE16A206B13 /* ControllerReadOnlyTerminalTests.swift in Sources */,
 				A414E1BCA5235F102E33F6A8 /* ControllerTerminalViewModelTests.swift in Sources */,
 				9EA398E918762D8923338E08 /* ControllerWriterTests.swift in Sources */,
+				4F6A15013CC0F979AC488612 /* DirectSSHIntegrationTests.swift in Sources */,
 				38C73FA0B03B285F469013E7 /* MobileRouteContractTests.swift in Sources */,
+				11B42406FC878DBE6DBDCD09 /* MobileVaultImporterTests.swift in Sources */,
 				0187101A4F70C33D4E063D20 /* TerminalAcceptanceTests.swift in Sources */,
 				BE4EBED45208D33F158CBC33 /* TerminalConformanceV1Tests.swift in Sources */,
 				D1DA172736D59EED427F817E /* TerminalConformanceV2Tests.swift in Sources */,
 				5B6E6EF3C90E8AD989362F7D /* TerminalInteractionTests.swift in Sources */,
+				7146C0C03DB5F09728C36DFD /* UnifiedRouteLifecycleTests.swift in Sources */,
 				CAAF48322DB451D14F70287D /* UniversalSessionGoldenPathTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -412,6 +522,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				CF19CCC1721C06ACDE6305A0 /* BoundedTerminalBuffer.swift in Sources */,
+				AAB0819E064995753EAA1A3D /* ContentView.swift in Sources */,
 				DED7BE7953D0C47B99D16B98 /* ControllerConnectionActor.swift in Sources */,
 				004842E2EB33142C220EBFA5 /* ControllerFleetCache.swift in Sources */,
 				CC94246F576586CCE0B4663D /* ControllerKeychainBlobStore.swift in Sources */,
@@ -426,13 +537,28 @@
 				3362D87D95C5128F748A796A /* ControllerTerminalViewModel.swift in Sources */,
 				4DE7BEE9BED018F20891B4B9 /* ControllerViewModel.swift in Sources */,
 				4554DFF015C84A481D396F06 /* ControllerWriterControl.swift in Sources */,
+				3CBC437CC8FD2A7CAFE1CCDA /* EncryptedVaultStore.swift in Sources */,
 				006FA436F83154FCB17E2A5E /* GeneratedTerminalCellWidth.swift in Sources */,
+				C34D36BE18BC66E39BB20D3B /* HostListView.swift in Sources */,
+				98E1CFC243A43C8FBDCFFB87 /* HostListViewModel.swift in Sources */,
+				ADB4199A0D6BD9F233718F1E /* KeychainSecretStore.swift in Sources */,
+				656CF7568650C8FA3684BE09 /* MobileDeviceIdentityStore.swift in Sources */,
 				C2B72EDE31D500D5BD8D4D94 /* MobileRouteContract.swift in Sources */,
+				5FDD3AC5075BF49968505C12 /* MobileSSHSession.swift in Sources */,
+				772A35B8595785DF03EE098E /* MobileVaultImporter.swift in Sources */,
+				3EFF07897B04FDA7E0BB9B82 /* MobileVaultModels.swift in Sources */,
+				E3C0525DDB2A9AEF9D9C2A5C /* NativeMobileVaultDecryptor.swift in Sources */,
+				00DC68D847EAA6431EC2AF40 /* OpenSSHPrivateKeyParser.swift in Sources */,
 				AE436BA7DDF91FD54C091DD6 /* PairedHostStore.swift in Sources */,
 				E6B48065F3DFFAE60DF55301 /* TermiRustControllerSecurity.swift in Sources */,
 				2B24DEAFB6911BFC68CC526D /* TermiRustMobileApp.swift in Sources */,
 				C2A05DA308882B343BC98D3B /* TerminalAcceptance.swift in Sources */,
+				F1044EA7B6FDD02A9EABAF7C /* TerminalBuffer.swift in Sources */,
+				A7016DD06887878E00C9219C /* TerminalGrid.swift in Sources */,
+				9492F234F348A4D0F4E26CCC /* TerminalInputEncoding.swift in Sources */,
 				7F3B1423EA45161ABAA62A33 /* TerminalInteraction.swift in Sources */,
+				1D028CE6B6A5A3D9212A7CE1 /* TerminalSessionView.swift in Sources */,
+				86C24C98934FA85F83D98AAB /* TmuxBootstrap.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -624,11 +750,11 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LEGACY_DIRECT_SSH = 0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.termirust.mobile;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				UNIFIED_MOBILE_ROUTES = 1;
 			};
 			name = Release;
 		};
@@ -652,11 +778,11 @@
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				LEGACY_DIRECT_SSH = 0;
 				PRODUCT_BUNDLE_IDENTIFIER = com.termirust.mobile;
 				SDKROOT = iphoneos;
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
+				UNIFIED_MOBILE_ROUTES = 1;
 			};
 			name = Debug;
 		};
@@ -691,6 +817,61 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		10DAF3A06365C74FFC930F9C /* XCRemoteSwiftPackageReference "swift-crypto" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-crypto.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 4.5.0;
+			};
+		};
+		40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio-ssh.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.13.0;
+			};
+		};
+		A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.101.2;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		003E451655DE70492275F55A /* Crypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 10DAF3A06365C74FFC930F9C /* XCRemoteSwiftPackageReference "swift-crypto" */;
+			productName = Crypto;
+		};
+		8F7C73A723AFCB7818FF79FB /* NIOCore */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOCore;
+		};
+		A430BDF58539E9AB20C42A19 /* NIOSSH */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
+			productName = NIOSSH;
+		};
+		B719687746D6E74C57ECB3D9 /* NIOPosix */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A7C893B8B413D1EBF26A2174 /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIOPosix;
+		};
+		F47930E681508B6A92D67201 /* NIOSSH */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 40130644CF192DE204274EBA /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
+			productName = NIOSSH;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = B7DD9FE9A058D582F64E8172 /* Project object */;
 }

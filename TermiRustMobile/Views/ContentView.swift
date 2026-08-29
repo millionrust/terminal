@@ -103,7 +103,7 @@ struct ContentView: View {
             VStack(alignment: .leading, spacing: 1) {
                 Text("TermiRust")
                     .font(.headline.weight(.bold))
-                Text(viewModel.hosts.isEmpty ? "Import vault to begin" : "\(viewModel.hosts.count) hosts available")
+                Text(viewModel.hosts.isEmpty ? "Import vault to begin" : "\(viewModel.hosts.count) Connections")
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)

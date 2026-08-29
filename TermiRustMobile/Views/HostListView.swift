@@ -118,10 +118,10 @@ struct HostListView: View {
 
     private var hostSection: some View {
         VStack(alignment: .leading, spacing: 10) {
-            Text("Hosts")
+            Text("Connections")
                 .font(.headline)
             if viewModel.hosts.isEmpty {
-                Text("No hosts imported yet.")
+                Text("No Connections imported yet.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)

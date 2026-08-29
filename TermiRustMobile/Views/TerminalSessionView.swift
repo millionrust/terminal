@@ -38,30 +38,34 @@ struct TerminalSessionView: View {
             let bottomSafeArea = safeInsets.bottom
             ZStack {
                 Color.mobileBackground.ignoresSafeArea()
-                VStack(spacing: 0) {
-                    sessionHeader(topSafeArea: topSafeArea)
-                    if let failureMessage {
-                        ConnectionWarningBanner(message: failureMessage)
+                if viewModel.privacyCovered {
+                    directSSHPrivacyCover
+                } else {
+                    VStack(spacing: 0) {
+                        sessionHeader(topSafeArea: topSafeArea)
+                        if let failureMessage {
+                            ConnectionWarningBanner(message: failureMessage)
+                        }
+                        HostKeyPinPanel(host: host, knownHost: viewModel.knownHost(for: host))
+                        credentialPanel
+                        terminalSurface
+                        terminalControls
+                        if pendingMultilinePaste == input, !input.isEmpty {
+                            pasteWarning
+                        }
+                        inputRow(bottomSafeArea: bottomSafeArea)
                     }
-                    HostKeyPinPanel(host: host, knownHost: viewModel.knownHost(for: host))
-                    credentialPanel
-                    terminalSurface
-                    terminalControls
-                    if pendingMultilinePaste == input, !input.isEmpty {
-                        pasteWarning
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    .background(Color.mobilePanelBackground)
+                    .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
+                    .overlay {
+                        if cornerRadius > 0 {
+                            RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
+                                .stroke(Color.panelBorder)
+                        }
                     }
-                    inputRow(bottomSafeArea: bottomSafeArea)
+                    .padding(framed && !compact ? 12 : 0)
                 }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-                .background(Color.mobilePanelBackground)
-                .clipShape(RoundedRectangle(cornerRadius: cornerRadius, style: .continuous))
-                .overlay {
-                    if cornerRadius > 0 {
-                        RoundedRectangle(cornerRadius: cornerRadius, style: .continuous)
-                            .stroke(Color.panelBorder)
-                    }
-                }
-                .padding(framed && !compact ? 12 : 0)
             }
         }
         .fileImporter(
@@ -70,6 +74,14 @@ struct TerminalSessionView: View {
             allowsMultipleSelection: false
         ) { result in
             importPrivateKey(result)
+        }
+        .onChange(of: viewModel.privacyCovered) { _, covered in
+            guard covered else { return }
+            input = ""
+            credential = ""
+            pendingMultilinePaste = nil
+            controlModifierActive = false
+            optionModifierActive = false
         }
     }
 
@@ -107,14 +119,32 @@ struct TerminalSessionView: View {
 
     private var sessionTitle: some View {
         VStack(alignment: .leading, spacing: 3) {
-            Text(host.label)
-                .font(.title3.weight(.bold))
-                .lineLimit(1)
+            HStack(spacing: 8) {
+                Text(host.label)
+                    .font(.title3.weight(.bold))
+                    .lineLimit(1)
+                StatusPill("Direct SSH", color: .blue)
+            }
             Text("\(host.username)@\(host.host):\(host.port)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
                 .lineLimit(1)
         }
+    }
+
+    private var directSSHPrivacyCover: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "eye.slash")
+                .font(.title2)
+            Text("Direct SSH terminal hidden while TermiRust is inactive")
+                .font(.headline)
+                .multilineTextAlignment(.center)
+        }
+        .padding(24)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .background(Color.mobilePanelBackground)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Direct SSH terminal content hidden for privacy")
     }
 
     private var sessionActions: some View {

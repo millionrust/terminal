@@ -7,6 +7,7 @@ final class HostListViewModel: ObservableObject {
     @Published private(set) var vault: MobileVaultExport?
     @Published private(set) var connectionState: TerminalConnectionState = .disconnected
     @Published private(set) var hasStoredEncryptedVault: Bool
+    @Published private(set) var privacyCovered = false
     @Published var selectedHost: MobileHost?
     @Published var importError: String?
 
@@ -143,6 +144,7 @@ final class HostListViewModel: ObservableObject {
     }
 
     func sendTerminalInput(_ input: String) {
+        guard !privacyCovered else { return }
         Task {
             do {
                 try await sshClient.send(Data((input + "\n").utf8))
@@ -153,6 +155,7 @@ final class HostListViewModel: ObservableObject {
     }
 
     func sendTerminalBytes(_ bytes: Data) {
+        guard !privacyCovered else { return }
         Task {
             do {
                 try await sshClient.send(bytes)
@@ -170,6 +173,7 @@ final class HostListViewModel: ObservableObject {
     }
 
     func resizeTerminal(columns: Int, rows: Int) {
+        guard !privacyCovered else { return }
         terminalBuffer.resize(columns: columns, rows: rows)
         Task {
             do {
@@ -182,6 +186,15 @@ final class HostListViewModel: ObservableObject {
 
     func reportStatus(_ message: String) {
         importError = message
+    }
+
+    func suspend() {
+        privacyCovered = true
+        disconnect()
+    }
+
+    func resume() {
+        privacyCovered = false
     }
 
     func credentialReference(for host: MobileHost) -> String? {
@@ -205,6 +218,7 @@ final class HostListViewModel: ObservableObject {
     }
 
     func connectSelectedHost() {
+        guard !privacyCovered else { return }
         guard let host = selectedHost else {
             return
         }

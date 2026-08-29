@@ -1,20 +1,24 @@
-# TermiRust Mobile iOS Prototype
+# TermiRust Mobile for iOS and iPadOS
 
-This folder contains the first iOS prototype for TermiRust mobile terminal access.
+This folder contains the unified native TermiRust mobile application.
 
 ## Architecture
 
-- Direct SSH to the target host, not a desktop relay.
-- Shared mobile vault schema compatible with the desktop mobile export.
-- Per-host tmux bootstrap generation so mobile attaches to the same named session.
-- Keychain-backed secret storage for credentials that are entered on device.
-- Known-host pins are required before a connection attempt proceeds.
+- **Connections** are saved direct-SSH destinations. Their SSH credentials are
+  device-local, known-host pins are mandatory, and optional remote tmux owns continuity.
+- **Devices** are paired TermiRust desktops. A paired Device lists durable Device Sessions;
+  the desktop Host service owns replay, activity truth, and single-writer coordination.
+- The route types use separate credential stores and never silently transfer credentials,
+  terminal ownership, or replay guarantees between these two paths.
 
 ## Current State
 
 Implemented:
 
-- SwiftUI shell with host list, import entry point, terminal detail view, and keyboard accessory row.
+- One adaptive SwiftUI target for iPhone and iPad with Connections and Devices tabs.
+- Permanent Direct SSH and Device Session labels on terminal routes.
+- Privacy covers and input cleanup when the app becomes inactive or enters the background.
+- Direct-SSH host list, import entry point, terminal detail view, and keyboard accessory row.
 - Versioned mobile vault models.
 - Plaintext fixture import for tests and encrypted production vault import through the shared Rust crypto library.
 - `NativeMobileVaultDecryptor` Swift adapter for the Rust shared crypto XCFramework.
@@ -22,7 +26,7 @@ Implemented:
 - Tmux bootstrap script generation.
 - SwiftNIO SSH password and unencrypted OpenSSH Ed25519 private-key transport with pinned known-host verification, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
 - Transcript-level terminal buffering for common redraw/control sequences such as carriage return, backspace, ANSI SGR, line erase, cursor movement, and clear screen.
-- Unit tests for schema decode and tmux bootstrap behavior.
+- Canonical route, terminal, schema, tmux, and lifecycle verification.
 
 Not finished yet:
 
@@ -36,6 +40,10 @@ cd /Users/jacob/Projects/terminal
 scripts/sync-mobile-ffi-artifacts.sh ios
 
 cd /Users/jacob/Projects/terminal_app/terminal_swift
-xcodegen generate
-xcodebuild test -project TermiRustMobile.xcodeproj -scheme TermiRustMobile -destination 'platform=iOS Simulator,name=iPhone 17 Pro'
+./scripts/verify-ios-unified-routes.sh
+./scripts/verify-ios-controller.sh --stage route-contract
 ```
+
+Use `./scripts/verify-ios-unified-routes.sh --require-runtime` in release CI. Without an
+eligible iOS destination, the default gate performs strict Swift 6 source and lifecycle
+test type-checks and reports the missing runtime instead of claiming a device build.
