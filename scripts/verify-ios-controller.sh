@@ -69,6 +69,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Controller/ControllerReadOnlyAttach.swift
   TermiRustMobile/Controller/ControllerWriterControl.swift
   TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
+  TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
   TermiRustMobile/ViewModels/ControllerTerminalViewModel.swift
@@ -96,7 +97,9 @@ if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAG
 fi
 if [[ "$STAGE" == "terminal-conformance" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/TerminalConformanceV1Tests.swift)
+  TEST_SOURCES+=(TermiRustMobileTests/TerminalConformanceV2Tests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/TerminalConformanceV1Tests)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/TerminalConformanceV2Tests)
 fi
 if [[ "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerWriterTests.swift)
@@ -140,11 +143,23 @@ if [[ "$STAGE" == "terminal-conformance" ]]; then
     -swift-version 6 \
     -strict-concurrency=complete \
     TermiRustMobile/Controller/ControllerReadOnlyAttach.swift \
+    TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift \
     TermiRustMobile/Terminal/BoundedTerminalBuffer.swift \
     scripts/terminal-conformance-v1.swift \
     -o "$TEMP_MODULE/terminal-conformance-v1"
   "$TEMP_MODULE/terminal-conformance-v1" \
     TermiRustMobileTests/Fixtures/terminal-conformance-v1.json
+
+  xcrun swiftc \
+    -swift-version 6 \
+    -strict-concurrency=complete \
+    TermiRustMobile/Controller/ControllerReadOnlyAttach.swift \
+    TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift \
+    TermiRustMobile/Terminal/BoundedTerminalBuffer.swift \
+    scripts/terminal-conformance-v2.swift \
+    -o "$TEMP_MODULE/terminal-conformance-v2"
+  "$TEMP_MODULE/terminal-conformance-v2" \
+    TermiRustMobileTests/Fixtures/terminal-conformance-v2.json
 fi
 
 SIMULATOR_NAME="$(

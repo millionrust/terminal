@@ -127,12 +127,10 @@ struct ControllerReadOnlyTerminalView: View {
                                     .padding(16)
                             } else {
                                 ForEach(
-                                    Array(viewModel.screen.lines.enumerated()),
+                                    Array(viewModel.screen.cells.enumerated()),
                                     id: \.offset
-                                ) { index, line in
-                                    Text(line.isEmpty ? " " : line)
-                                        .font(.system(size: 13, design: .monospaced))
-                                        .foregroundStyle(Color(white: 0.92))
+                                ) { index, row in
+                                    Text(attributedRow(row))
                                         .textSelection(.enabled)
                                         .id(index)
                                 }
@@ -204,6 +202,75 @@ struct ControllerReadOnlyTerminalView: View {
         let columns = max(20, Int((size.width - 24) / 7.9))
         let rows = max(5, Int((size.height - 24) / 15.5))
         viewModel.updateViewport(columns: columns, rows: rows)
+    }
+
+    private func attributedRow(_ cells: [BoundedTerminalCell]) -> AttributedString {
+        var row = AttributedString()
+        for cell in cells where cell.width != .continuation {
+            var segment = AttributedString(cell.text)
+            let colors = resolvedColors(for: cell.style)
+            segment.foregroundColor = colors.foreground
+            segment.backgroundColor = colors.background
+            var font = Font.system(size: 13, design: .monospaced)
+            if cell.style.bold { font = font.weight(.bold) }
+            if cell.style.italic { font = font.italic() }
+            segment.font = font
+            if cell.style.underline { segment.underlineStyle = .single }
+            row.append(segment)
+        }
+        return row.characters.isEmpty ? AttributedString(" ") : row
+    }
+
+    private func resolvedColors(
+        for style: TerminalCellStyle
+    ) -> (foreground: Color, background: Color) {
+        let normalForeground = terminalColor(style.foreground, default: Color(white: 0.92))
+        let normalBackground = terminalColor(style.background, default: .black)
+        let foreground = style.inverse ? normalBackground : normalForeground
+        let background = style.inverse ? normalForeground : normalBackground
+        return (
+            style.dim ? foreground.opacity(0.55) : foreground,
+            background
+        )
+    }
+
+    private func terminalColor(_ color: TerminalCellColor, default fallback: Color) -> Color {
+        switch color {
+        case .default:
+            fallback
+        case .indexed(let value):
+            ansiColor(Int(value))
+        case .rgb(let red, let green, let blue):
+            Color(
+                red: Double(red) / 255,
+                green: Double(green) / 255,
+                blue: Double(blue) / 255
+            )
+        }
+    }
+
+    private func ansiColor(_ index: Int) -> Color {
+        let base: [(Double, Double, Double)] = [
+            (0, 0, 0), (0.80, 0, 0), (0, 0.80, 0), (0.80, 0.80, 0),
+            (0, 0, 0.80), (0.80, 0, 0.80), (0, 0.80, 0.80), (0.75, 0.75, 0.75),
+            (0.50, 0.50, 0.50), (1, 0, 0), (0, 1, 0), (1, 1, 0),
+            (0.35, 0.35, 1), (1, 0, 1), (0, 1, 1), (1, 1, 1)
+        ]
+        if base.indices.contains(index) {
+            let value = base[index]
+            return Color(red: value.0, green: value.1, blue: value.2)
+        }
+        if (16...231).contains(index) {
+            let cube = index - 16
+            let levels = [0, 95, 135, 175, 215, 255]
+            return Color(
+                red: Double(levels[cube / 36]) / 255,
+                green: Double(levels[(cube / 6) % 6]) / 255,
+                blue: Double(levels[cube % 6]) / 255
+            )
+        }
+        let gray = Double(8 + max(0, min(23, index - 232)) * 10) / 255
+        return Color(red: gray, green: gray, blue: gray)
     }
 
     private var writerLabel: String {
