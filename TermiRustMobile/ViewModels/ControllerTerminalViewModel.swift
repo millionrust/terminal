@@ -154,29 +154,40 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     }
 
     func requestPaste(_ string: String) {
-        let bytes = Data(string.utf8)
+        let bytes = TerminalInteraction.normalizePaste(string)
         guard !bytes.isEmpty else { return }
-        guard bytes.count <= WriterControlReducer.maxQueuedBytes else {
+        guard bytes.count <= TerminalInteraction.maximumPastePayload(
+            bracketed: screen.bracketedPaste
+        ) else {
             writerMessage = "Paste is larger than the 256 KiB safety limit."
             return
         }
-        if writerReducer.pasteRequiresConfirmation(bytes) {
+        if TerminalInteraction.pasteRequiresConfirmation(bytes) {
             pendingPaste = bytes
             pendingPasteByteCount = bytes.count
         } else {
-            enqueueInput(bytes, kind: .paste, confirmed: true)
+            sendPastePayload(bytes)
         }
     }
 
     func confirmPaste() {
         guard let bytes = pendingPaste else { return }
         cancelPaste()
-        enqueueInput(bytes, kind: .paste, confirmed: true)
+        sendPastePayload(bytes)
     }
 
     func cancelPaste() {
         pendingPaste = nil
         pendingPasteByteCount = 0
+    }
+
+    var visibleHTTPURLs: [URL] {
+        TerminalInteraction.visibleHTTPURLs(in: screen.lines.joined(separator: "\n"))
+    }
+
+    private func sendPastePayload(_ bytes: Data) {
+        let prepared = TerminalInteraction.preparePaste(bytes, bracketed: screen.bracketedPaste)
+        enqueueInput(prepared, kind: .paste, confirmed: true)
     }
 
     func updateViewport(columns: Int, rows: Int, final: Bool = false) {

@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ControllerReadOnlyTerminalView: View {
+    @Environment(\.openURL) private var openURL
     @ObservedObject var viewModel: ControllerTerminalViewModel
     let onClose: () -> Void
     @State private var followsOutput = true
@@ -23,6 +24,15 @@ struct ControllerReadOnlyTerminalView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
+                    if !viewModel.visibleHTTPURLs.isEmpty {
+                        Menu {
+                            ForEach(viewModel.visibleHTTPURLs, id: \.absoluteString) { url in
+                                Button(url.absoluteString) { openURL(url) }
+                            }
+                        } label: {
+                            Label("Open Link", systemImage: "link")
+                        }
+                    }
                     if viewModel.canSendInput {
                         Button { keyboardFocusRequest &+= 1 } label: {
                             Label("Show Keyboard", systemImage: "keyboard")
@@ -127,16 +137,17 @@ struct ControllerReadOnlyTerminalView: View {
                                     .padding(16)
                             } else {
                                 ForEach(
-                                    Array(viewModel.screen.cells.enumerated()),
+                                    Array(viewModel.screen.contentCells.enumerated()),
                                     id: \.offset
                                 ) { index, row in
                                     Text(attributedRow(row))
-                                        .textSelection(.enabled)
+                                        .frame(minHeight: 15.5)
                                         .id(index)
                                 }
                             }
                             Color.clear.frame(width: 1, height: 1).id("terminal-bottom")
                         }
+                        .textSelection(.enabled)
                         .padding(12)
                         .frame(maxWidth: .infinity, alignment: .leading)
                     }
@@ -151,6 +162,7 @@ struct ControllerReadOnlyTerminalView: View {
                 ControllerTerminalInputView(
                     enabled: viewModel.canSendInput,
                     focusRequest: keyboardFocusRequest,
+                    applicationCursor: viewModel.screen.applicationCursor,
                     onBytes: viewModel.sendKeyboardBytes,
                     onPaste: viewModel.requestPaste
                 )
@@ -218,7 +230,7 @@ struct ControllerReadOnlyTerminalView: View {
             if cell.style.underline { segment.underlineStyle = .single }
             row.append(segment)
         }
-        return row.characters.isEmpty ? AttributedString(" ") : row
+        return row
     }
 
     private func resolvedColors(

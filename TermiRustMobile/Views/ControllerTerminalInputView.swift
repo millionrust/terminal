@@ -4,6 +4,7 @@ import UIKit
 struct ControllerTerminalInputView: UIViewRepresentable {
     let enabled: Bool
     let focusRequest: UInt64
+    let applicationCursor: Bool
     let onBytes: (Data) -> Void
     let onPaste: (String) -> Void
 
@@ -35,6 +36,7 @@ struct ControllerTerminalInputView: UIViewRepresentable {
     func updateUIView(_ view: TerminalInputTextView, context: Context) {
         context.coordinator.onBytes = onBytes
         context.coordinator.onPaste = onPaste
+        context.coordinator.applicationCursor = applicationCursor
         view.isEditable = enabled
         view.isUserInteractionEnabled = enabled
         if enabled, context.coordinator.focusRequest != focusRequest {
@@ -50,8 +52,10 @@ struct ControllerTerminalInputView: UIViewRepresentable {
         var onBytes: (Data) -> Void
         var onPaste: (String) -> Void
         var focusRequest: UInt64 = 0
+        var applicationCursor = false
         private var controlLatched = false
         private var optionLatched = false
+        private var ime = TerminalIMEState()
         private weak var controlButton: UIButton?
         private weak var optionButton: UIButton?
 
@@ -61,15 +65,23 @@ struct ControllerTerminalInputView: UIViewRepresentable {
         }
 
         func textViewDidChange(_ textView: UITextView) {
-            guard textView.markedTextRange == nil, !textView.text.isEmpty else { return }
+            if textView.markedTextRange != nil {
+                ime.update(textView.text)
+                return
+            }
+            guard !textView.text.isEmpty else {
+                ime.cancel()
+                return
+            }
+            _ = ime.commit(textView.text)
             sendText(textView.text)
             textView.text = ""
         }
 
         func terminalInput(_ input: TerminalInputCommand) {
             switch input {
-            case .bytes(let bytes):
-                onBytes(Data(bytes))
+            case .key(let key, let text, let modifiers):
+                sendKey(key, text: text, explicitModifiers: modifiers)
             case .paste(let text):
                 onPaste(text)
             case .toggleControl:
@@ -82,22 +94,35 @@ struct ControllerTerminalInputView: UIViewRepresentable {
         }
 
         func sendText(_ text: String) {
-            var bytes = Data()
-            for scalar in text.unicodeScalars {
-                let value = String(scalar)
-                if controlLatched,
-                   scalar.value < 128,
-                   let control = Self.controlByte(UInt8(scalar.value)) {
-                    bytes.append(control)
-                } else {
-                    if optionLatched { bytes.append(0x1B) }
-                    bytes.append(contentsOf: value.utf8)
-                }
+            let bytes = TerminalInteraction.encodeCommittedText(text, modifiers: consumeModifiers())
+            if !bytes.isEmpty { onBytes(bytes) }
+        }
+
+        private func sendKey(
+            _ key: TerminalInputKey,
+            text: String? = nil,
+            explicitModifiers: TerminalInputModifiers? = nil
+        ) {
+            let text = text ?? (key == .space ? " " : nil)
+            if let bytes = TerminalInteraction.encode(
+                key,
+                text: text,
+                modifiers: explicitModifiers ?? consumeModifiers(),
+                applicationCursor: applicationCursor
+            ) {
+                onBytes(bytes)
             }
+        }
+
+        private func consumeModifiers() -> TerminalInputModifiers {
+            let modifiers = TerminalInputModifiers(
+                control: controlLatched,
+                alt: optionLatched
+            )
             controlLatched = false
             optionLatched = false
             updateModifierButtons()
-            if !bytes.isEmpty { onBytes(bytes) }
+            return modifiers
         }
 
         func makeAccessory(for textView: TerminalInputTextView) -> UIView {
@@ -128,18 +153,18 @@ struct ControllerTerminalInputView: UIViewRepresentable {
                 row.heightAnchor.constraint(equalTo: scroll.frameLayoutGuide.heightAnchor),
             ])
 
-            row.addArrangedSubview(button("Esc", command: .bytes([0x1B]), textView: textView))
+            row.addArrangedSubview(button("Esc", command: .key(.escape, nil, nil), textView: textView))
             let control = button("Ctrl", command: .toggleControl, textView: textView)
             let option = button("Alt", command: .toggleOption, textView: textView)
             controlButton = control
             optionButton = option
             row.addArrangedSubview(control)
             row.addArrangedSubview(option)
-            row.addArrangedSubview(button("Tab", command: .bytes([0x09]), textView: textView))
-            row.addArrangedSubview(button("←", command: .bytes([0x1B, 0x5B, 0x44]), textView: textView, label: "Left arrow"))
-            row.addArrangedSubview(button("↑", command: .bytes([0x1B, 0x5B, 0x41]), textView: textView, label: "Up arrow"))
-            row.addArrangedSubview(button("↓", command: .bytes([0x1B, 0x5B, 0x42]), textView: textView, label: "Down arrow"))
-            row.addArrangedSubview(button("→", command: .bytes([0x1B, 0x5B, 0x43]), textView: textView, label: "Right arrow"))
+            row.addArrangedSubview(button("Tab", command: .key(.tab, nil, nil), textView: textView))
+            row.addArrangedSubview(button("←", command: .key(.left, nil, nil), textView: textView, label: "Left arrow"))
+            row.addArrangedSubview(button("↑", command: .key(.up, nil, nil), textView: textView, label: "Up arrow"))
+            row.addArrangedSubview(button("↓", command: .key(.down, nil, nil), textView: textView, label: "Down arrow"))
+            row.addArrangedSubview(button("→", command: .key(.right, nil, nil), textView: textView, label: "Right arrow"))
             return accessory
         }
 
@@ -170,11 +195,6 @@ struct ControllerTerminalInputView: UIViewRepresentable {
             optionButton?.configuration?.baseBackgroundColor = optionLatched ? .systemGreen : nil
         }
 
-        private static func controlByte(_ value: UInt8) -> UInt8? {
-            let upper = (0x61...0x7A).contains(value) ? value - 0x20 : value
-            guard (0x40...0x5F).contains(upper) else { return nil }
-            return upper & 0x1F
-        }
     }
 }
 
@@ -184,7 +204,7 @@ protocol TerminalInputCommandHandling: AnyObject {
 }
 
 enum TerminalInputCommand {
-    case bytes([UInt8])
+    case key(TerminalInputKey, String?, TerminalInputModifiers?)
     case paste(String)
     case toggleControl
     case toggleOption
@@ -196,7 +216,7 @@ final class TerminalInputTextView: UITextView {
 
     override func deleteBackward() {
         if text.isEmpty, markedTextRange == nil {
-            commandHandler?.terminalInput(.bytes([0x7F]))
+            commandHandler?.terminalInput(.key(.backspace, nil, nil))
         } else {
             super.deleteBackward()
         }
@@ -208,28 +228,77 @@ final class TerminalInputTextView: UITextView {
     }
 
     override var keyCommands: [UIKeyCommand]? {
-        [
-            key(UIKeyCommand.inputEscape, bytes: [0x1B], title: "Escape"),
-            key("\t", bytes: [0x09], title: "Tab"),
-            key(UIKeyCommand.inputUpArrow, bytes: [0x1B, 0x5B, 0x41], title: "Up"),
-            key(UIKeyCommand.inputDownArrow, bytes: [0x1B, 0x5B, 0x42], title: "Down"),
-            key(UIKeyCommand.inputLeftArrow, bytes: [0x1B, 0x5B, 0x44], title: "Left"),
-            key(UIKeyCommand.inputRightArrow, bytes: [0x1B, 0x5B, 0x43], title: "Right"),
+        var commands = [
+            key(UIKeyCommand.inputEscape, key: .escape, title: "Escape"),
+            key("\t", key: .tab, title: "Tab"),
+            key("\t", key: .tab, title: "Back Tab", flags: .shift, modifiers: .init(shift: true)),
+            key(UIKeyCommand.inputUpArrow, key: .up, title: "Up"),
+            key(UIKeyCommand.inputDownArrow, key: .down, title: "Down"),
+            key(UIKeyCommand.inputLeftArrow, key: .left, title: "Left"),
+            key(UIKeyCommand.inputRightArrow, key: .right, title: "Right"),
         ]
+        for character in "abcdefghijklmnopqrstuvwxyz@[\\]^_/ " {
+            let text = String(character)
+            let terminalKey: TerminalInputKey = character == " " ? .space : .text
+            commands.append(key(
+                text,
+                key: terminalKey,
+                title: "Control \(text)",
+                flags: .control,
+                text: text,
+                modifiers: .init(control: true)
+            ))
+        }
+        for character in "abcdefghijklmnopqrstuvwxyz" {
+            let text = String(character)
+            commands.append(key(
+                text,
+                key: .text,
+                title: "Alt \(text)",
+                flags: .alternate,
+                text: text,
+                modifiers: .init(alt: true)
+            ))
+        }
+        return commands
     }
 
     @objc private func runKeyCommand(_ command: UIKeyCommand) {
-        guard let data = command.propertyList as? Data else { return }
-        commandHandler?.terminalInput(.bytes(Array(data)))
+        guard let values = command.propertyList as? [String: Any],
+              let raw = values["key"] as? String,
+              let key = TerminalInputKey(rawValue: raw) else { return }
+        let text = (values["text"] as? String).flatMap { $0.isEmpty ? nil : $0 }
+        let modifiers = (values["has_modifiers"] as? Bool ?? false)
+            ? TerminalInputModifiers(
+                shift: values["shift"] as? Bool ?? false,
+                control: values["control"] as? Bool ?? false,
+                alt: values["alt"] as? Bool ?? false
+            )
+            : nil
+        commandHandler?.terminalInput(.key(key, text, modifiers))
     }
 
-    private func key(_ input: String, bytes: [UInt8], title: String) -> UIKeyCommand {
+    private func key(
+        _ input: String,
+        key: TerminalInputKey,
+        title: String,
+        flags: UIKeyModifierFlags = [],
+        text: String? = nil,
+        modifiers: TerminalInputModifiers = .init()
+    ) -> UIKeyCommand {
         let command = UIKeyCommand(
             title: title,
             action: #selector(runKeyCommand(_:)),
             input: input,
-            modifierFlags: [],
-            propertyList: Data(bytes)
+            modifierFlags: flags,
+            propertyList: [
+                "key": key.rawValue,
+                "text": text ?? "",
+                "has_modifiers": !flags.isEmpty,
+                "shift": modifiers.shift,
+                "control": modifiers.control,
+                "alt": modifiers.alt,
+            ]
         )
         command.wantsPriorityOverSystemBehavior = true
         return command

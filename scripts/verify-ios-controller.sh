@@ -17,14 +17,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls|terminal-conformance|universal-session [--require-runtime]\n' "$0" >&2
+      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls|terminal-conformance|terminal-interaction|universal-session [--require-runtime]\n' "$0" >&2
       exit 2
       ;;
   esac
 done
 
-[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "terminal-conformance" || "$STAGE" == "universal-session" ]] || {
-  printf 'Stage must be pairing-fleet, readonly-terminal, writer-controls, terminal-conformance, or universal-session.\n' >&2
+[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "terminal-conformance" || "$STAGE" == "terminal-interaction" || "$STAGE" == "universal-session" ]] || {
+  printf 'Stage must be pairing-fleet, readonly-terminal, writer-controls, terminal-conformance, terminal-interaction, or universal-session.\n' >&2
   exit 2
 }
 
@@ -70,6 +70,7 @@ CONTROLLER_SOURCES=(
   TermiRustMobile/Controller/ControllerWriterControl.swift
   TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
   TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift
+  TermiRustMobile/Terminal/TerminalInteraction.swift
   TermiRustMobile/Controller/ControllerConnectionActor.swift
   TermiRustMobile/ViewModels/ControllerViewModel.swift
   TermiRustMobile/ViewModels/ControllerTerminalViewModel.swift
@@ -87,7 +88,7 @@ RUNTIME_TESTS=(
   -only-testing:TermiRustMobileTests/ControllerPairingFleetTests
   -only-testing:TermiRustMobileTests/ControllerFleetCacheTests
 )
-if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "terminal-conformance" || "$STAGE" == "universal-session" ]]; then
+if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "terminal-conformance" || "$STAGE" == "terminal-interaction" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/BoundedTerminalBufferTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/ControllerTerminalViewModelTests.swift)
@@ -95,13 +96,31 @@ if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAG
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/BoundedTerminalBufferTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerTerminalViewModelTests)
 fi
-if [[ "$STAGE" == "terminal-conformance" ]]; then
+if [[ "$STAGE" == "terminal-conformance" || "$STAGE" == "terminal-interaction" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/TerminalConformanceV1Tests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/TerminalConformanceV2Tests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/TerminalConformanceV1Tests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/TerminalConformanceV2Tests)
 fi
-if [[ "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]]; then
+
+if [[ "$STAGE" == "terminal-interaction" ]]; then
+  xcrun swiftc \
+    -swift-version 6 \
+    -strict-concurrency=complete \
+    TermiRustMobile/Controller/ControllerReadOnlyAttach.swift \
+    TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift \
+    TermiRustMobile/Terminal/BoundedTerminalBuffer.swift \
+    TermiRustMobile/Terminal/TerminalInteraction.swift \
+    scripts/terminal-interaction.swift \
+    -o "$TEMP_MODULE/terminal-interaction"
+  "$TEMP_MODULE/terminal-interaction" \
+    TermiRustMobileTests/Fixtures/terminal-interaction-v1.json
+fi
+if [[ "$STAGE" == "terminal-interaction" ]]; then
+  TEST_SOURCES+=(TermiRustMobileTests/TerminalInteractionTests.swift)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/TerminalInteractionTests)
+fi
+if [[ "$STAGE" == "writer-controls" || "$STAGE" == "terminal-interaction" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerWriterTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerWriterTests)
 fi
@@ -138,7 +157,7 @@ xcrun swiftc \
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
 git diff --check
 
-if [[ "$STAGE" == "terminal-conformance" ]]; then
+if [[ "$STAGE" == "terminal-conformance" || "$STAGE" == "terminal-interaction" ]]; then
   xcrun swiftc \
     -swift-version 6 \
     -strict-concurrency=complete \

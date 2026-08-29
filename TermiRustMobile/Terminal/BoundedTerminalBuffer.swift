@@ -55,6 +55,7 @@ struct BoundedTerminalCell: Equatable, Sendable {
 struct BoundedTerminalSnapshot: Equatable, Sendable {
     let lines: [String]
     let cells: [[BoundedTerminalCell]]
+    let contentCells: [[BoundedTerminalCell]]
     let cursorRow: Int
     let cursorColumn: Int
     let retainedCells: Int
@@ -180,6 +181,7 @@ struct BoundedTerminalBuffer: Sendable {
         BoundedTerminalSnapshot(
             lines: rows.map(renderLine),
             cells: rows.map(paddedRow),
+            contentCells: rows,
             cursorRow: max(0, cursorRow - scrollbackRows),
             cursorColumn: cursorColumn,
             retainedCells: retainedCellCount,
