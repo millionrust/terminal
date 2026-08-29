@@ -19,7 +19,7 @@ case "$STAGE" in
   terminal-conformance) FILTER='*TerminalConformanceV*Test' ;;
   terminal-interaction) FILTER='*TerminalInteractionTest' ;;
   terminal-acceptance) FILTER='*TerminalAcceptanceTest' ;;
-  route-contract) FILTER='*MobileRouteContractTest' ;;
+  route-contract) FILTER='*Mobile*Route*Test' ;;
   universal-session) FILTER='*UniversalSessionGoldenPathTest' ;;
   *) echo "a valid --stage is required" >&2; exit 2 ;;
 esac
