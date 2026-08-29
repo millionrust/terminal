@@ -407,7 +407,8 @@ private fun ConnectionBanner(state: ControllerUiState, onRetry: () -> Unit) {
 
 @Composable
 private fun SessionRow(session: ControllerSessionSummary, cached: Boolean, onOpen: () -> Unit) {
-    val canOpen = !cached && session.occupantGeneration != null
+    val canOpen = !cached && session.occupantGeneration != null &&
+        (session.capabilities.isEmpty() || ControllerSessionCapability.ATTACH_OUTPUT in session.capabilities)
     val description = stringResource(com.termirust.mobile.R.string.monitor_session, isolated(session.title))
     Card(
         modifier = Modifier
@@ -434,6 +435,22 @@ private fun SessionRow(session: ControllerSessionSummary, cached: Boolean, onOpe
             if (location.isNotEmpty()) {
                 Text(isolated(location), style = MaterialTheme.typography.bodySmall)
             }
+            val origin = when (session.origin) {
+                ControllerSessionOrigin.TERMINAL -> stringResource(com.termirust.mobile.R.string.session_origin_terminal)
+                ControllerSessionOrigin.MANAGED_AGENT -> stringResource(com.termirust.mobile.R.string.session_origin_managed_agent)
+                ControllerSessionOrigin.OBSERVED_AGENT -> stringResource(com.termirust.mobile.R.string.session_origin_observed_agent)
+                ControllerSessionOrigin.UNKNOWN -> stringResource(com.termirust.mobile.R.string.session_origin_unknown)
+            }
+            val access = if (ControllerSessionCapability.SEND_INPUT in session.capabilities) {
+                stringResource(com.termirust.mobile.R.string.session_control_available)
+            } else {
+                stringResource(com.termirust.mobile.R.string.view_only)
+            }
+            Text(
+                listOfNotNull(origin, session.runtime, access).joinToString(" · "),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(session.activity ?: stringResource(com.termirust.mobile.R.string.no_recent_activity), style = MaterialTheme.typography.labelMedium)
                 if (session.unreadCount > 0) Text(stringResource(com.termirust.mobile.R.string.unread), color = MaterialTheme.colorScheme.primary)

@@ -143,7 +143,12 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         val host = selectedHost() ?: return
         val session = _state.value.sessions.firstOrNull { it.id == sessionId } ?: return
         val generation = session.occupantGeneration ?: return
-        val identity = ReadOnlyAttachIdentity(host.id, UUID.fromString(session.id), generation)
+        val identity = ReadOnlyAttachIdentity(
+            host.id,
+            UUID.fromString(session.id),
+            generation,
+            session.hostInstanceId?.let(UUID::fromString),
+        )
         val viewport = TerminalViewport(120, 40)
         val runtime = ActiveTerminalRuntime(
             host = host,
@@ -654,7 +659,15 @@ private data class ActiveTerminalRuntime(
 private enum class TerminalMutation { ACQUIRE, RELEASE, INPUT, RESIZE }
 
 private val ActiveTerminalRuntime.supportsWriter: Boolean
-    get() = host.capabilityBits and ((1 shl 1) or (1 shl 2)) == ((1 shl 1) or (1 shl 2))
+    get() {
+        val hostAllows = host.capabilityBits and ((1 shl 1) or (1 shl 2)) == ((1 shl 1) or (1 shl 2))
+        val sessionAllows = session.capabilities.isEmpty() || (
+            ControllerSessionCapability.ATTACH_OUTPUT in session.capabilities &&
+                ControllerSessionCapability.SEND_INPUT in session.capabilities
+            )
+        return hostAllows && sessionAllows
+    }
 
 private val ActiveTerminalRuntime.supportsResize: Boolean
-    get() = host.capabilityBits and (1 shl 3) != 0
+    get() = host.capabilityBits and (1 shl 3) != 0 &&
+        (session.capabilities.isEmpty() || ControllerSessionCapability.RESIZE in session.capabilities)

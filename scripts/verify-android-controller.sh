@@ -8,7 +8,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --stage) STAGE=${2:-}; shift 2 ;;
     --avd) AVD=${2:-}; shift 2 ;;
-    *) echo "usage: $0 --stage pairing-fleet|readonly-terminal|writer-controls [--avd name]" >&2; exit 2 ;;
+    *) echo "usage: $0 --stage pairing-fleet|readonly-terminal|writer-controls|universal-session [--avd name]" >&2; exit 2 ;;
   esac
 done
 
@@ -16,6 +16,7 @@ case "$STAGE" in
   pairing-fleet) FILTER='*ControllerFleetTests' ;;
   readonly-terminal) FILTER='*ControllerReadOnlyTerminalTest' ;;
   writer-controls) FILTER='*ControllerWriterTest' ;;
+  universal-session) FILTER='*UniversalSessionGoldenPathTest' ;;
   *) echo "a valid --stage is required" >&2; exit 2 ;;
 esac
 

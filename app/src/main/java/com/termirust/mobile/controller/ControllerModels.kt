@@ -50,8 +50,29 @@ data class PairedHostRecord(
 }
 
 @Serializable
+enum class ControllerSessionOrigin {
+    @SerialName("terminal") TERMINAL,
+    @SerialName("managed_agent") MANAGED_AGENT,
+    @SerialName("observed_agent") OBSERVED_AGENT,
+    @SerialName("unknown") UNKNOWN,
+}
+
+@Serializable
+enum class ControllerSessionCapability {
+    @SerialName("observe_sessions") OBSERVE_SESSIONS,
+    @SerialName("attach_output") ATTACH_OUTPUT,
+    @SerialName("send_input") SEND_INPUT,
+    @SerialName("resize") RESIZE,
+    @SerialName("respond_to_approval") RESPOND_TO_APPROVAL,
+}
+
+@Serializable
 data class ControllerSessionSummary(
     val id: String,
+    @SerialName("host_instance_id") val hostInstanceId: String? = null,
+    val origin: ControllerSessionOrigin = ControllerSessionOrigin.UNKNOWN,
+    val runtime: String? = null,
+    val capabilities: List<ControllerSessionCapability> = emptyList(),
     val title: String,
     val project: String? = null,
     val group: String? = null,
@@ -64,6 +85,9 @@ data class ControllerSessionSummary(
 ) {
     fun validate() {
         require(id.isUuid())
+        require(hostInstanceId == null || hostInstanceId.isUuid())
+        require(runtime == null || runtime.toByteArray().size in 1..128)
+        require(capabilities.size <= 5 && capabilities.toSet().size == capabilities.size)
         require(title.codePointCount() in 1..ControllerLimits.MAX_TITLE_CODE_POINTS)
         require(project == null || project.codePointCount() <= ControllerLimits.MAX_TITLE_CODE_POINTS)
         require(group == null || group.codePointCount() <= ControllerLimits.MAX_TITLE_CODE_POINTS)

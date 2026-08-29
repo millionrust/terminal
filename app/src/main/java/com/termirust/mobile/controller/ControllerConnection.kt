@@ -871,6 +871,10 @@ private data class ActiveTerminalConnection(
 
 @Serializable private data class SessionSummaryPayload(
     @SerialName("session_id") val sessionId: String,
+    @SerialName("host_instance_id") val hostInstanceId: String? = null,
+    val origin: ControllerSessionOrigin = ControllerSessionOrigin.UNKNOWN,
+    val runtime: String? = null,
+    val capabilities: List<ControllerSessionCapability> = emptyList(),
     val title: String,
     val project: String? = null,
     val group: String? = null,
@@ -883,6 +887,10 @@ private data class ActiveTerminalConnection(
 ) {
     fun toModel() = ControllerSessionSummary(
         id = sessionId,
+        hostInstanceId = hostInstanceId,
+        origin = origin,
+        runtime = runtime,
+        capabilities = capabilities,
         title = title,
         project = project,
         group = group,

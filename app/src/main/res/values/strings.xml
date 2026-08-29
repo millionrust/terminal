@@ -20,6 +20,11 @@
     <string name="no_recent_activity">No recent activity</string>
     <string name="unread">Unread</string>
     <string name="writer_active">Writer active</string>
+    <string name="session_origin_terminal">Terminal</string>
+    <string name="session_origin_managed_agent">Managed agent</string>
+    <string name="session_origin_observed_agent">Observed agent</string>
+    <string name="session_origin_unknown">Session</string>
+    <string name="session_control_available">Control available</string>
     <string name="compare_security_code">Compare Security Code</string>
     <string name="pairing_offer_hint">Paste the pairing offer shown by TermiRust Desktop.</string>
     <string name="scan_qr_code">Scan QR Code</string>

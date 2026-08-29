@@ -45,6 +45,7 @@ data class ReadOnlyAttachIdentity(
     val hostId: String,
     val sessionId: UUID,
     val occupantGeneration: Long,
+    val hostInstanceId: UUID? = null,
 ) {
     fun validate() {
         require(hostId.toByteArray().size in 1..256 && occupantGeneration > 0)
