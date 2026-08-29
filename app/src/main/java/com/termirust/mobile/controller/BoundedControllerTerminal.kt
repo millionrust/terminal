@@ -56,6 +56,7 @@ data class BoundedTerminalCell(
 data class BoundedTerminalSnapshot(
     val lines: List<String>,
     val cells: List<List<BoundedTerminalCell>>,
+    val contentCells: List<List<BoundedTerminalCell>>,
     val cursorRow: Int,
     val cursorColumn: Int,
     val retainedCells: Int,
@@ -181,6 +182,7 @@ class BoundedControllerTerminal(
     fun snapshot() = BoundedTerminalSnapshot(
         lines = rows.map(::renderLine),
         cells = rows.map(::paddedRow),
+        contentCells = rows.map { it.toList() },
         cursorRow = (cursorRow - scrollbackRows).coerceAtLeast(0),
         cursorColumn = cursorColumn,
         retainedCells = retainedCells,

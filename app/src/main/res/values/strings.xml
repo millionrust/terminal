@@ -95,6 +95,7 @@
     <string name="control_lost">Control lost</string>
     <string name="show_keyboard">Keyboard</string>
     <string name="paste">Paste</string>
+    <string name="open_link">Open link</string>
     <string name="paste_confirmation_title">Send pasted text to this terminal?</string>
     <string name="paste_confirmation_message">The paste contains multiple lines or is large (%1$d bytes). Review the destination before sending it.</string>
     <string name="send_paste">Send Paste</string>

@@ -211,16 +211,19 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     fun requestTerminalPaste(text: String) {
         val runtime = terminalRuntime ?: return
-        val bytes = text.encodeToByteArray()
+        val bytes = TerminalInteraction.normalizePaste(text)
         if (bytes.isEmpty()) return
-        if (bytes.size > WriterControlReducer.MAX_QUEUED_BYTES) {
+        if (bytes.size > TerminalInteraction.maximumPastePayload(
+                bracketed = runtime.terminal.snapshot().bracketedPaste,
+            )
+        ) {
             runtime.writerMessage = "paste_too_large"
             publishTerminal(runtime)
-        } else if (runtime.writer.pasteRequiresConfirmation(bytes)) {
+        } else if (TerminalInteraction.pasteRequiresConfirmation(bytes)) {
             runtime.pendingPaste = bytes
             publishTerminal(runtime)
         } else {
-            enqueueTerminalInput(bytes, PendingInputKind.PASTE, true)
+            sendTerminalPaste(runtime, bytes)
         }
     }
 
@@ -228,13 +231,22 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         val runtime = terminalRuntime ?: return
         val bytes = runtime.pendingPaste ?: return
         runtime.pendingPaste = null
-        enqueueTerminalInput(bytes, PendingInputKind.PASTE, true)
+        sendTerminalPaste(runtime, bytes)
     }
 
     fun cancelTerminalPaste() {
         val runtime = terminalRuntime ?: return
         runtime.pendingPaste = null
         publishTerminal(runtime)
+    }
+
+    private fun sendTerminalPaste(runtime: ActiveTerminalRuntime, bytes: ByteArray) {
+        if (terminalRuntime !== runtime) return
+        val prepared = TerminalInteraction.preparePaste(
+            bytes,
+            bracketed = runtime.terminal.snapshot().bracketedPaste,
+        )
+        enqueueTerminalInput(prepared, PendingInputKind.PASTE, true)
     }
 
     fun detachTerminal() {

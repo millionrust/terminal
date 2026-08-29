@@ -16,8 +16,9 @@ import androidx.compose.ui.viewinterop.AndroidView
 
 private class ControllerTerminalInputBridge(context: Context) : View(context) {
     var acceptsInput: Boolean = false
+    var applicationCursor: Boolean = false
     var onBytes: (ByteArray) -> Unit = {}
-    private var composing: String = ""
+    private var ime = TerminalImeState()
 
     init {
         isFocusable = true
@@ -33,24 +34,22 @@ private class ControllerTerminalInputBridge(context: Context) : View(context) {
         outAttrs.imeOptions = EditorInfo.IME_FLAG_NO_EXTRACT_UI or EditorInfo.IME_ACTION_NONE
         return object : BaseInputConnection(this@ControllerTerminalInputBridge, false) {
             override fun commitText(text: CharSequence?, newCursorPosition: Int): Boolean {
-                composing = ""
-                text?.toString()?.takeIf(String::isNotEmpty)?.let(::sendText)
+                ime.commit(text?.toString().orEmpty())?.let(::send)
                 return true
             }
 
             override fun setComposingText(text: CharSequence?, newCursorPosition: Int): Boolean {
-                composing = text?.toString().orEmpty()
+                ime.update(text?.toString().orEmpty())
                 return true
             }
 
             override fun finishComposingText(): Boolean {
-                composing.takeIf(String::isNotEmpty)?.let(::sendText)
-                composing = ""
+                ime.finish()?.let(::send)
                 return true
             }
 
             override fun deleteSurroundingText(beforeLength: Int, afterLength: Int): Boolean {
-                if (beforeLength > 0) send(byteArrayOf(0x7f))
+                if (beforeLength > 0) sendKey(TerminalInputKey.BACKSPACE)
                 return true
             }
 
@@ -70,33 +69,56 @@ private class ControllerTerminalInputBridge(context: Context) : View(context) {
     private fun handleKey(event: KeyEvent): Boolean {
         if (!acceptsInput || event.action != KeyEvent.ACTION_DOWN) return false
         val fixed = when (event.keyCode) {
-            KeyEvent.KEYCODE_ENTER -> byteArrayOf('\r'.code.toByte())
-            KeyEvent.KEYCODE_DEL, KeyEvent.KEYCODE_FORWARD_DEL -> byteArrayOf(0x7f)
-            KeyEvent.KEYCODE_TAB -> byteArrayOf('\t'.code.toByte())
-            KeyEvent.KEYCODE_ESCAPE -> byteArrayOf(0x1b)
-            KeyEvent.KEYCODE_DPAD_UP -> "\u001b[A".encodeToByteArray()
-            KeyEvent.KEYCODE_DPAD_DOWN -> "\u001b[B".encodeToByteArray()
-            KeyEvent.KEYCODE_DPAD_RIGHT -> "\u001b[C".encodeToByteArray()
-            KeyEvent.KEYCODE_DPAD_LEFT -> "\u001b[D".encodeToByteArray()
+            KeyEvent.KEYCODE_ENTER -> TerminalInputKey.ENTER
+            KeyEvent.KEYCODE_DEL -> TerminalInputKey.BACKSPACE
+            KeyEvent.KEYCODE_FORWARD_DEL -> TerminalInputKey.DELETE
+            KeyEvent.KEYCODE_TAB -> TerminalInputKey.TAB
+            KeyEvent.KEYCODE_ESCAPE -> TerminalInputKey.ESCAPE
+            KeyEvent.KEYCODE_DPAD_UP -> TerminalInputKey.UP
+            KeyEvent.KEYCODE_DPAD_DOWN -> TerminalInputKey.DOWN
+            KeyEvent.KEYCODE_DPAD_RIGHT -> TerminalInputKey.RIGHT
+            KeyEvent.KEYCODE_DPAD_LEFT -> TerminalInputKey.LEFT
+            KeyEvent.KEYCODE_MOVE_HOME -> TerminalInputKey.HOME
+            KeyEvent.KEYCODE_MOVE_END -> TerminalInputKey.END
+            KeyEvent.KEYCODE_INSERT -> TerminalInputKey.INSERT
+            KeyEvent.KEYCODE_PAGE_UP -> TerminalInputKey.PAGEUP
+            KeyEvent.KEYCODE_PAGE_DOWN -> TerminalInputKey.PAGEDOWN
             else -> null
         }
         if (fixed != null) {
-            send(fixed)
+            sendKey(
+                fixed,
+                TerminalInputModifiers(
+                    shift = event.isShiftPressed,
+                    control = event.isCtrlPressed,
+                    alt = event.isAltPressed,
+                ),
+            )
             return true
         }
         val unicode = event.unicodeChar
         if (unicode == 0) return false
-        var bytes = if (event.isCtrlPressed && unicode.toChar().uppercaseChar() in 'A'..'Z') {
-            byteArrayOf((unicode.toChar().uppercaseChar().code - 'A'.code + 1).toByte())
-        } else {
-            String(Character.toChars(unicode)).encodeToByteArray()
-        }
-        if (event.isAltPressed) bytes = byteArrayOf(0x1b) + bytes
-        send(bytes)
+        val text = String(Character.toChars(unicode))
+        TerminalInteraction.encode(
+            if (text == " ") TerminalInputKey.SPACE else TerminalInputKey.TEXT,
+            text,
+            TerminalInputModifiers(
+                shift = event.isShiftPressed,
+                control = event.isCtrlPressed,
+                alt = event.isAltPressed,
+            ),
+            applicationCursor,
+        )?.let(::send)
         return true
     }
 
-    private fun sendText(value: String) = send(value.encodeToByteArray())
+    private fun sendKey(
+        key: TerminalInputKey,
+        modifiers: TerminalInputModifiers = TerminalInputModifiers(),
+    ) {
+        TerminalInteraction.encode(key, modifiers = modifiers, applicationCursor = applicationCursor)
+            ?.let(::send)
+    }
     private fun send(bytes: ByteArray) {
         if (acceptsInput && bytes.isNotEmpty()) onBytes(bytes)
     }
@@ -106,6 +128,7 @@ private class ControllerTerminalInputBridge(context: Context) : View(context) {
 fun ControllerTerminalInputView(
     enabled: Boolean,
     focusRequest: Long,
+    applicationCursor: Boolean,
     onBytes: (ByteArray) -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -116,6 +139,7 @@ fun ControllerTerminalInputView(
         update = {
             bridge[0] = it
             it.acceptsInput = enabled
+            it.applicationCursor = applicationCursor
             it.onBytes = onBytes
             if (!enabled) it.clearFocus()
         },

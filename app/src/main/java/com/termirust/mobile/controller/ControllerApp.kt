@@ -13,6 +13,7 @@ import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -31,6 +32,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -54,6 +57,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
@@ -482,22 +486,23 @@ private fun ControllerTerminalScreen(
     var focusRequest by remember { mutableStateOf(0L) }
     var controlModifier by remember { mutableStateOf(false) }
     var altModifier by remember { mutableStateOf(false) }
+    var showLinks by remember { mutableStateOf(false) }
     val clipboard = LocalClipboardManager.current
+    val uriHandler = LocalUriHandler.current
     val listState = rememberLazyListState()
     val lines = terminal.screen.lines
-    val cells = terminal.screen.cells
+    val cells = terminal.screen.contentCells
+    val urls = remember(lines) { TerminalInteraction.visibleHttpUrls(lines.joinToString("\n")) }
     val canInput = terminal.writerLease == WriterLeaseState.Held &&
         terminal.attachState == ReadOnlyAttachState.Live && !terminal.privacyCovered
-    val submitBytes: (ByteArray) -> Unit = { original ->
-        var bytes = original
-        if (controlModifier && bytes.size == 1) {
-            val value = bytes[0].toInt().toChar().uppercaseChar()
-            if (value in 'A'..'Z') bytes = byteArrayOf((value.code - 'A'.code + 1).toByte())
-        }
-        if (altModifier) bytes = byteArrayOf(0x1b) + bytes
+    val submitKey: (TerminalInputKey) -> Unit = { key ->
+        TerminalInteraction.encode(
+            key,
+            modifiers = TerminalInputModifiers(control = controlModifier, alt = altModifier),
+            applicationCursor = terminal.screen.applicationCursor,
+        )?.let(onBytes)
         controlModifier = false
         altModifier = false
-        onBytes(bytes)
     }
     LaunchedEffect(terminal.outputSequence, followOutput, lines.size) {
         if (followOutput && lines.isNotEmpty()) listState.scrollToItem(lines.lastIndex)
@@ -534,6 +539,27 @@ private fun ControllerTerminalScreen(
                                 else com.termirust.mobile.R.string.follow_output,
                             ),
                         )
+                    }
+                    if (urls.isNotEmpty()) {
+                        Box {
+                            TextButton(onClick = { showLinks = true }) {
+                                Text(stringResource(com.termirust.mobile.R.string.open_link))
+                            }
+                            DropdownMenu(
+                                expanded = showLinks,
+                                onDismissRequest = { showLinks = false },
+                            ) {
+                                urls.forEach { url ->
+                                    DropdownMenuItem(
+                                        text = { Text(url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                        onClick = {
+                                            showLinks = false
+                                            uriHandler.openUri(url)
+                                        },
+                                    )
+                                }
+                            }
+                        }
                     }
                     Spacer(Modifier.weight(1f))
                     when {
@@ -599,6 +625,7 @@ private fun ControllerTerminalScreen(
                                 fontFamily = FontFamily.Monospace,
                                 maxLines = 1,
                                 softWrap = false,
+                                modifier = Modifier.heightIn(min = 20.dp),
                             )
                         }
                     }
@@ -607,7 +634,8 @@ private fun ControllerTerminalScreen(
             ControllerTerminalInputView(
                 enabled = canInput,
                 focusRequest = focusRequest,
-                onBytes = submitBytes,
+                applicationCursor = terminal.screen.applicationCursor,
+                onBytes = onBytes,
                 modifier = Modifier.size(2.dp),
             )
             if (terminal.privacyCovered) {
@@ -633,14 +661,14 @@ private fun ControllerTerminalScreen(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    TerminalKey("Esc") { submitBytes(byteArrayOf(0x1b)) }
+                    TerminalKey("Esc") { submitKey(TerminalInputKey.ESCAPE) }
                     TerminalKey("Ctrl", selected = controlModifier) { controlModifier = !controlModifier }
                     TerminalKey("Alt", selected = altModifier) { altModifier = !altModifier }
-                    TerminalKey("Tab") { submitBytes(byteArrayOf('\t'.code.toByte())) }
-                    TerminalKey("←") { submitBytes("\u001b[D".encodeToByteArray()) }
-                    TerminalKey("↑") { submitBytes("\u001b[A".encodeToByteArray()) }
-                    TerminalKey("↓") { submitBytes("\u001b[B".encodeToByteArray()) }
-                    TerminalKey("→") { submitBytes("\u001b[C".encodeToByteArray()) }
+                    TerminalKey("Tab") { submitKey(TerminalInputKey.TAB) }
+                    TerminalKey("←") { submitKey(TerminalInputKey.LEFT) }
+                    TerminalKey("↑") { submitKey(TerminalInputKey.UP) }
+                    TerminalKey("↓") { submitKey(TerminalInputKey.DOWN) }
+                    TerminalKey("→") { submitKey(TerminalInputKey.RIGHT) }
                     TextButton(onClick = { clipboard.getText()?.text?.let(onPaste) }) {
                         Text(stringResource(com.termirust.mobile.R.string.paste))
                     }
@@ -689,7 +717,6 @@ private fun styledTerminalRow(cells: List<BoundedTerminalCell>): AnnotatedString
                 append(cell.text)
             }
         }
-        if (length == 0) append(" ")
     }
 
 private fun resolvedTerminalColors(
