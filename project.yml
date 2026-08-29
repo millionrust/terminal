@@ -12,6 +12,7 @@ targets:
       - TermiRustMobile/Controller
       - TermiRustMobile/Generated/TermiRustControllerSecurity.swift
       - TermiRustMobile/Models/ControllerModels.swift
+      - TermiRustMobile/Models/MobileRouteContract.swift
       - TermiRustMobile/Security/ControllerKeychainBlobStore.swift
       - TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
       - TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift
@@ -56,6 +57,7 @@ targets:
       - TermiRustMobileTests/TerminalConformanceV2Tests.swift
       - TermiRustMobileTests/TerminalInteractionTests.swift
       - TermiRustMobileTests/TerminalAcceptanceTests.swift
+      - TermiRustMobileTests/MobileRouteContractTests.swift
       - TermiRustMobileTests/UniversalSessionGoldenPathTests.swift
       - path: TermiRustMobileTests/Fixtures
         buildPhase: resources
