@@ -2,10 +2,13 @@ import SwiftUI
 
 struct ControllerReadOnlyTerminalView: View {
     @Environment(\.openURL) private var openURL
+    @Environment(\.dynamicTypeSize) private var dynamicTypeSize
     @ObservedObject var viewModel: ControllerTerminalViewModel
     let onClose: () -> Void
+    @AppStorage("controllerTerminalFontSize") private var terminalFontSize = 14.0
     @State private var followsOutput = true
     @State private var keyboardFocusRequest: UInt64 = 0
+    @State private var displayedTerminalFontSize = 14.0
 
     var body: some View {
         NavigationStack {
@@ -24,6 +27,25 @@ struct ControllerReadOnlyTerminalView: View {
                     }
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
+                    Menu {
+                        Button("Decrease Text Size", systemImage: "minus") {
+                            terminalFontSize = max(
+                                TerminalAcceptance.minimumFontSize,
+                                terminalFontSize - 1
+                            )
+                        }
+                        .disabled(terminalFontSize <= TerminalAcceptance.minimumFontSize)
+                        Button("Increase Text Size", systemImage: "plus") {
+                            terminalFontSize = min(
+                                TerminalAcceptance.maximumFontSize,
+                                terminalFontSize + 1
+                            )
+                        }
+                        .disabled(terminalFontSize >= TerminalAcceptance.maximumFontSize)
+                    } label: {
+                        Label("Terminal Text Size", systemImage: "textformat.size")
+                    }
+                    .accessibilityValue("\(Int(terminalFontSize)) points")
                     if !viewModel.visibleHTTPURLs.isEmpty {
                         Menu {
                             ForEach(viewModel.visibleHTTPURLs, id: \.absoluteString) { url in
@@ -111,70 +133,91 @@ struct ControllerReadOnlyTerminalView: View {
             Button("Release") { viewModel.releaseControl() }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .frame(minHeight: TerminalAcceptance.minimumTouchTarget)
                 .accessibilityHint("Returns this terminal to view-only mode")
         } else if viewModel.canRequestControl {
             Button("Request Control") { viewModel.requestControl() }
                 .buttonStyle(.borderedProminent)
                 .controlSize(.small)
+                .frame(minHeight: TerminalAcceptance.minimumTouchTarget)
                 .accessibilityHint("Requests the single writer lease for this exact session")
         }
         if showsRetry {
             Button("Retry") { viewModel.retry() }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
+                .frame(minHeight: TerminalAcceptance.minimumTouchTarget)
         }
     }
 
     private var terminalSurface: some View {
         GeometryReader { geometry in
-            ZStack(alignment: .bottomTrailing) {
-                ScrollViewReader { reader in
-                    ScrollView([.horizontal, .vertical]) {
-                        LazyVStack(alignment: .leading, spacing: 0) {
-                            if viewModel.screen.lines.allSatisfy(\.isEmpty) {
-                                Text(emptyText)
-                                    .foregroundStyle(Color.white.opacity(0.55))
-                                    .padding(16)
-                            } else {
-                                ForEach(
-                                    Array(viewModel.screen.contentCells.enumerated()),
-                                    id: \.offset
-                                ) { index, row in
-                                    Text(attributedRow(row))
-                                        .frame(minHeight: 15.5)
-                                        .id(index)
-                                }
-                            }
-                            Color.clear.frame(width: 1, height: 1).id("terminal-bottom")
-                        }
-                        .textSelection(.enabled)
-                        .padding(12)
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                    }
-                    .background(Color.black)
-                    .onChange(of: viewModel.renderRevision) { _, _ in
-                        guard followsOutput else { return }
-                        withAnimation(.none) {
-                            reader.scrollTo("terminal-bottom", anchor: .bottom)
-                        }
-                    }
-                }
-                ControllerTerminalInputView(
-                    enabled: viewModel.canSendInput,
-                    focusRequest: keyboardFocusRequest,
-                    applicationCursor: viewModel.screen.applicationCursor,
-                    onBytes: viewModel.sendKeyboardBytes,
-                    onPaste: viewModel.requestPaste
-                )
-                .frame(width: 2, height: 2)
-                .opacity(0.01)
-                .accessibilityHidden(!viewModel.canSendInput)
+            Group {
                 if viewModel.privacyCovered {
                     privacyCover
+                } else {
+                    ZStack(alignment: .bottomTrailing) {
+                        ScrollViewReader { reader in
+                            ScrollView([.horizontal, .vertical]) {
+                                LazyVStack(alignment: .leading, spacing: 0) {
+                                    if viewModel.screen.lines.allSatisfy(\.isEmpty) {
+                                        Text(emptyText)
+                                            .foregroundStyle(Color.white.opacity(0.55))
+                                            .padding(16)
+                                    } else {
+                                        ForEach(
+                                            Array(viewModel.screen.contentCells.enumerated()),
+                                            id: \.offset
+                                        ) { index, row in
+                                            Text(attributedRow(row))
+                                                .frame(
+                                                    minHeight: CGFloat(
+                                                        displayedTerminalFontSize * 1.35
+                                                    )
+                                                )
+                                                .id(index)
+                                        }
+                                    }
+                                    Color.clear.frame(width: 1, height: 1)
+                                        .id("terminal-bottom")
+                                }
+                                .textSelection(.enabled)
+                                .padding(12)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                            .background(Color.black)
+                            .accessibilityElement(children: .ignore)
+                            .accessibilityLabel("Terminal output for \(viewModel.sessionTitle)")
+                            .accessibilityValue(accessibleTerminalOutput)
+                            .accessibilityHint(
+                                followsOutput
+                                    ? "Following the latest output"
+                                    : "Output following is paused"
+                            )
+                            .onChange(of: viewModel.renderRevision) { _, _ in
+                                guard followsOutput else { return }
+                                withAnimation(.none) {
+                                    reader.scrollTo("terminal-bottom", anchor: .bottom)
+                                }
+                            }
+                        }
+                        ControllerTerminalInputView(
+                            enabled: viewModel.canSendInput,
+                            focusRequest: keyboardFocusRequest,
+                            applicationCursor: viewModel.screen.applicationCursor,
+                            onBytes: viewModel.sendKeyboardBytes,
+                            onPaste: viewModel.requestPaste
+                        )
+                        .frame(width: 2, height: 2)
+                        .opacity(0.01)
+                        .accessibilityHidden(!viewModel.canSendInput)
+                    }
                 }
             }
             .onAppear { updateViewport(for: geometry.size) }
             .onChange(of: geometry.size) { _, size in updateViewport(for: size) }
+            .onChange(of: terminalFontSize) { _, _ in updateViewport(for: geometry.size) }
+            .onChange(of: dynamicTypeSize) { _, _ in updateViewport(for: geometry.size) }
             .accessibilityElement(children: .contain)
         }
     }
@@ -211,9 +254,14 @@ struct ControllerReadOnlyTerminalView: View {
     }
 
     private func updateViewport(for size: CGSize) {
-        let columns = max(20, Int((size.width - 24) / 7.9))
-        let rows = max(5, Int((size.height - 24) / 15.5))
-        viewModel.updateViewport(columns: columns, rows: rows)
+        let layout = TerminalAcceptance.layout(
+            width: size.width,
+            height: size.height,
+            requestedFontSize: terminalFontSize,
+            textScale: terminalTextScale
+        )
+        displayedTerminalFontSize = layout.displayedFontSize
+        viewModel.updateViewport(columns: layout.columns, rows: layout.rows)
     }
 
     private func attributedRow(_ cells: [BoundedTerminalCell]) -> AttributedString {
@@ -223,7 +271,10 @@ struct ControllerReadOnlyTerminalView: View {
             let colors = resolvedColors(for: cell.style)
             segment.foregroundColor = colors.foreground
             segment.backgroundColor = colors.background
-            var font = Font.system(size: 13, design: .monospaced)
+            var font = Font.system(
+                size: CGFloat(displayedTerminalFontSize),
+                design: .monospaced
+            )
             if cell.style.bold { font = font.weight(.bold) }
             if cell.style.italic { font = font.italic() }
             segment.font = font
@@ -231,6 +282,26 @@ struct ControllerReadOnlyTerminalView: View {
             row.append(segment)
         }
         return row
+    }
+
+    private var accessibleTerminalOutput: String {
+        let output = TerminalAcceptance.accessibleOutput(lines: viewModel.screen.lines)
+        return output.isEmpty ? emptyText : output
+    }
+
+    private var terminalTextScale: Double {
+        switch dynamicTypeSize {
+        case .xSmall, .small, .medium, .large: 1
+        case .xLarge: 1.12
+        case .xxLarge: 1.24
+        case .xxxLarge: 1.35
+        case .accessibility1: 1.6
+        case .accessibility2: 1.8
+        case .accessibility3: 2
+        case .accessibility4: 2.2
+        case .accessibility5: 2.4
+        @unknown default: 1
+        }
     }
 
     private func resolvedColors(

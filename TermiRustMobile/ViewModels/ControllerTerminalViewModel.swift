@@ -208,12 +208,12 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     }
 
     func suspend() {
-        privacyCovered = true
+        let decision = TerminalAcceptance.backgroundDecision(writerHeld: writerLease == .held)
+        privacyCovered = decision.coverPrivacy
         resizeTask?.cancel()
         resizeTask = nil
-        pendingResize = nil
-        cancelPaste()
-        let held = writerLease == .held
+        if decision.clearPendingResize { pendingResize = nil }
+        if decision.clearPendingInput { cancelPaste() }
         writerReducer.setForeground(false)
         publishWriterState()
         let releaseID = UUID()
@@ -221,7 +221,7 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
         operation?.cancel()
         operation = nil
         Task { [connection, host, identity] in
-            if held {
+            if decision.releaseWriter {
                 try? await connection.releaseWriter(
                     host: host,
                     identity: identity,

@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		004842E2EB33142C220EBFA5 /* ControllerFleetCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = DC34F0E3B404895E7409A163 /* ControllerFleetCache.swift */; };
 		006FA436F83154FCB17E2A5E /* GeneratedTerminalCellWidth.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE5577D1581F88666316B5F0 /* GeneratedTerminalCellWidth.swift */; };
+		0187101A4F70C33D4E063D20 /* TerminalAcceptanceTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 296A8C3A317C5ECF8CB3439A /* TerminalAcceptanceTests.swift */; };
 		11DE6D4B812FCAB2549D352A /* terminal-conformance-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 8469494854C891EFB7A1F62A /* terminal-conformance-v1.json */; };
 		1496F409B977283CBB781841 /* TermiRustControllerSecurity.xcframework in Frameworks */ = {isa = PBXBuildFile; fileRef = BFCBCA3644B906F6E55A4C86 /* TermiRustControllerSecurity.xcframework */; };
 		175706732C642F24060F71D5 /* ControllerReadOnlyTerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8AE2126D151AC4C903C6094B /* ControllerReadOnlyTerminalView.swift */; };
@@ -18,6 +19,7 @@
 		4554DFF015C84A481D396F06 /* ControllerWriterControl.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8836B5648A2FB0D8897C5F7D /* ControllerWriterControl.swift */; };
 		4DE7BEE9BED018F20891B4B9 /* ControllerViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = EA020905FCA3B0895422D575 /* ControllerViewModel.swift */; };
 		5B6E6EF3C90E8AD989362F7D /* TerminalInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 340634489256C66C5BA35498 /* TerminalInteractionTests.swift */; };
+		635BC172E2D861D53D25D06A /* terminal-acceptance-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 59FF87EDAB4C4C33227940A4 /* terminal-acceptance-v1.json */; };
 		68F2ADF8D554D3C7E8E43446 /* ControllerRootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A4808B8FAD8D18B154844FEB /* ControllerRootView.swift */; };
 		79A6A8B2381FB2C9319EFD99 /* ControllerReadOnlyAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = C71FF821F9BC71B9C9F14692 /* ControllerReadOnlyAttach.swift */; };
 		7A740E922F044472CD76815E /* controller-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 26B5CDEA33B10C29FDE1E103 /* controller-v1.json */; };
@@ -30,6 +32,7 @@
 		A414E1BCA5235F102E33F6A8 /* ControllerTerminalViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 02192D208584BF947DEC5276 /* ControllerTerminalViewModelTests.swift */; };
 		AE436BA7DDF91FD54C091DD6 /* PairedHostStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0BFF20F68CB9FD0EEA4534F9 /* PairedHostStore.swift */; };
 		BE4EBED45208D33F158CBC33 /* TerminalConformanceV1Tests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6613EB256CEB11627A9B8B66 /* TerminalConformanceV1Tests.swift */; };
+		C2A05DA308882B343BC98D3B /* TerminalAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = FCD2AA45226B7A2132C61464 /* TerminalAcceptance.swift */; };
 		C5BAA9DE89A477E8EDBF6395 /* terminal-conformance-v2.json in Resources */ = {isa = PBXBuildFile; fileRef = 10648273CFCFBD06CD01ACA3 /* terminal-conformance-v2.json */; };
 		CA1638BF93C47BE16A206B13 /* ControllerReadOnlyTerminalTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 39F2ECD181B74FAB21D7A682 /* ControllerReadOnlyTerminalTests.swift */; };
 		CAAF48322DB451D14F70287D /* UniversalSessionGoldenPathTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = ED017EE6CA078EB56D2B75D9 /* UniversalSessionGoldenPathTests.swift */; };
@@ -67,12 +70,14 @@
 		1EB20052E78613D8BC81E141 /* ControllerWriterTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerWriterTests.swift; sourceTree = "<group>"; };
 		211167AA57A499461175EBFA /* BoundedTerminalBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTerminalBuffer.swift; sourceTree = "<group>"; };
 		26B5CDEA33B10C29FDE1E103 /* controller-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "controller-v1.json"; sourceTree = "<group>"; };
+		296A8C3A317C5ECF8CB3439A /* TerminalAcceptanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAcceptanceTests.swift; sourceTree = "<group>"; };
 		2BE28279348591AEB341AE8D /* TermiRustControllerSecurity.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TermiRustControllerSecurity.swift; sourceTree = "<group>"; };
 		340634489256C66C5BA35498 /* TerminalInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalInteractionTests.swift; sourceTree = "<group>"; };
 		39F2ECD181B74FAB21D7A682 /* ControllerReadOnlyTerminalTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerReadOnlyTerminalTests.swift; sourceTree = "<group>"; };
 		3D3E11BE5BC0BF55360124E4 /* ControllerTerminalInputView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerTerminalInputView.swift; sourceTree = "<group>"; };
 		45ADAEE8F8C761105B93C634 /* ControllerTerminalViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerTerminalViewModel.swift; sourceTree = "<group>"; };
 		4B61FB3E50D5A511492D5C02 /* ControllerPairingFleetTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerPairingFleetTests.swift; sourceTree = "<group>"; };
+		59FF87EDAB4C4C33227940A4 /* terminal-acceptance-v1.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = "terminal-acceptance-v1.json"; sourceTree = "<group>"; };
 		65E63E0CD0058EC2B95291EA /* ControllerModels.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerModels.swift; sourceTree = "<group>"; };
 		6613EB256CEB11627A9B8B66 /* TerminalConformanceV1Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConformanceV1Tests.swift; sourceTree = "<group>"; };
 		71E5A5A35F189CA5BC2F20B5 /* ControllerConnectionActor.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerConnectionActor.swift; sourceTree = "<group>"; };
@@ -96,6 +101,7 @@
 		EB1F176CEE7530958483AE9D /* TerminalConformanceV2Tests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalConformanceV2Tests.swift; sourceTree = "<group>"; };
 		ED017EE6CA078EB56D2B75D9 /* UniversalSessionGoldenPathTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UniversalSessionGoldenPathTests.swift; sourceTree = "<group>"; };
 		F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BoundedTerminalBufferTests.swift; sourceTree = "<group>"; };
+		FCD2AA45226B7A2132C61464 /* TerminalAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalAcceptance.swift; sourceTree = "<group>"; };
 		FE5577D1581F88666316B5F0 /* GeneratedTerminalCellWidth.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GeneratedTerminalCellWidth.swift; sourceTree = "<group>"; };
 		FEEB51D37AAC5C3B9050E6F0 /* TermiRustMobileTests.xctest */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.cfbundle; path = TermiRustMobileTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
@@ -175,6 +181,7 @@
 			children = (
 				211167AA57A499461175EBFA /* BoundedTerminalBuffer.swift */,
 				FE5577D1581F88666316B5F0 /* GeneratedTerminalCellWidth.swift */,
+				FCD2AA45226B7A2132C61464 /* TerminalAcceptance.swift */,
 				1E45128AD706AEC225C1F294 /* TerminalInteraction.swift */,
 			);
 			name = Terminal;
@@ -213,6 +220,7 @@
 				39F2ECD181B74FAB21D7A682 /* ControllerReadOnlyTerminalTests.swift */,
 				02192D208584BF947DEC5276 /* ControllerTerminalViewModelTests.swift */,
 				1EB20052E78613D8BC81E141 /* ControllerWriterTests.swift */,
+				296A8C3A317C5ECF8CB3439A /* TerminalAcceptanceTests.swift */,
 				6613EB256CEB11627A9B8B66 /* TerminalConformanceV1Tests.swift */,
 				EB1F176CEE7530958483AE9D /* TerminalConformanceV2Tests.swift */,
 				340634489256C66C5BA35498 /* TerminalInteractionTests.swift */,
@@ -225,6 +233,7 @@
 			isa = PBXGroup;
 			children = (
 				26B5CDEA33B10C29FDE1E103 /* controller-v1.json */,
+				59FF87EDAB4C4C33227940A4 /* terminal-acceptance-v1.json */,
 				8469494854C891EFB7A1F62A /* terminal-conformance-v1.json */,
 				10648273CFCFBD06CD01ACA3 /* terminal-conformance-v2.json */,
 				9602C2DB16DA29C6C9736CE0 /* terminal-interaction-v1.json */,
@@ -349,6 +358,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				7A740E922F044472CD76815E /* controller-v1.json in Resources */,
+				635BC172E2D861D53D25D06A /* terminal-acceptance-v1.json in Resources */,
 				11DE6D4B812FCAB2549D352A /* terminal-conformance-v1.json in Resources */,
 				C5BAA9DE89A477E8EDBF6395 /* terminal-conformance-v2.json in Resources */,
 				D6786F14C3494923A91388A9 /* terminal-interaction-v1.json in Resources */,
@@ -378,6 +388,7 @@
 				CA1638BF93C47BE16A206B13 /* ControllerReadOnlyTerminalTests.swift in Sources */,
 				A414E1BCA5235F102E33F6A8 /* ControllerTerminalViewModelTests.swift in Sources */,
 				9EA398E918762D8923338E08 /* ControllerWriterTests.swift in Sources */,
+				0187101A4F70C33D4E063D20 /* TerminalAcceptanceTests.swift in Sources */,
 				BE4EBED45208D33F158CBC33 /* TerminalConformanceV1Tests.swift in Sources */,
 				D1DA172736D59EED427F817E /* TerminalConformanceV2Tests.swift in Sources */,
 				5B6E6EF3C90E8AD989362F7D /* TerminalInteractionTests.swift in Sources */,
@@ -408,6 +419,7 @@
 				AE436BA7DDF91FD54C091DD6 /* PairedHostStore.swift in Sources */,
 				E6B48065F3DFFAE60DF55301 /* TermiRustControllerSecurity.swift in Sources */,
 				2B24DEAFB6911BFC68CC526D /* TermiRustMobileApp.swift in Sources */,
+				C2A05DA308882B343BC98D3B /* TerminalAcceptance.swift in Sources */,
 				7F3B1423EA45161ABAA62A33 /* TerminalInteraction.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
