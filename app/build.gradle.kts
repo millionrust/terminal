@@ -28,8 +28,8 @@ android {
         create("legacyDirectSsh") {
             dimension = "mode"
             applicationIdSuffix = ".legacy"
-            versionNameSuffix = "-legacy"
-            manifestPlaceholders["appLabel"] = "Legacy Direct SSH - not Host sessions"
+            versionNameSuffix = "-direct-ssh-dev"
+            manifestPlaceholders["appLabel"] = "Direct SSH Compatibility (Development Only)"
         }
     }
 
