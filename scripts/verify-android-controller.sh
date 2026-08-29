@@ -8,7 +8,7 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --stage) STAGE=${2:-}; shift 2 ;;
     --avd) AVD=${2:-}; shift 2 ;;
-    *) echo "usage: $0 --stage pairing-fleet|readonly-terminal|writer-controls|terminal-conformance|terminal-interaction|universal-session [--avd name]" >&2; exit 2 ;;
+    *) echo "usage: $0 --stage pairing-fleet|readonly-terminal|writer-controls|terminal-conformance|terminal-interaction|terminal-acceptance|universal-session [--avd name]" >&2; exit 2 ;;
   esac
 done
 
@@ -18,6 +18,7 @@ case "$STAGE" in
   writer-controls) FILTER='*ControllerWriterTest' ;;
   terminal-conformance) FILTER='*TerminalConformanceV*Test' ;;
   terminal-interaction) FILTER='*TerminalInteractionTest' ;;
+  terminal-acceptance) FILTER='*TerminalAcceptanceTest' ;;
   universal-session) FILTER='*UniversalSessionGoldenPathTest' ;;
   *) echo "a valid --stage is required" >&2; exit 2 ;;
 esac
@@ -25,11 +26,17 @@ esac
 cd "$ROOT"
 export ANDROID_HOME=${ANDROID_HOME:-"$HOME/Library/Android/sdk"}
 ./gradlew testControllerDebugUnitTest --tests "$FILTER" --console=plain
-if [ "$STAGE" = "terminal-interaction" ]; then
+if [ "$STAGE" = "terminal-interaction" ] || [ "$STAGE" = "terminal-acceptance" ]; then
   ./gradlew testControllerDebugUnitTest \
     --tests '*TerminalConformanceV*Test' \
     --tests '*ControllerReadOnlyTerminalTest' \
     --tests '*ControllerWriterTest' \
+    --console=plain
+fi
+if [ "$STAGE" = "terminal-acceptance" ]; then
+  ./gradlew testControllerDebugUnitTest \
+    --tests '*TerminalAcceptanceTest' \
+    --tests '*TerminalInteractionTest' \
     --console=plain
 fi
 ./scripts/verify-android-no-legacy-ssh.sh --variant controllerDebug

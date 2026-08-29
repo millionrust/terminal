@@ -57,7 +57,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
@@ -71,7 +74,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.text.withStyle
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
@@ -487,14 +492,41 @@ private fun ControllerTerminalScreen(
     var controlModifier by remember { mutableStateOf(false) }
     var altModifier by remember { mutableStateOf(false) }
     var showLinks by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+    val density = LocalDensity.current
+    val terminalPreferences = remember(context) {
+        context.getSharedPreferences("controller_terminal", android.content.Context.MODE_PRIVATE)
+    }
+    var terminalFontSize by remember {
+        mutableStateOf(
+            terminalPreferences.getFloat("font_size", 14f).toDouble().coerceIn(
+                TerminalAcceptance.MINIMUM_FONT_SIZE,
+                TerminalAcceptance.MAXIMUM_FONT_SIZE,
+            ),
+        )
+    }
     val clipboard = LocalClipboardManager.current
     val uriHandler = LocalUriHandler.current
     val listState = rememberLazyListState()
     val lines = terminal.screen.lines
     val cells = terminal.screen.contentCells
     val urls = remember(lines) { TerminalInteraction.visibleHttpUrls(lines.joinToString("\n")) }
+    var terminalSurfaceSize by remember { mutableStateOf(IntSize.Zero) }
+    val privacyAccessibility = stringResource(com.termirust.mobile.R.string.terminal_privacy_accessibility)
+    val terminalOutputAccessibility = stringResource(
+        com.termirust.mobile.R.string.terminal_output_accessibility,
+        terminal.sessionTitle,
+        TerminalAcceptance.accessibleOutput(lines),
+    )
     val canInput = terminal.writerLease == WriterLeaseState.Held &&
         terminal.attachState == ReadOnlyAttachState.Live && !terminal.privacyCovered
+    fun setTerminalFontSize(value: Double) {
+        terminalFontSize = value.coerceIn(
+            TerminalAcceptance.MINIMUM_FONT_SIZE,
+            TerminalAcceptance.MAXIMUM_FONT_SIZE,
+        )
+        terminalPreferences.edit().putFloat("font_size", terminalFontSize.toFloat()).apply()
+    }
     val submitKey: (TerminalInputKey) -> Unit = { key ->
         TerminalInteraction.encode(
             key,
@@ -507,93 +539,138 @@ private fun ControllerTerminalScreen(
     LaunchedEffect(terminal.outputSequence, followOutput, lines.size) {
         if (followOutput && lines.isNotEmpty()) listState.scrollToItem(lines.lastIndex)
     }
+    LaunchedEffect(terminalSurfaceSize, terminalFontSize, density.fontScale) {
+        if (terminalSurfaceSize == IntSize.Zero) return@LaunchedEffect
+        val layout = TerminalAcceptance.layout(
+            width = with(density) { terminalSurfaceSize.width.toDp().value.toDouble() },
+            height = with(density) { terminalSurfaceSize.height.toDp().value.toDouble() },
+            requestedFontSize = terminalFontSize,
+            textScale = density.fontScale.toDouble(),
+        )
+        onViewportChanged(layout.columns, layout.rows)
+    }
     Column(Modifier.fillMaxSize().background(androidx.compose.ui.graphics.Color.Black)) {
         Surface(color = MaterialTheme.colorScheme.surfaceVariant) {
-            Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                ) {
-                    AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
-                    Column(Modifier.weight(1f)) {
+            BoxWithConstraints {
+                val compactStatus = maxWidth < 600.dp || density.fontScale >= 1.6f
+                Column(Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp)) {
+                    if (compactStatus) {
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                        ) {
+                            AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
+                            Text(
+                                stringResource(com.termirust.mobile.R.string.terminal_sequence, terminal.outputSequence),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                        }
                         Text(isolated(terminal.sessionTitle), fontWeight = FontWeight.SemiBold, maxLines = 1)
                         Text(
                             "${isolated(terminal.hostTitle)} · ${terminalStatus(terminal)}",
                             style = MaterialTheme.typography.labelSmall,
                         )
-                    }
-                    Text(
-                        stringResource(com.termirust.mobile.R.string.terminal_sequence, terminal.outputSequence),
-                        style = MaterialTheme.typography.labelSmall,
-                        fontFamily = FontFamily.Monospace,
-                    )
-                }
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                ) {
-                    TextButton(onClick = { followOutput = !followOutput }) {
-                        Text(
-                            stringResource(
-                                if (followOutput) com.termirust.mobile.R.string.following_output
-                                else com.termirust.mobile.R.string.follow_output,
-                            ),
-                        )
-                    }
-                    if (urls.isNotEmpty()) {
-                        Box {
-                            TextButton(onClick = { showLinks = true }) {
-                                Text(stringResource(com.termirust.mobile.R.string.open_link))
+                    } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        ) {
+                            AssistChip(onClick = {}, label = { Text(writerLabel(terminal)) })
+                            Column(Modifier.weight(1f)) {
+                                Text(isolated(terminal.sessionTitle), fontWeight = FontWeight.SemiBold, maxLines = 1)
+                                Text(
+                                    "${isolated(terminal.hostTitle)} · ${terminalStatus(terminal)}",
+                                    style = MaterialTheme.typography.labelSmall,
+                                )
                             }
-                            DropdownMenu(
-                                expanded = showLinks,
-                                onDismissRequest = { showLinks = false },
-                            ) {
-                                urls.forEach { url ->
-                                    DropdownMenuItem(
-                                        text = { Text(url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
-                                        onClick = {
-                                            showLinks = false
-                                            uriHandler.openUri(url)
-                                        },
-                                    )
+                            Text(
+                                stringResource(com.termirust.mobile.R.string.terminal_sequence, terminal.outputSequence),
+                                style = MaterialTheme.typography.labelSmall,
+                                fontFamily = FontFamily.Monospace,
+                            )
+                        }
+                    }
+                    Row(
+                        Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        TextButton(onClick = { followOutput = !followOutput }) {
+                            Text(
+                                stringResource(
+                                    if (followOutput) com.termirust.mobile.R.string.following_output
+                                    else com.termirust.mobile.R.string.follow_output,
+                                ),
+                            )
+                        }
+                        if (urls.isNotEmpty()) {
+                            Box {
+                                TextButton(onClick = { showLinks = true }) {
+                                    Text(stringResource(com.termirust.mobile.R.string.open_link))
+                                }
+                                DropdownMenu(
+                                    expanded = showLinks,
+                                    onDismissRequest = { showLinks = false },
+                                ) {
+                                    urls.forEach { url ->
+                                        DropdownMenuItem(
+                                            text = { Text(url, maxLines = 1, overflow = TextOverflow.Ellipsis) },
+                                            onClick = {
+                                                showLinks = false
+                                                uriHandler.openUri(url)
+                                            },
+                                        )
+                                    }
                                 }
                             }
                         }
-                    }
-                    Spacer(Modifier.weight(1f))
-                    when {
-                        terminal.writerLease == WriterLeaseState.Held ->
-                            OutlinedButton(onClick = onReleaseControl) {
-                                Text(stringResource(com.termirust.mobile.R.string.release_control))
+                        TerminalKey(
+                            "A-",
+                            accessibilityLabel = stringResource(com.termirust.mobile.R.string.decrease_terminal_text),
+                        ) { setTerminalFontSize(terminalFontSize - 1) }
+                        TerminalKey(
+                            "A+",
+                            accessibilityLabel = stringResource(com.termirust.mobile.R.string.increase_terminal_text),
+                        ) { setTerminalFontSize(terminalFontSize + 1) }
+                        when {
+                            terminal.writerLease == WriterLeaseState.Held ->
+                                OutlinedButton(onClick = onReleaseControl) {
+                                    Text(stringResource(com.termirust.mobile.R.string.release_control))
+                                }
+                            terminal.supportsWriter && terminal.attachState == ReadOnlyAttachState.Live &&
+                                terminal.writerLease !is WriterLeaseState.Requesting ->
+                                Button(onClick = onRequestControl) {
+                                    Text(stringResource(com.termirust.mobile.R.string.request_control))
+                                }
+                        }
+                        if (terminal.attachState is ReadOnlyAttachState.Offline ||
+                            terminal.attachState is ReadOnlyAttachState.Gap ||
+                            terminal.attachState is ReadOnlyAttachState.Failed
+                        ) {
+                            OutlinedButton(onClick = onRetry) {
+                                Text(stringResource(com.termirust.mobile.R.string.retry))
                             }
-                        terminal.supportsWriter && terminal.attachState == ReadOnlyAttachState.Live &&
-                            terminal.writerLease !is WriterLeaseState.Requesting ->
-                            Button(onClick = onRequestControl) {
-                                Text(stringResource(com.termirust.mobile.R.string.request_control))
-                            }
+                        }
                     }
-                    if (terminal.attachState is ReadOnlyAttachState.Offline ||
-                        terminal.attachState is ReadOnlyAttachState.Gap ||
-                        terminal.attachState is ReadOnlyAttachState.Failed
-                    ) OutlinedButton(onClick = onRetry) { Text(stringResource(com.termirust.mobile.R.string.retry)) }
-                }
-                if (terminal.screen.truncation != null) {
-                    Text(
-                        stringResource(com.termirust.mobile.R.string.terminal_truncated),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                terminal.writerMessage?.let { code ->
-                    Text(
-                        stringResource(
-                            com.termirust.mobile.R.string.terminal_control_warning,
-                            writerMessage(code),
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
+                    if (terminal.screen.truncation != null) {
+                        Text(
+                            stringResource(com.termirust.mobile.R.string.terminal_truncated),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    terminal.writerMessage?.let { code ->
+                        Text(
+                            stringResource(
+                                com.termirust.mobile.R.string.terminal_control_warning,
+                                writerMessage(code),
+                            ),
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
                 }
             }
         }
@@ -601,46 +678,16 @@ private fun ControllerTerminalScreen(
             Modifier
                 .weight(1f)
                 .fillMaxWidth()
-                .onSizeChanged { size ->
-                    val columns = (size.width / 8).coerceIn(20, 400)
-                    val rows = (size.height / 20).coerceIn(5, 200)
-                    onViewportChanged(columns, rows)
-                },
+                .onSizeChanged { terminalSurfaceSize = it },
         ) {
-            if (lines.all(String::isEmpty)) {
-                Text(
-                    terminalEmptyText(terminal.attachState),
-                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.62f),
-                    modifier = Modifier.padding(16.dp),
-                )
-            } else {
-                SelectionContainer {
-                    LazyColumn(
-                        state = listState,
-                        modifier = Modifier.fillMaxSize().padding(12.dp),
-                    ) {
-                        items(cells.size) { index ->
-                            Text(
-                                styledTerminalRow(cells[index]),
-                                fontFamily = FontFamily.Monospace,
-                                maxLines = 1,
-                                softWrap = false,
-                                modifier = Modifier.heightIn(min = 20.dp),
-                            )
-                        }
-                    }
-                }
-            }
-            ControllerTerminalInputView(
-                enabled = canInput,
-                focusRequest = focusRequest,
-                applicationCursor = terminal.screen.applicationCursor,
-                onBytes = onBytes,
-                modifier = Modifier.size(2.dp),
-            )
             if (terminal.privacyCovered) {
                 Box(
-                    Modifier.fillMaxSize().background(MaterialTheme.colorScheme.background),
+                    Modifier
+                        .fillMaxSize()
+                        .background(MaterialTheme.colorScheme.background)
+                        .clearAndSetSemantics {
+                            contentDescription = privacyAccessibility
+                        },
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(
@@ -649,6 +696,47 @@ private fun ControllerTerminalScreen(
                         modifier = Modifier.padding(24.dp),
                     )
                 }
+            } else if (lines.all(String::isEmpty)) {
+                Text(
+                    terminalEmptyText(terminal.attachState),
+                    color = androidx.compose.ui.graphics.Color.White.copy(alpha = 0.62f),
+                    modifier = Modifier.padding(16.dp),
+                )
+            } else {
+                Box(
+                    Modifier.fillMaxSize().clearAndSetSemantics {
+                        contentDescription = terminalOutputAccessibility
+                    },
+                ) {
+                    SelectionContainer {
+                        LazyColumn(
+                            state = listState,
+                            modifier = Modifier.fillMaxSize().padding(12.dp),
+                        ) {
+                            items(cells.size) { index ->
+                                Text(
+                                    styledTerminalRow(cells[index]),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = terminalFontSize.sp,
+                                    maxLines = 1,
+                                    softWrap = false,
+                                    modifier = Modifier.heightIn(
+                                        min = (terminalFontSize * density.fontScale * 1.35).dp,
+                                    ),
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+            if (!terminal.privacyCovered) {
+                ControllerTerminalInputView(
+                    enabled = canInput,
+                    focusRequest = focusRequest,
+                    applicationCursor = terminal.screen.applicationCursor,
+                    onBytes = onBytes,
+                    modifier = Modifier.size(2.dp),
+                )
             }
         }
         if (canInput) {
@@ -770,17 +858,25 @@ private fun ansiColor(index: Int): androidx.compose.ui.graphics.Color {
 }
 
 @Composable
-private fun TerminalKey(label: String, selected: Boolean = false, onClick: () -> Unit) {
+private fun TerminalKey(
+    label: String,
+    selected: Boolean = false,
+    accessibilityLabel: String = label,
+    onClick: () -> Unit,
+) {
+    val modifier = Modifier
+        .size(width = 48.dp, height = 48.dp)
+        .semantics { contentDescription = accessibilityLabel }
     if (selected) {
         Button(
             onClick = onClick,
-            modifier = Modifier.size(width = 48.dp, height = 48.dp),
+            modifier = modifier,
             contentPadding = PaddingValues(0.dp),
         ) { Text(label) }
     } else {
         OutlinedButton(
             onClick = onClick,
-            modifier = Modifier.size(width = 48.dp, height = 48.dp),
+            modifier = modifier,
             contentPadding = PaddingValues(0.dp),
         ) { Text(label) }
     }

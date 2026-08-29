@@ -85,6 +85,10 @@
     <string name="terminal_render_failed">Terminal output could not be rendered safely.</string>
     <string name="terminal_no_output">No terminal output.</string>
     <string name="terminal_privacy_cover">Terminal hidden while TermiRust is inactive</string>
+    <string name="terminal_privacy_accessibility">Terminal content hidden for privacy</string>
+    <string name="terminal_output_accessibility">Terminal output for %1$s. %2$s</string>
+    <string name="decrease_terminal_text">Decrease terminal text size</string>
+    <string name="increase_terminal_text">Increase terminal text size</string>
     <string name="terminal_truncated">Older or oversized output was truncated at the local safety limit.</string>
     <string name="monitor_session">Monitor session %1$s</string>
     <string name="request_control">Request Control</string>

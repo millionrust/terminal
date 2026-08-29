@@ -124,12 +124,18 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     fun onBackground() {
         operation?.cancel()
         terminalRuntime?.let { runtime ->
-            val held = runtime.writer.lease == WriterLeaseState.Held
+            val decision = TerminalAcceptance.backgroundDecision(
+                runtime.writer.lease == WriterLeaseState.Held,
+            )
+            terminalResize?.cancel()
+            terminalResize = null
+            if (decision.clearPendingResize) runtime.pendingResize = null
+            if (decision.clearPendingInput) runtime.pendingPaste = null
             runtime.writer.setForeground(false)
             runtime.reducer.markOffline()
-            publishTerminal(runtime, privacyCovered = true)
+            publishTerminal(runtime, privacyCovered = decision.coverPrivacy)
             operation = viewModelScope.launch {
-                releaseWriterForLifecycle(runtime, held)
+                releaseWriterForLifecycle(runtime, decision.releaseWriter)
                 connection.cancel()
             }
             return
