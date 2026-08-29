@@ -49,6 +49,7 @@ targets:
       - TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift
       - TermiRustMobileTests/ControllerTerminalViewModelTests.swift
       - TermiRustMobileTests/ControllerWriterTests.swift
+      - TermiRustMobileTests/TerminalConformanceV1Tests.swift
       - TermiRustMobileTests/UniversalSessionGoldenPathTests.swift
       - path: TermiRustMobileTests/Fixtures
         buildPhase: resources

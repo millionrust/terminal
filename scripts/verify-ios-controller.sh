@@ -17,14 +17,14 @@ while [[ $# -gt 0 ]]; do
       shift
       ;;
     *)
-      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls|universal-session [--require-runtime]\n' "$0" >&2
+      printf 'Usage: %s --stage pairing-fleet|readonly-terminal|writer-controls|terminal-conformance|universal-session [--require-runtime]\n' "$0" >&2
       exit 2
       ;;
   esac
 done
 
-[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]] || {
-  printf 'Stage must be pairing-fleet, readonly-terminal, writer-controls, or universal-session.\n' >&2
+[[ "$STAGE" == "pairing-fleet" || "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "terminal-conformance" || "$STAGE" == "universal-session" ]] || {
+  printf 'Stage must be pairing-fleet, readonly-terminal, writer-controls, terminal-conformance, or universal-session.\n' >&2
   exit 2
 }
 
@@ -86,13 +86,17 @@ RUNTIME_TESTS=(
   -only-testing:TermiRustMobileTests/ControllerPairingFleetTests
   -only-testing:TermiRustMobileTests/ControllerFleetCacheTests
 )
-if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]]; then
+if [[ "$STAGE" == "readonly-terminal" || "$STAGE" == "writer-controls" || "$STAGE" == "terminal-conformance" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerReadOnlyTerminalTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/BoundedTerminalBufferTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/ControllerTerminalViewModelTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerReadOnlyTerminalTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/BoundedTerminalBufferTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/ControllerTerminalViewModelTests)
+fi
+if [[ "$STAGE" == "terminal-conformance" ]]; then
+  TEST_SOURCES+=(TermiRustMobileTests/TerminalConformanceV1Tests.swift)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/TerminalConformanceV1Tests)
 fi
 if [[ "$STAGE" == "writer-controls" || "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/ControllerWriterTests.swift)
@@ -130,6 +134,18 @@ xcrun swiftc \
 
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
 git diff --check
+
+if [[ "$STAGE" == "terminal-conformance" ]]; then
+  xcrun swiftc \
+    -swift-version 6 \
+    -strict-concurrency=complete \
+    TermiRustMobile/Controller/ControllerReadOnlyAttach.swift \
+    TermiRustMobile/Terminal/BoundedTerminalBuffer.swift \
+    scripts/terminal-conformance-v1.swift \
+    -o "$TEMP_MODULE/terminal-conformance-v1"
+  "$TEMP_MODULE/terminal-conformance-v1" \
+    TermiRustMobileTests/Fixtures/terminal-conformance-v1.json
+fi
 
 SIMULATOR_NAME="$(
   xcrun simctl list devices available 2>/dev/null \

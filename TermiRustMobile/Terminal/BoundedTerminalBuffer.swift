@@ -10,6 +10,20 @@ enum TerminalTruncationReason: Equatable, Sendable {
     case modelLimit
 }
 
+enum TerminalMouseMode: String, Equatable, Sendable {
+    case none
+    case press
+    case pressRelease = "press_release"
+    case buttonMotion = "button_motion"
+    case anyMotion = "any_motion"
+}
+
+enum TerminalMouseEncoding: String, Equatable, Sendable {
+    case `default`
+    case utf8
+    case sgr
+}
+
 struct BoundedTerminalSnapshot: Equatable, Sendable {
     let lines: [String]
     let cursorRow: Int
@@ -17,6 +31,13 @@ struct BoundedTerminalSnapshot: Equatable, Sendable {
     let retainedCells: Int
     let accountedBytes: Int
     let truncation: TerminalTruncationReason?
+    let cursorVisible: Bool
+    let applicationCursor: Bool
+    let alternateScreen: Bool
+    let bracketedPaste: Bool
+    let mouseMode: TerminalMouseMode
+    let mouseEncoding: TerminalMouseEncoding
+    let scrollbackRows: Int
 }
 
 struct BoundedTerminalBuffer: Sendable {
@@ -25,6 +46,16 @@ struct BoundedTerminalBuffer: Sendable {
         case escape
         case csi([UInt8])
         case osc(count: Int, escapePending: Bool)
+    }
+
+    private struct StoredScreen: Sendable {
+        let rows: [[String]]
+        let cursorRow: Int
+        let cursorColumn: Int
+        let savedCursor: (row: Int, column: Int)
+        let retainedCellCount: Int
+        let graphemeByteCount: Int
+        let styleByteCount: Int
     }
 
     private let limits: TerminalLimits
@@ -39,6 +70,13 @@ struct BoundedTerminalBuffer: Sendable {
     private var graphemeByteCount = 0
     private var styleByteCount = 0
     private(set) var truncation: TerminalTruncationReason?
+    private var primaryScreen: StoredScreen?
+    private var cursorVisible = true
+    private var applicationCursor = false
+    private var alternateScreen = false
+    private var bracketedPaste = false
+    private var mouseMode = TerminalMouseMode.none
+    private var mouseEncoding = TerminalMouseEncoding.default
 
     init(
         viewport: TerminalViewportState,
@@ -64,6 +102,13 @@ struct BoundedTerminalBuffer: Sendable {
         graphemeByteCount = 0
         styleByteCount = 0
         truncation = nil
+        primaryScreen = nil
+        cursorVisible = true
+        applicationCursor = false
+        alternateScreen = false
+        bracketedPaste = false
+        mouseMode = .none
+        mouseEncoding = .default
     }
 
     mutating func resize(_ viewport: TerminalViewportState) throws {
@@ -97,11 +142,18 @@ struct BoundedTerminalBuffer: Sendable {
     func snapshot() -> BoundedTerminalSnapshot {
         BoundedTerminalSnapshot(
             lines: rows.map { $0.joined() },
-            cursorRow: cursorRow,
+            cursorRow: max(0, cursorRow - scrollbackRows),
             cursorColumn: cursorColumn,
             retainedCells: retainedCellCount,
             accountedBytes: accountedBytes,
-            truncation: truncation
+            truncation: truncation,
+            cursorVisible: cursorVisible,
+            applicationCursor: applicationCursor,
+            alternateScreen: alternateScreen,
+            bracketedPaste: bracketedPaste,
+            mouseMode: mouseMode,
+            mouseEncoding: mouseEncoding,
+            scrollbackRows: scrollbackRows
         )
     }
 
@@ -254,8 +306,96 @@ struct BoundedTerminalBuffer: Sendable {
         case 0x75:
             cursorRow = min(savedCursor.row, rows.count - 1)
             cursorColumn = min(savedCursor.column, viewport.columns - 1)
+        case 0x68 where bytes.first == 0x3F:
+            setPrivateModes(parameters, enabled: true)
+        case 0x6C where bytes.first == 0x3F:
+            setPrivateModes(parameters, enabled: false)
         default: break
         }
+    }
+
+    private mutating func setPrivateModes(_ modes: [Int], enabled: Bool) {
+        for mode in modes {
+            switch mode {
+            case 1:
+                applicationCursor = enabled
+            case 9:
+                updateMouseMode(.press, enabled: enabled)
+            case 25:
+                cursorVisible = enabled
+            case 1000:
+                updateMouseMode(.pressRelease, enabled: enabled)
+            case 1002:
+                updateMouseMode(.buttonMotion, enabled: enabled)
+            case 1003:
+                updateMouseMode(.anyMotion, enabled: enabled)
+            case 1005:
+                updateMouseEncoding(.utf8, enabled: enabled)
+            case 1006:
+                updateMouseEncoding(.sgr, enabled: enabled)
+            case 1049:
+                if enabled { enterAlternateScreen() } else { leaveAlternateScreen() }
+            case 2004:
+                bracketedPaste = enabled
+            default:
+                break
+            }
+        }
+    }
+
+    private mutating func updateMouseMode(_ mode: TerminalMouseMode, enabled: Bool) {
+        if enabled {
+            mouseMode = mode
+        } else if mouseMode == mode {
+            mouseMode = .none
+        }
+    }
+
+    private mutating func updateMouseEncoding(
+        _ encoding: TerminalMouseEncoding,
+        enabled: Bool
+    ) {
+        if enabled {
+            mouseEncoding = encoding
+        } else if mouseEncoding == encoding {
+            mouseEncoding = .default
+        }
+    }
+
+    private mutating func enterAlternateScreen() {
+        guard !alternateScreen else { return }
+        primaryScreen = StoredScreen(
+            rows: rows,
+            cursorRow: cursorRow,
+            cursorColumn: cursorColumn,
+            savedCursor: savedCursor,
+            retainedCellCount: retainedCellCount,
+            graphemeByteCount: graphemeByteCount,
+            styleByteCount: styleByteCount
+        )
+        rows = Array(repeating: [], count: viewport.rows)
+        cursorRow = 0
+        cursorColumn = 0
+        savedCursor = (0, 0)
+        retainedCellCount = 0
+        graphemeByteCount = 0
+        styleByteCount = 0
+        alternateScreen = true
+    }
+
+    private mutating func leaveAlternateScreen() {
+        guard alternateScreen else { return }
+        if let primaryScreen {
+            rows = primaryScreen.rows
+            cursorRow = primaryScreen.cursorRow
+            cursorColumn = primaryScreen.cursorColumn
+            savedCursor = primaryScreen.savedCursor
+            retainedCellCount = primaryScreen.retainedCellCount
+            graphemeByteCount = primaryScreen.graphemeByteCount
+            styleByteCount = primaryScreen.styleByteCount
+        }
+        primaryScreen = nil
+        alternateScreen = false
     }
 
     private mutating func clearScreen() {
@@ -287,18 +427,16 @@ struct BoundedTerminalBuffer: Sendable {
     }
 
     private mutating func enforceLimits() {
+        while alternateScreen && rows.count > viewport.rows {
+            evictOldestRow()
+        }
         while rows.count > viewport.rows,
               (scrollbackRows > limits.maxScrollbackRows
                   || retainedCellCount > limits.maxRetainedCells
                   || graphemeByteCount > limits.maxGraphemeBytes
                   || styleByteCount > limits.maxStyleBytes
                   || accountedBytes > limits.maxModelBytes) {
-            let removed = rows.removeFirst()
-            retainedCellCount -= removed.count
-            graphemeByteCount -= removed.reduce(0) { $0 + $1.utf8.count }
-            styleByteCount -= removed.count
-            cursorRow = max(0, cursorRow - 1)
-            savedCursor.row = max(0, savedCursor.row - 1)
+            evictOldestRow()
         }
         guard retainedCellCount <= limits.maxRetainedCells,
               graphemeByteCount <= limits.maxGraphemeBytes,
@@ -308,6 +446,15 @@ struct BoundedTerminalBuffer: Sendable {
             return
         }
         if scrollbackRows > limits.maxScrollbackRows { truncation = .retainedRowsLimit }
+    }
+
+    private mutating func evictOldestRow() {
+        let removed = rows.removeFirst()
+        retainedCellCount -= removed.count
+        graphemeByteCount -= removed.reduce(0) { $0 + $1.utf8.count }
+        styleByteCount -= removed.count
+        cursorRow = max(0, cursorRow - 1)
+        savedCursor.row = max(0, savedCursor.row - 1)
     }
 
     private mutating func truncateActiveRow() {
