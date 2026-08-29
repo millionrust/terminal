@@ -16,7 +16,7 @@ case "$STAGE" in
   pairing-fleet) FILTER='*ControllerFleetTests' ;;
   readonly-terminal) FILTER='*ControllerReadOnlyTerminalTest' ;;
   writer-controls) FILTER='*ControllerWriterTest' ;;
-  terminal-conformance) FILTER='*TerminalConformanceV1Test' ;;
+  terminal-conformance) FILTER='*TerminalConformanceV*Test' ;;
   universal-session) FILTER='*UniversalSessionGoldenPathTest' ;;
   *) echo "a valid --stage is required" >&2; exit 2 ;;
 esac

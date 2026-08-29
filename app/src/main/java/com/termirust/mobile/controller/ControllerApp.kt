@@ -58,9 +58,15 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
@@ -479,6 +485,7 @@ private fun ControllerTerminalScreen(
     val clipboard = LocalClipboardManager.current
     val listState = rememberLazyListState()
     val lines = terminal.screen.lines
+    val cells = terminal.screen.cells
     val canInput = terminal.writerLease == WriterLeaseState.Held &&
         terminal.attachState == ReadOnlyAttachState.Live && !terminal.privacyCovered
     val submitBytes: (ByteArray) -> Unit = { original ->
@@ -586,10 +593,9 @@ private fun ControllerTerminalScreen(
                         state = listState,
                         modifier = Modifier.fillMaxSize().padding(12.dp),
                     ) {
-                        items(lines.size) { index ->
+                        items(cells.size) { index ->
                             Text(
-                                lines[index].ifEmpty { " " },
-                                color = androidx.compose.ui.graphics.Color(0xffe6e6e6),
+                                styledTerminalRow(cells[index]),
                                 fontFamily = FontFamily.Monospace,
                                 maxLines = 1,
                                 softWrap = false,
@@ -660,6 +666,80 @@ private fun ControllerTerminalScreen(
             },
         )
     }
+}
+
+private fun styledTerminalRow(cells: List<BoundedTerminalCell>): AnnotatedString =
+    buildAnnotatedString {
+        for (cell in cells) {
+            if (cell.width == TerminalCellWidth.CONTINUATION) continue
+            val colors = resolvedTerminalColors(cell.style)
+            withStyle(
+                SpanStyle(
+                    color = colors.first,
+                    background = colors.second,
+                    fontWeight = if (cell.style.bold) FontWeight.Bold else FontWeight.Normal,
+                    fontStyle = if (cell.style.italic) FontStyle.Italic else FontStyle.Normal,
+                    textDecoration = if (cell.style.underline) {
+                        TextDecoration.Underline
+                    } else {
+                        TextDecoration.None
+                    },
+                ),
+            ) {
+                append(cell.text)
+            }
+        }
+        if (length == 0) append(" ")
+    }
+
+private fun resolvedTerminalColors(
+    style: TerminalCellStyle,
+): Pair<androidx.compose.ui.graphics.Color, androidx.compose.ui.graphics.Color> {
+    val foreground = terminalColor(
+        style.foreground,
+        androidx.compose.ui.graphics.Color(0xffe6e6e6),
+    )
+    val background = terminalColor(style.background, androidx.compose.ui.graphics.Color.Black)
+    val resolvedForeground = if (style.inverse) background else foreground
+    val resolvedBackground = if (style.inverse) foreground else background
+    return (if (style.dim) resolvedForeground.copy(alpha = 0.55f) else resolvedForeground) to
+        resolvedBackground
+}
+
+private fun terminalColor(
+    color: TerminalCellColor,
+    fallback: androidx.compose.ui.graphics.Color,
+): androidx.compose.ui.graphics.Color = when (color) {
+    TerminalCellColor.Default -> fallback
+    is TerminalCellColor.Indexed -> ansiColor(color.value)
+    is TerminalCellColor.Rgb -> androidx.compose.ui.graphics.Color(
+        red = color.red,
+        green = color.green,
+        blue = color.blue,
+    )
+}
+
+private fun ansiColor(index: Int): androidx.compose.ui.graphics.Color {
+    val base = listOf(
+        0x000000, 0xcc0000, 0x00cc00, 0xcccc00,
+        0x0000cc, 0xcc00cc, 0x00cccc, 0xbfbfbf,
+        0x808080, 0xff0000, 0x00ff00, 0xffff00,
+        0x5959ff, 0xff00ff, 0x00ffff, 0xffffff,
+    )
+    if (index in base.indices) {
+        return androidx.compose.ui.graphics.Color(0xff000000 or base[index].toLong())
+    }
+    if (index in 16..231) {
+        val cube = index - 16
+        val levels = listOf(0, 95, 135, 175, 215, 255)
+        return androidx.compose.ui.graphics.Color(
+            red = levels[cube / 36],
+            green = levels[(cube / 6) % 6],
+            blue = levels[cube % 6],
+        )
+    }
+    val gray = 8 + (index - 232).coerceIn(0, 23) * 10
+    return androidx.compose.ui.graphics.Color(red = gray, green = gray, blue = gray)
 }
 
 @Composable
