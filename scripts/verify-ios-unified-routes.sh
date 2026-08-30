@@ -115,10 +115,13 @@ UNIFIED_SOURCES=(
   TermiRustMobile/App/TermiRustMobileApp.swift
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
   TermiRustMobile/Models/ControllerModels.swift
+  TermiRustMobile/Models/ControllerRemoteRoute.swift
+  TermiRustMobile/Models/ControllerRemoteRouteConfiguration.swift
   TermiRustMobile/Models/MobileRouteContract.swift
   TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
   TermiRustMobile/Models/MobileVaultModels.swift
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
+  TermiRustMobile/Security/ControllerRouteCredentialStore.swift
   TermiRustMobile/Security/KeychainSecretStore.swift
   TermiRustMobile/Security/MobileDeviceIdentityStore.swift
   TermiRustMobile/SSH/TmuxBootstrap.swift
@@ -136,6 +139,7 @@ UNIFIED_SOURCES=(
   TermiRustMobile/Vault/MobileVaultImporter.swift
   TermiRustMobile/Vault/NativeMobileVaultDecryptor.swift
   TermiRustMobile/Controller/ControllerFleetCache.swift
+  TermiRustMobile/Controller/AppleControllerRouteCoordinator.swift
   TermiRustMobile/Controller/PairedHostStore.swift
   TermiRustMobile/Controller/ControllerRetryPolicy.swift
   TermiRustMobile/Controller/ControllerReadOnlyAttach.swift
@@ -182,6 +186,19 @@ xcrun swiftc \
   -I "$CRYPTO_HEADERS" \
   -I "$SECURITY_HEADERS" \
   TermiRustMobileTests/UnifiedRouteLifecycleTests.swift
+
+xcrun swiftc \
+  -typecheck \
+  -swift-version 6 \
+  -strict-concurrency=complete \
+  -target arm64-apple-ios17.0 \
+  -sdk "$SDK" \
+  -F "$PLATFORM/Library/Frameworks" \
+  -I "$PLATFORM/usr/lib" \
+  -I "$TEMP_MODULE" \
+  -I "$CRYPTO_HEADERS" \
+  -I "$SECURITY_HEADERS" \
+  TermiRustMobileTests/AppleControllerRouteTests.swift
 
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
 

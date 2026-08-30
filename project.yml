@@ -22,10 +22,13 @@ targets:
       - TermiRustMobile/Controller
       - TermiRustMobile/Generated/TermiRustControllerSecurity.swift
       - TermiRustMobile/Models/ControllerModels.swift
+      - TermiRustMobile/Models/ControllerRemoteRoute.swift
+      - TermiRustMobile/Models/ControllerRemoteRouteConfiguration.swift
       - TermiRustMobile/Models/MobileRouteContract.swift
       - TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
       - TermiRustMobile/Models/MobileVaultModels.swift
       - TermiRustMobile/Security/ControllerKeychainBlobStore.swift
+      - TermiRustMobile/Security/ControllerRouteCredentialStore.swift
       - TermiRustMobile/Security/KeychainSecretStore.swift
       - TermiRustMobile/Security/MobileDeviceIdentityStore.swift
       - TermiRustMobile/SSH/MobileSSHSession.swift
@@ -82,6 +85,7 @@ targets:
     platform: iOS
     sources:
       - TermiRustMobileTests/BoundedTerminalBufferTests.swift
+      - TermiRustMobileTests/AppleControllerRouteTests.swift
       - TermiRustMobileTests/ControllerBindingConformanceTests.swift
       - TermiRustMobileTests/ControllerFleetCacheTests.swift
       - TermiRustMobileTests/ControllerPairingFleetTests.swift
