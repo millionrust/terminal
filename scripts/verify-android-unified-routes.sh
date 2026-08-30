@@ -16,7 +16,11 @@ for path in \
   app/src/main/java/com/termirust/mobile/MainActivity.kt \
   app/src/main/java/com/termirust/mobile/ui/UnifiedMobileApp.kt \
   app/src/main/java/com/termirust/mobile/ssh/DirectSshSessionClient.kt \
-  app/src/main/java/com/termirust/mobile/controller/ControllerApp.kt; do
+  app/src/main/java/com/termirust/mobile/controller/ControllerApp.kt \
+  app/src/main/java/com/termirust/mobile/controller/ControllerRemoteRoute.kt \
+  app/src/main/java/com/termirust/mobile/controller/AndroidControllerRouteCoordinator.kt \
+  app/src/main/java/com/termirust/mobile/controller/AndroidControllerRouteConnections.kt \
+  app/src/main/java/com/termirust/mobile/controller/ControllerRemoteRouteConfiguration.kt; do
   [ -f "$path" ] || { echo "unified route source is missing: $path" >&2; exit 1; }
 done
 
@@ -36,6 +40,9 @@ grep -q 'device_session' app/src/main/java/com/termirust/mobile/controller/Contr
 grep -q 'implementation("com.hierynomus:sshj:0.39.0")' app/build.gradle.kts
 grep -q 'termirust-mobile-secrets' app/src/main/java/com/termirust/mobile/security/KeystoreSecretStore.kt
 grep -q 'termirust-controller-device-v1' app/src/main/java/com/termirust/mobile/controller/ControllerSecureBlobStore.kt
+grep -q 'Routes never switch automatically' app/src/main/res/values/strings.xml
+grep -q 'ControllerRouteCredentialStore' app/src/main/java/com/termirust/mobile/controller/ControllerRemoteRouteConfiguration.kt
+grep -q 'routeConnections.disconnect' app/src/main/java/com/termirust/mobile/controller/ControllerViewModel.kt
 
 for abi in arm64-v8a armeabi-v7a x86 x86_64; do
   [ -f "app/src/main/jniLibs/$abi/libtermirust_controller_bindings.so" ] || {

@@ -3,12 +3,14 @@ package com.termirust.mobile.controller
 import com.termirust.mobile.security.MobileSecretStore
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertThrows
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import java.util.UUID
 
 class AndroidControllerRouteTests {
     @Test
@@ -238,6 +240,36 @@ class AndroidControllerRouteTests {
         assertTrue(backing.values.keys.all { it.startsWith("controller-route-v1:") })
     }
 
+    @Test
+    fun switchAndLifecycleCancellationTouchOnlyTheOwnedTransport() = runTest {
+        val lan = CountingControllerConnection()
+        val ssh = CountingControllerConnection()
+        val relay = CountingControllerConnection()
+        val connections = AndroidControllerRouteConnections(lan, ssh, relay)
+        val coordinator = AndroidControllerRouteCoordinator(connections.availability())
+
+        connectOnline(coordinator, ControllerRemoteRouteKind.PRIVATE_NETWORK)
+        val toSsh = coordinator.select(ControllerRemoteRouteKind.SSH, explicitlyConfirmed = true)
+        toSsh.disconnectTransport?.let { connections.disconnect(it) }
+        assertEquals(1, lan.cancellations)
+        assertEquals(0, ssh.cancellations)
+        assertEquals(0, relay.cancellations)
+
+        coordinator.connectSelected()
+        coordinator.transportReady(ControllerRemoteRouteKind.SSH)
+        coordinator.authenticated(ControllerRemoteRouteKind.SSH)
+        val toRelay = coordinator.select(ControllerRemoteRouteKind.SELF_HOSTED_RELAY, explicitlyConfirmed = true)
+        toRelay.disconnectTransport?.let { connections.disconnect(it) }
+        assertEquals(1, lan.cancellations)
+        assertEquals(1, ssh.cancellations)
+        assertEquals(0, relay.cancellations)
+
+        coordinator.connectSelected()
+        connections.disconnect(coordinator.selected!!)
+        coordinator.cancelSelected()
+        assertEquals(1, relay.cancellations)
+    }
+
     private fun connectOnline(coordinator: AndroidControllerRouteCoordinator, route: ControllerRemoteRouteKind) {
         coordinator.select(route, explicitlyConfirmed = true)
         assertEquals(route, coordinator.connectSelected().startTransport)
@@ -257,4 +289,59 @@ private class MemorySecretStore : MobileSecretStore {
     override fun saveSecret(account: String, secret: String) { values[account] = secret }
     override fun readSecret(account: String) = values[account]
     override fun deleteSecret(account: String) { values.remove(account) }
+}
+
+private class CountingControllerConnection : ControllerConnecting {
+    var cancellations = 0
+    override suspend fun beginPairing(
+        offerText: String,
+        hostName: String,
+        deviceName: String,
+        deviceId: UUID,
+    ): ControllerPairingChallenge = unsupported()
+
+    override suspend fun finishPairing(matches: Boolean): PairedHostRecord = unsupported()
+    override suspend fun fetchSessions(
+        host: PairedHostRecord,
+        progress: suspend (ControllerConnectionState) -> Unit,
+    ): ControllerFleetSnapshot = unsupported()
+
+    override suspend fun attachReadOnly(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewport,
+        onEvent: suspend (ReadOnlyWireEvent) -> Unit,
+    ) = unsupported<Unit>()
+
+    override suspend fun attachInteractive(
+        host: PairedHostRecord,
+        cursor: TerminalStreamCursor,
+        viewport: TerminalViewport,
+        onEvent: suspend (ReadOnlyWireEvent) -> Unit,
+    ) = unsupported<Unit>()
+
+    override suspend fun requestWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) =
+        unsupported<Unit>()
+
+    override suspend fun releaseWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) =
+        unsupported<Unit>()
+
+    override suspend fun sendInput(
+        host: PairedHostRecord,
+        identity: ReadOnlyAttachIdentity,
+        commandId: UUID,
+        bytes: ByteArray,
+    ) = unsupported<Unit>()
+
+    override suspend fun sendResize(
+        host: PairedHostRecord,
+        identity: ReadOnlyAttachIdentity,
+        commandId: UUID,
+        viewport: TerminalViewport,
+    ) = unsupported<Unit>()
+
+    override suspend fun cancel() { cancellations += 1 }
+    override fun close() = Unit
+
+    private fun <T> unsupported(): T = throw UnsupportedOperationException()
 }

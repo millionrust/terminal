@@ -34,7 +34,7 @@ import java.util.UUID
 class ControllerConnection(
     blobStore: ControllerSecureBlobStore,
     private val clockMillis: () -> Long = System::currentTimeMillis,
-) : AutoCloseable {
+) : ControllerConnecting {
     private val engine = ControllerSecurityEngine(blobStore)
     private val mutex = Mutex()
     private val json = Json { ignoreUnknownKeys = false; encodeDefaults = true; explicitNulls = true }
@@ -43,7 +43,7 @@ class ControllerConnection(
     @Volatile private var activeTerminal: ActiveTerminalConnection? = null
     private var pendingPairing: PendingPairing? = null
 
-    suspend fun beginPairing(
+    override suspend fun beginPairing(
         offerText: String,
         hostName: String,
         deviceName: String,
@@ -127,7 +127,7 @@ class ControllerConnection(
         }
     }
 
-    suspend fun finishPairing(matches: Boolean): PairedHostRecord = mutex.withLock {
+    override suspend fun finishPairing(matches: Boolean): PairedHostRecord = mutex.withLock {
         withContext(Dispatchers.IO) {
             val pending = checkNotNull(pendingPairing) { "No pairing is in progress." }
             if (!matches) {
@@ -219,14 +219,14 @@ class ControllerConnection(
         }
     }
 
-    suspend fun fetchSessions(
+    override suspend fun fetchSessions(
         host: PairedHostRecord,
-        progress: suspend (ControllerConnectionState) -> Unit = {},
+        progress: suspend (ControllerConnectionState) -> Unit,
     ): ControllerFleetSnapshot = mutex.withLock {
         withContext(Dispatchers.IO) { fetchSessionsUnlocked(host, progress) }
     }
 
-    suspend fun attachReadOnly(
+    override suspend fun attachReadOnly(
         host: PairedHostRecord,
         cursor: TerminalStreamCursor,
         viewport: TerminalViewport,
@@ -327,7 +327,7 @@ class ControllerConnection(
         }
     }
 
-    suspend fun attachInteractive(
+    override suspend fun attachInteractive(
         host: PairedHostRecord,
         cursor: TerminalStreamCursor,
         viewport: TerminalViewport,
@@ -453,7 +453,7 @@ class ControllerConnection(
         }
     }
 
-    suspend fun requestWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) {
+    override suspend fun requestWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) {
         sendTerminalMutation(
             host,
             identity,
@@ -469,7 +469,7 @@ class ControllerConnection(
         )
     }
 
-    suspend fun releaseWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) {
+    override suspend fun releaseWriter(host: PairedHostRecord, identity: ReadOnlyAttachIdentity, commandId: UUID) {
         sendTerminalMutation(
             host,
             identity,
@@ -485,7 +485,7 @@ class ControllerConnection(
         )
     }
 
-    suspend fun sendInput(
+    override suspend fun sendInput(
         host: PairedHostRecord,
         identity: ReadOnlyAttachIdentity,
         commandId: UUID,
@@ -507,7 +507,7 @@ class ControllerConnection(
         )
     }
 
-    suspend fun sendResize(
+    override suspend fun sendResize(
         host: PairedHostRecord,
         identity: ReadOnlyAttachIdentity,
         commandId: UUID,
@@ -529,7 +529,7 @@ class ControllerConnection(
         )
     }
 
-    suspend fun cancel() {
+    override suspend fun cancel() {
         // Socket.close is thread-safe and unblocks a pending read before the operation
         // coroutine can reacquire the serialization mutex.
         activeSocket?.close()

@@ -85,6 +85,7 @@ fun ControllerApp(viewModel: ControllerViewModel, modifier: Modifier = Modifier)
     var showScanner by remember { mutableStateOf(false) }
     var showHostDetails by remember { mutableStateOf(false) }
     var confirmForget by remember { mutableStateOf(false) }
+    var pendingRoute by remember { mutableStateOf<ControllerRemoteRouteKind?>(null) }
     val activeTerminal = state.activeTerminal
 
     BackHandler(enabled = activeTerminal != null) { viewModel.detachTerminal() }
@@ -147,13 +148,25 @@ fun ControllerApp(viewModel: ControllerViewModel, modifier: Modifier = Modifier)
                             modifier = Modifier.width(340.dp).fillMaxHeight(),
                         )
                         VerticalDivider(modifier = Modifier.fillMaxHeight())
-                        FleetDetail(state, viewModel::retry, viewModel::attachSession, Modifier.weight(1f))
+                        FleetDetail(
+                            state,
+                            viewModel::retry,
+                            viewModel::attachSession,
+                            onSelectRoute = { pendingRoute = it },
+                            Modifier.weight(1f),
+                        )
                     }
                 } else {
                     Column(Modifier.fillMaxSize()) {
                         CompactHostStrip(state, viewModel::selectHost)
                         HorizontalDivider()
-                        FleetDetail(state, viewModel::retry, viewModel::attachSession, Modifier.weight(1f))
+                        FleetDetail(
+                            state,
+                            viewModel::retry,
+                            viewModel::attachSession,
+                            onSelectRoute = { pendingRoute = it },
+                            Modifier.weight(1f),
+                        )
                     }
                 }
             }
@@ -212,6 +225,31 @@ fun ControllerApp(viewModel: ControllerViewModel, modifier: Modifier = Modifier)
             },
             dismissButton = {
                 TextButton(onClick = { confirmForget = false }) { Text(stringResource(com.termirust.mobile.R.string.cancel)) }
+            },
+        )
+    }
+    pendingRoute?.let { target ->
+        AlertDialog(
+            onDismissRequest = { pendingRoute = null },
+            title = { Text(stringResource(com.termirust.mobile.R.string.switch_controller_route_title)) },
+            text = {
+                Text(
+                    stringResource(
+                        com.termirust.mobile.R.string.switch_controller_route_message,
+                        controllerRouteTitle(target),
+                    ),
+                )
+            },
+            confirmButton = {
+                Button(onClick = {
+                    viewModel.selectControllerRoute(target, explicitlyConfirmed = true)
+                    pendingRoute = null
+                }) { Text(stringResource(com.termirust.mobile.R.string.switch_route)) }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingRoute = null }) {
+                    Text(stringResource(com.termirust.mobile.R.string.cancel))
+                }
             },
         )
     }
@@ -354,10 +392,12 @@ private fun FleetDetail(
     state: ControllerUiState,
     onRetry: () -> Unit,
     onOpenSession: (String) -> Unit,
+    onSelectRoute: (ControllerRemoteRouteKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     Column(modifier.fillMaxSize()) {
         ConnectionBanner(state, onRetry)
+        ControllerRouteSelector(state, onSelectRoute)
         if (state.sessions.isEmpty()) {
             Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
                 Text(
@@ -376,6 +416,133 @@ private fun FleetDetail(
             }
         }
     }
+}
+
+@Composable
+private fun ControllerRouteSelector(
+    state: ControllerUiState,
+    onSelect: (ControllerRemoteRouteKind) -> Unit,
+) {
+    Column(
+        Modifier.fillMaxWidth().padding(horizontal = 14.dp, vertical = 10.dp),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f)) {
+                Text(
+                    stringResource(com.termirust.mobile.R.string.controller_route_title),
+                    style = MaterialTheme.typography.titleSmall,
+                    fontWeight = FontWeight.SemiBold,
+                )
+                Text(
+                    stringResource(com.termirust.mobile.R.string.controller_route_subtitle),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+        state.routeProjections.forEach { projection ->
+            ControllerRouteRow(projection, onSelect)
+        }
+        state.routeError?.let { error ->
+            Text(
+                controllerRouteError(error),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
+    }
+    HorizontalDivider()
+}
+
+@Composable
+private fun ControllerRouteRow(
+    projection: AndroidControllerRouteProjection,
+    onSelect: (ControllerRemoteRouteKind) -> Unit,
+) {
+    Surface(
+        color = if (projection.selected) {
+            MaterialTheme.colorScheme.secondaryContainer
+        } else {
+            MaterialTheme.colorScheme.surfaceVariant
+        },
+        shape = MaterialTheme.shapes.small,
+    ) {
+        Row(
+            Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp),
+        ) {
+            Column(Modifier.weight(1f)) {
+                Text(controllerRouteTitle(projection.route), fontWeight = FontWeight.SemiBold)
+                Text(
+                    controllerRouteDescription(projection.route),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                Text(
+                    controllerRouteStatus(projection),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = if (projection.available) {
+                        MaterialTheme.colorScheme.primary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    },
+                )
+            }
+            when {
+                projection.selected -> AssistChip(
+                    onClick = {},
+                    label = { Text(stringResource(com.termirust.mobile.R.string.controller_selected)) },
+                )
+                projection.available -> OutlinedButton(onClick = { onSelect(projection.route) }) {
+                    Text(stringResource(com.termirust.mobile.R.string.use_route))
+                }
+                else -> Text(
+                    stringResource(com.termirust.mobile.R.string.not_configured),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun controllerRouteTitle(route: ControllerRemoteRouteKind): String = when (route) {
+    ControllerRemoteRouteKind.LOCAL_IPC -> stringResource(com.termirust.mobile.R.string.route_local_ipc)
+    ControllerRemoteRouteKind.PRIVATE_NETWORK -> stringResource(com.termirust.mobile.R.string.route_private_network)
+    ControllerRemoteRouteKind.SSH -> stringResource(com.termirust.mobile.R.string.route_ssh)
+    ControllerRemoteRouteKind.SELF_HOSTED_RELAY -> stringResource(com.termirust.mobile.R.string.route_self_hosted_relay)
+}
+
+@Composable
+private fun controllerRouteDescription(route: ControllerRemoteRouteKind): String = when (route) {
+    ControllerRemoteRouteKind.LOCAL_IPC -> stringResource(com.termirust.mobile.R.string.route_local_ipc_description)
+    ControllerRemoteRouteKind.PRIVATE_NETWORK -> stringResource(com.termirust.mobile.R.string.route_private_network_description)
+    ControllerRemoteRouteKind.SSH -> stringResource(com.termirust.mobile.R.string.route_ssh_description)
+    ControllerRemoteRouteKind.SELF_HOSTED_RELAY -> stringResource(com.termirust.mobile.R.string.route_relay_description)
+}
+
+@Composable
+private fun controllerRouteStatus(projection: AndroidControllerRouteProjection): String = when {
+    !projection.available -> stringResource(com.termirust.mobile.R.string.route_status_unavailable)
+    projection.phase == ControllerRemoteRoutePhase.ONLINE -> stringResource(com.termirust.mobile.R.string.route_status_online)
+    projection.phase == ControllerRemoteRoutePhase.DEGRADED -> stringResource(com.termirust.mobile.R.string.route_status_degraded)
+    projection.phase == ControllerRemoteRoutePhase.RECONNECTING -> stringResource(com.termirust.mobile.R.string.route_status_reconnecting)
+    projection.phase == ControllerRemoteRoutePhase.REVOKED -> stringResource(com.termirust.mobile.R.string.route_status_revoked)
+    else -> stringResource(com.termirust.mobile.R.string.route_status_ready)
+}
+
+@Composable
+private fun controllerRouteError(error: String): String = when (error) {
+    "route_confirmation_required" -> stringResource(com.termirust.mobile.R.string.route_error_confirmation)
+    "route_unavailable" -> stringResource(com.termirust.mobile.R.string.route_error_unavailable)
+    "route_already_selected" -> stringResource(com.termirust.mobile.R.string.route_error_selected)
+    "route_degraded" -> stringResource(com.termirust.mobile.R.string.route_error_degraded)
+    else -> stringResource(com.termirust.mobile.R.string.route_error_generic)
 }
 
 @Composable

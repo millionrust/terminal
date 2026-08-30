@@ -23,7 +23,13 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     private val hostStore = PairedHostStore(application)
     private val cacheStore = ControllerFleetCacheStore(application)
     private val secureBlobs = ControllerSecureBlobStore(application)
-    private val connection = ControllerConnection(secureBlobs)
+    private val routeConnections = AndroidControllerRouteConnections(
+        privateNetwork = ControllerConnection(secureBlobs),
+        ssh = null,
+        selfHostedRelay = null,
+    )
+    private val routePreferences = application.getSharedPreferences("controller-routes-v1", 0)
+    private val routeCoordinator = AndroidControllerRouteCoordinator(routeConnections.availability())
     private val random = SecureRandom()
     private val deviceId = loadDeviceId(application)
     private val _state = MutableStateFlow(ControllerUiState())
@@ -37,9 +43,56 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     private var terminalRender: Job? = null
     private var terminalResize: Job? = null
     private var terminalRuntime: ActiveTerminalRuntime? = null
+    private var routeError: String? = null
 
     init {
+        val persisted = routePreferences.getString(SELECTED_ROUTE_KEY, null)
+            ?.let { raw -> ControllerRemoteRouteKind.entries.firstOrNull { it.name == raw } }
+            ?.takeIf { it in ControllerRemoteRouteKind.androidRoutes }
+            ?: ControllerRemoteRouteKind.PRIVATE_NETWORK
+        routeCoordinator.restorePersistedSelection(persisted)
         operation = viewModelScope.launch { restore() }
+    }
+
+    fun selectControllerRoute(target: ControllerRemoteRouteKind, explicitlyConfirmed: Boolean): Boolean {
+        terminalRuntime?.let(::syncRouteWriter)
+        val source = routeCoordinator.selected
+        val plan = try {
+            routeCoordinator.select(target, explicitlyConfirmed)
+        } catch (error: AndroidControllerRouteCoordinatorException) {
+            routeError = routeSelectionError(error)
+            publishRouteState()
+            return false
+        }
+        routeError = null
+        routePreferences.edit().putString(SELECTED_ROUTE_KEY, target.name).apply()
+        operation?.cancel()
+        terminalResize?.cancel()
+        terminalResize = null
+        terminalRuntime?.let { runtime ->
+            if (plan.clearPendingInput) {
+                runtime.pendingPaste = null
+                runtime.pendingResize = null
+                runtime.inputInFlight = null
+                runtime.pendingMutations.clear()
+            }
+            runtime.writer.releaseLocally()
+            runtime.reducer.markOffline()
+            publishTerminal(runtime, privacyCovered = true)
+        }
+        operation = viewModelScope.launch {
+            if (plan.releaseWriter) terminalRuntime?.let { releaseWriterForLifecycle(it, true) }
+            plan.disconnectTransport?.let { route -> routeConnections.disconnect(route) }
+            if (source != target) {
+                terminalRender?.cancel()
+                terminalRender = null
+                terminalRuntime = null
+                _state.value = _state.value.copy(activeTerminal = null)
+            }
+            refreshSelected(retry = true)
+        }
+        publishRouteState()
+        return true
     }
 
     fun beginPairing() {
@@ -47,7 +100,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         _state.value = _state.value.copy(connection = ControllerConnectionState.Pairing)
         operation = viewModelScope.launch {
             runCatching {
-                connection.beginPairing(
+                pairingConnection().beginPairing(
                     offerText = pairingOffer.value,
                     hostName = pairingHostName.value.trim(),
                     deviceName = pairingDeviceName.value.trim(),
@@ -68,8 +121,19 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         operation?.cancel()
         _state.value = _state.value.copy(connection = ControllerConnectionState.Pairing)
         operation = viewModelScope.launch {
-            runCatching { connection.finishPairing(matches) }
+            runCatching { pairingConnection().finishPairing(matches) }
                 .onSuccess { host ->
+                    if (routeCoordinator.selected != ControllerRemoteRouteKind.PRIVATE_NETWORK) {
+                        runCatching {
+                            routeCoordinator.select(
+                                ControllerRemoteRouteKind.PRIVATE_NETWORK,
+                                explicitlyConfirmed = true,
+                            )
+                        }
+                        routePreferences.edit()
+                            .putString(SELECTED_ROUTE_KEY, ControllerRemoteRouteKind.PRIVATE_NETWORK.name)
+                            .apply()
+                    }
                     hosts = hostStore.upsert(host)
                     pairingOffer.value = ""
                     _state.value = makeState(
@@ -84,7 +148,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     fun cancelPairing() {
         operation?.cancel()
-        operation = viewModelScope.launch { connection.cancel() }
+        operation = viewModelScope.launch { pairingConnection().cancel() }
         _state.value = makeState(
             selectedHostId = _state.value.selectedHostId,
             connectionState = if (hosts.isEmpty()) {
@@ -112,7 +176,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         operation?.cancel()
         operation = if (terminal != null) {
             viewModelScope.launch {
-                connection.cancel()
+                connectionFor(terminal.route).cancel()
                 terminal.writer.setForeground(true)
                 runTerminal(terminal)
             }
@@ -136,11 +200,15 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             publishTerminal(runtime, privacyCovered = decision.coverPrivacy)
             operation = viewModelScope.launch {
                 releaseWriterForLifecycle(runtime, decision.releaseWriter)
-                connection.cancel()
+                connectionFor(runtime.route).cancel()
+                if (routeCoordinator.selected == runtime.route) {
+                    runCatching { routeCoordinator.cancelSelected() }
+                    publishRouteState()
+                }
             }
             return
         }
-        operation = viewModelScope.launch { connection.cancel() }
+        operation = viewModelScope.launch { cancelSelectedRoute() }
         val selected = _state.value.selectedHostId
         _state.value = makeState(selected, ControllerConnectionState.PairedOffline)
     }
@@ -157,6 +225,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         )
         val viewport = TerminalViewport(120, 40)
         val runtime = ActiveTerminalRuntime(
+            route = selectedRoute(),
             host = host,
             session = session,
             reducer = ReadOnlyAttachReducer(identity),
@@ -169,7 +238,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         terminalRuntime = runtime
         publishTerminal(runtime)
         operation = viewModelScope.launch {
-            connection.cancel()
+            connectionFor(runtime.route).cancel()
             runTerminal(runtime)
         }
     }
@@ -178,7 +247,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         val runtime = terminalRuntime ?: return
         if (operation?.isActive == true) return
         operation = viewModelScope.launch {
-            connection.cancel()
+            connectionFor(runtime.route).cancel()
             runTerminal(runtime)
         }
     }
@@ -195,7 +264,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         runtime.interactive = true
         operation?.cancel()
         operation = viewModelScope.launch {
-            connection.cancel()
+            connectionFor(runtime.route).cancel()
             runTerminal(runtime)
         }
     }
@@ -206,9 +275,10 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         val commandId = UUID.randomUUID()
         runtime.pendingMutations[commandId] = TerminalMutation.RELEASE
         runtime.writer.releaseLocally()
+        syncRouteWriter(runtime)
         publishTerminal(runtime)
         viewModelScope.launch {
-            runCatching { connection.releaseWriter(runtime.host, runtime.writer.identity, commandId) }
+            runCatching { connectionFor(runtime.route).releaseWriter(runtime.host, runtime.writer.identity, commandId) }
                 .onFailure { mutationSendFailed(runtime, commandId) }
         }
     }
@@ -264,7 +334,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         terminalRender = null
         operation = viewModelScope.launch {
             if (runtime != null) releaseWriterForLifecycle(runtime, held)
-            connection.cancel()
+            if (runtime != null) connectionFor(runtime.route).cancel()
             refreshSelected(retry = false)
         }
         runtime?.writer?.releaseLocally()
@@ -295,7 +365,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         val host = selectedHost() ?: return
         operation?.cancel()
         operation = viewModelScope.launch {
-            connection.cancel()
+            cancelSelectedRoute()
             runCatching { secureBlobs.delete(host.deviceStaticKeyId) }
             hosts = hostStore.remove(host.id)
             cache = cacheStore.remove(cache, host.id)
@@ -314,7 +384,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         operation?.cancel()
         terminalRender?.cancel()
         terminalResize?.cancel()
-        connection.close()
+        routeConnections.close()
         super.onCleared()
     }
 
@@ -335,13 +405,29 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     private suspend fun refreshSelected(retry: Boolean) {
         val host = selectedHost() ?: return
+        val route = selectedRoute()
+        val connection = try {
+            connectionFor(route)
+        } catch (error: Throwable) {
+            routeError = "route_unavailable"
+            _state.value = makeState(host.id, ControllerConnectionState.Failed(classify(error)))
+            return
+        }
+        prepareRouteStart(route)
         val started = System.currentTimeMillis()
         var attempt = 0
         while (true) {
             try {
                 val snapshot = connection.fetchSessions(host) { state ->
+                    if (routeCoordinator.selected != route) throw CancellationException()
+                    when (state) {
+                        ControllerConnectionState.Authenticating -> markTransportReady(route)
+                        ControllerConnectionState.Syncing -> markAuthenticated(route)
+                        else -> Unit
+                    }
                     _state.value = makeState(host.id, state)
                 }
+                markAuthenticated(route)
                 cache = cacheStore.saveSnapshot(
                     current = cache,
                     selectedHostId = host.id,
@@ -354,9 +440,10 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             } catch (error: CancellationException) {
                 throw error
             } catch (error: Throwable) {
-                if (!retry || !isRetryable(error) || attempt >= 7 ||
-                    System.currentTimeMillis() - started >= 90_000
-                ) {
+                val willRetry = retry && isRetryable(error) && attempt < 7 &&
+                    System.currentTimeMillis() - started < 90_000
+                markRouteFailure(route, retryable = willRetry, mutationInFlight = false)
+                if (!willRetry) {
                     _state.value = makeState(
                         host.id,
                         ControllerConnectionState.Failed(classify(error)),
@@ -384,6 +471,9 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             cachedAtMillis = cached?.updatedAtMillis,
             cachedReadOnly = cached != null && !online,
             activeTerminal = _state.value.activeTerminal,
+            selectedRoute = selectedRoute(),
+            routeProjections = routeCoordinator.projections,
+            routeError = routeError,
         )
     }
 
@@ -393,19 +483,22 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             runtime.reducer.state != ReadOnlyAttachState.Offline
         ) runtime.reducer.markOffline()
         try {
+            prepareRouteStart(runtime.route)
+            markTransportReady(runtime.route)
             runtime.reducer.beginAuthentication()
             publishTerminal(runtime)
             val consume: suspend (ReadOnlyWireEvent) -> Unit = { event ->
                 if (terminalRuntime !== runtime) throw CancellationException()
                 withContext(Dispatchers.Main.immediate) {
                     if (terminalRuntime !== runtime) throw CancellationException()
+                    markAuthenticated(runtime.route)
                     consumeTerminalEvent(runtime, event)
                 }
             }
             if (runtime.interactive) {
-                connection.attachInteractive(runtime.host, runtime.reducer.cursor, runtime.viewport, consume)
+                connectionFor(runtime.route).attachInteractive(runtime.host, runtime.reducer.cursor, runtime.viewport, consume)
             } else {
-                connection.attachReadOnly(runtime.host, runtime.reducer.cursor, runtime.viewport, consume)
+                connectionFor(runtime.route).attachReadOnly(runtime.host, runtime.reducer.cursor, runtime.viewport, consume)
             }
         } catch (error: CancellationException) {
             if (terminalRuntime === runtime && runtime.reducer.state != ReadOnlyAttachState.Detached) {
@@ -415,6 +508,11 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             throw error
         } catch (error: Throwable) {
             if (terminalRuntime !== runtime) return
+            markRouteFailure(
+                runtime.route,
+                retryable = isRetryable(error),
+                mutationInFlight = runtime.pendingMutations.isNotEmpty(),
+            )
             if (runtime.writer.lease == WriterLeaseState.Held ||
                 runtime.writer.lease is WriterLeaseState.Requesting
             ) {
@@ -517,7 +615,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         runtime.pendingMutations[commandId] = TerminalMutation.ACQUIRE
         publishTerminal(runtime)
         viewModelScope.launch {
-            runCatching { connection.requestWriter(runtime.host, runtime.writer.identity, commandId) }
+            runCatching { connectionFor(runtime.route).requestWriter(runtime.host, runtime.writer.identity, commandId) }
                 .onFailure { mutationSendFailed(runtime, commandId) }
         }
     }
@@ -547,7 +645,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         runtime.pendingMutations[pending.commandId] = TerminalMutation.INPUT
         viewModelScope.launch {
             runCatching {
-                connection.sendInput(runtime.host, runtime.writer.identity, pending.commandId, pending.bytes)
+                connectionFor(runtime.route).sendInput(runtime.host, runtime.writer.identity, pending.commandId, pending.bytes)
             }.onFailure { mutationSendFailed(runtime, pending.commandId) }
         }
     }
@@ -560,7 +658,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         runtime.pendingMutations[commandId] = TerminalMutation.RESIZE
         viewModelScope.launch {
             runCatching {
-                connection.sendResize(runtime.host, runtime.writer.identity, commandId, viewport)
+                connectionFor(runtime.route).sendResize(runtime.host, runtime.writer.identity, commandId, viewport)
             }.onFailure { mutationSendFailed(runtime, commandId) }
         }
     }
@@ -581,6 +679,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             }
             TerminalMutation.RESIZE -> if (!applied) runtime.writerMessage = "resize_rejected"
         }
+        syncRouteWriter(runtime)
         publishTerminal(runtime)
     }
 
@@ -610,6 +709,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     private fun loseWriter(runtime: ActiveTerminalRuntime, message: String) {
         runtime.writer.markLeaseLost()
+        syncRouteWriter(runtime)
         runtime.pendingMutations.clear()
         runtime.inputInFlight = null
         runtime.writerMessage = message
@@ -620,7 +720,8 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         if (!wasHeld) return
         val commandId = UUID.randomUUID()
         runtime.writer.releaseLocally()
-        runCatching { connection.releaseWriter(runtime.host, runtime.writer.identity, commandId) }
+        syncRouteWriter(runtime)
+        runCatching { connectionFor(runtime.route).releaseWriter(runtime.host, runtime.writer.identity, commandId) }
     }
 
     private fun selectedHost(): PairedHostRecord? =
@@ -654,9 +755,118 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
         if (existing != null) runCatching { return UUID.fromString(existing) }
         return UUID.randomUUID().also { preferences.edit().putString("device_id", it.toString()).apply() }
     }
+
+    private fun selectedRoute(): ControllerRemoteRouteKind =
+        routeCoordinator.selected ?: ControllerRemoteRouteKind.PRIVATE_NETWORK
+
+    private fun pairingConnection(): ControllerConnecting =
+        routeConnections.privateNetwork ?: throw ControllerRouteUnavailableException(ControllerRemoteRouteKind.PRIVATE_NETWORK)
+
+    private fun connectionFor(route: ControllerRemoteRouteKind): ControllerConnecting =
+        routeConnections.connection(route) ?: throw ControllerRouteUnavailableException(route)
+
+    private suspend fun cancelSelectedRoute() {
+        val route = routeCoordinator.selected ?: return
+        routeConnections.connection(route)?.cancel()
+        runCatching { routeCoordinator.cancelSelected() }
+        publishRouteState()
+    }
+
+    private fun prepareRouteStart(route: ControllerRemoteRouteKind) {
+        if (routeCoordinator.selected != route) {
+            throw ControllerRouteUnavailableException(route)
+        }
+        when (projection(route).phase) {
+            ControllerRemoteRoutePhase.IDLE -> routeCoordinator.connectSelected()
+            ControllerRemoteRoutePhase.DEGRADED -> routeCoordinator.retrySelected()
+            ControllerRemoteRoutePhase.CONNECTING,
+            ControllerRemoteRoutePhase.AUTHENTICATING,
+            ControllerRemoteRoutePhase.ONLINE,
+            ControllerRemoteRoutePhase.RECONNECTING,
+            -> Unit
+            ControllerRemoteRoutePhase.DISABLED,
+            ControllerRemoteRoutePhase.UNAVAILABLE,
+            ControllerRemoteRoutePhase.REVOKED,
+            -> throw ControllerRouteUnavailableException(route)
+        }
+        publishRouteState()
+    }
+
+    private fun markTransportReady(route: ControllerRemoteRouteKind) {
+        if (routeCoordinator.selected == route && projection(route).phase in setOf(
+                ControllerRemoteRoutePhase.CONNECTING,
+                ControllerRemoteRoutePhase.RECONNECTING,
+            )
+        ) {
+            routeCoordinator.transportReady(route)
+            publishRouteState()
+        }
+    }
+
+    private fun markAuthenticated(route: ControllerRemoteRouteKind) {
+        if (routeCoordinator.selected == route &&
+            projection(route).phase == ControllerRemoteRoutePhase.AUTHENTICATING
+        ) {
+            routeCoordinator.authenticated(route)
+            routeError = null
+            publishRouteState()
+        }
+    }
+
+    private fun markRouteFailure(
+        route: ControllerRemoteRouteKind,
+        retryable: Boolean,
+        mutationInFlight: Boolean,
+    ) {
+        if (routeCoordinator.selected != route) return
+        val phase = projection(route).phase
+        if (phase in setOf(
+                ControllerRemoteRoutePhase.CONNECTING,
+                ControllerRemoteRoutePhase.AUTHENTICATING,
+                ControllerRemoteRoutePhase.ONLINE,
+                ControllerRemoteRoutePhase.RECONNECTING,
+            )
+        ) {
+            routeCoordinator.failed(route, retryable, mutationInFlight)
+            routeError = if (retryable) null else "route_degraded"
+            publishRouteState()
+        }
+    }
+
+    private fun projection(route: ControllerRemoteRouteKind): AndroidControllerRouteProjection =
+        routeCoordinator.projections.first { it.route == route }
+
+    private fun syncRouteWriter(runtime: ActiveTerminalRuntime) {
+        if (routeCoordinator.selected != runtime.route ||
+            projection(runtime.route).phase != ControllerRemoteRoutePhase.ONLINE
+        ) return
+        runCatching { routeCoordinator.setWriterHeld(runtime.writer.lease == WriterLeaseState.Held) }
+        publishRouteState()
+    }
+
+    private fun publishRouteState() {
+        _state.value = _state.value.copy(
+            selectedRoute = selectedRoute(),
+            routeProjections = routeCoordinator.projections,
+            routeError = routeError,
+        )
+    }
+
+    private fun routeSelectionError(error: AndroidControllerRouteCoordinatorException) = when (error.transition) {
+        ControllerRemoteRouteError.EXPLICIT_CONFIRMATION_REQUIRED -> "route_confirmation_required"
+        ControllerRemoteRouteError.TARGET_UNAVAILABLE -> "route_unavailable"
+        ControllerRemoteRouteError.SAME_ROUTE -> "route_already_selected"
+        ControllerRemoteRouteError.UNSUPPORTED_PLATFORM -> "route_unsupported"
+        ControllerRemoteRouteError.INVALID_TRANSITION, null -> "route_change_failed"
+    }
+
+    private companion object {
+        const val SELECTED_ROUTE_KEY = "selected_route"
+    }
 }
 
 private data class ActiveTerminalRuntime(
+    val route: ControllerRemoteRouteKind,
     val host: PairedHostRecord,
     val session: ControllerSessionSummary,
     val reducer: ReadOnlyAttachReducer,
@@ -673,6 +883,9 @@ private data class ActiveTerminalRuntime(
     var inputInFlight: UUID? = null,
     val pendingMutations: MutableMap<UUID, TerminalMutation> = mutableMapOf(),
 )
+
+private class ControllerRouteUnavailableException(route: ControllerRemoteRouteKind) :
+    IllegalStateException("Controller route unavailable: ${route.name.lowercase()}")
 
 private enum class TerminalMutation { ACQUIRE, RELEASE, INPUT, RESIZE }
 

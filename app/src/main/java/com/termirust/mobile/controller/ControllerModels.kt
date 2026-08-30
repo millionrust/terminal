@@ -148,6 +148,9 @@ data class ControllerUiState(
     val cachedAtMillis: Long? = null,
     val cachedReadOnly: Boolean = false,
     val activeTerminal: ControllerTerminalUiState? = null,
+    val selectedRoute: ControllerRemoteRouteKind = ControllerRemoteRouteKind.PRIVATE_NETWORK,
+    val routeProjections: List<AndroidControllerRouteProjection> = emptyList(),
+    val routeError: String? = null,
 )
 
 data class ControllerTerminalUiState(
