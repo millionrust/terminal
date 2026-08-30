@@ -78,7 +78,9 @@ final class ControllerRouteCredentialStore: ControllerRouteCredentialStoring, @u
         let host = hostID.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !host.isEmpty,
               host.utf8.count <= 128,
-              !host.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+              host.unicodeScalars.allSatisfy({
+                  CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0)
+              }) else {
             throw ControllerRouteCredentialStoreError.invalidHost
         }
         return [

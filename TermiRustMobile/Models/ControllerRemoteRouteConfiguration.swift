@@ -19,7 +19,9 @@ struct ControllerRouteCredentialReference: Codable, Equatable, Hashable, Sendabl
         guard route != .localIPC,
               !trimmed.isEmpty,
               trimmed.utf8.count <= 128,
-              !trimmed.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
+              trimmed.unicodeScalars.allSatisfy({
+                  CharacterSet.alphanumerics.contains($0) || "-_.".unicodeScalars.contains($0)
+              }),
               (route == .ssh && purpose == .sshAuthentication)
                 || (route == .selfHostedRelay && purpose == .relayAdmission) else {
             throw ControllerRemoteRouteConfigurationError.invalidCredentialReference
@@ -86,7 +88,10 @@ struct ControllerRemoteRouteConfiguration: Codable, Equatable, Sendable {
     }
 
     func validate() throws {
-        guard !endpoint.isEmpty, endpoint.utf8.count <= 2_048 else {
+        guard !endpoint.isEmpty,
+              endpoint.utf8.count <= 2_048,
+              !endpoint.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+        else {
             throw ControllerRemoteRouteConfigurationError.invalidEndpoint
         }
         switch kind {
@@ -106,8 +111,11 @@ struct ControllerRemoteRouteConfiguration: Codable, Equatable, Sendable {
                   credential.purpose == .sshAuthentication,
                   !username.isEmpty,
                   username.utf8.count <= 255,
+                  !username.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
                   !trustPin.isEmpty,
-                  trustPin.utf8.count <= 512 else {
+                  trustPin.utf8.count <= 512,
+                  !trustPin.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains)
+            else {
                 throw ControllerRemoteRouteConfigurationError.invalidCombination
             }
             _ = try HostRoute(address: endpoint, port: port)
@@ -118,7 +126,9 @@ struct ControllerRemoteRouteConfiguration: Codable, Equatable, Sendable {
                   let credential,
                   credential.route == .selfHostedRelay,
                   credential.purpose == .relayAdmission,
+                  !trustPin.isEmpty,
                   trustPin.utf8.count <= 512,
+                  !trustPin.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains),
                   let components = URLComponents(string: endpoint),
                   components.scheme?.lowercased() == "wss",
                   components.host != nil,

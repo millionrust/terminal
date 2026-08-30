@@ -97,6 +97,16 @@ struct AppleControllerRouteCoordinator: Sendable {
         }
     }
 
+    mutating func restorePersistedSelection(
+        _ route: ControllerRemoteRouteKind
+    ) throws {
+        guard route != .localIPC,
+              ControllerRemoteRoutePolicy.canonical(route).supports(.appleMobile) else {
+            throw AppleControllerRouteCoordinatorError.transition(.unsupportedPlatform)
+        }
+        selected = route
+    }
+
     mutating func select(
         _ target: ControllerRemoteRouteKind,
         explicitlyConfirmed: Bool

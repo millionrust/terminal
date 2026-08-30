@@ -86,6 +86,7 @@ targets:
     sources:
       - TermiRustMobileTests/BoundedTerminalBufferTests.swift
       - TermiRustMobileTests/AppleControllerRouteTests.swift
+      - TermiRustMobileTests/AppleControllerRouteViewModelTests.swift
       - TermiRustMobileTests/ControllerBindingConformanceTests.swift
       - TermiRustMobileTests/ControllerFleetCacheTests.swift
       - TermiRustMobileTests/ControllerPairingFleetTests.swift

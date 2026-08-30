@@ -52,6 +52,41 @@ protocol ControllerConnecting: Sendable {
     func cancel() async
 }
 
+struct AppleControllerRouteConnections: Sendable {
+    let privateNetwork: (any ControllerConnecting)?
+    let ssh: (any ControllerConnecting)?
+    let selfHostedRelay: (any ControllerConnecting)?
+
+    init(
+        privateNetwork: (any ControllerConnecting)?,
+        ssh: (any ControllerConnecting)? = nil,
+        selfHostedRelay: (any ControllerConnecting)? = nil
+    ) {
+        self.privateNetwork = privateNetwork
+        self.ssh = ssh
+        self.selfHostedRelay = selfHostedRelay
+    }
+
+    var availability: AppleControllerRouteAvailability {
+        AppleControllerRouteAvailability(
+            privateNetwork: privateNetwork != nil,
+            ssh: ssh != nil,
+            selfHostedRelay: selfHostedRelay != nil
+        )
+    }
+
+    func connection(
+        for route: ControllerRemoteRouteKind
+    ) -> (any ControllerConnecting)? {
+        switch route {
+        case .localIPC: nil
+        case .privateNetwork: privateNetwork
+        case .ssh: ssh
+        case .selfHostedRelay: selfHostedRelay
+        }
+    }
+}
+
 extension ControllerConnecting {
     func attachReadOnly(
         host: PairedHostRecord,

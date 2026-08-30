@@ -5,6 +5,7 @@ struct ControllerRootView: View {
     @State private var showingPairing = false
     @State private var showingForgetConfirmation = false
     @State private var showingHostDetails = false
+    @State private var pendingRoute: ControllerRemoteRouteKind?
 
     var body: some View {
         NavigationSplitView {
@@ -42,10 +43,13 @@ struct ControllerRootView: View {
         } detail: {
             ControllerSessionFleetView(
                 state: viewModel.state,
+                routes: viewModel.routeProjections,
+                routeSelectionError: viewModel.routeSelectionError,
                 onRetry: viewModel.retry,
                 onForget: { showingForgetConfirmation = true },
                 onShowDetails: { showingHostDetails = true },
-                onOpenSession: viewModel.openReadOnlyTerminal
+                onOpenSession: viewModel.openReadOnlyTerminal,
+                onSelectRoute: { pendingRoute = $0 }
             )
         }
         .navigationSplitViewStyle(.balanced)
@@ -80,6 +84,27 @@ struct ControllerRootView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("This removes the local pairing key and cache. It does not revoke the device on the Host.")
+        }
+        .confirmationDialog(
+            "Switch connection route?",
+            isPresented: Binding(
+                get: { pendingRoute != nil },
+                set: { if !$0 { pendingRoute = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            if let pendingRoute {
+                Button("Switch to \(ControllerPresentation.routeTitle(pendingRoute))") {
+                    _ = viewModel.selectControllerRoute(
+                        pendingRoute,
+                        explicitlyConfirmed: true
+                    )
+                    self.pendingRoute = nil
+                }
+            }
+            Button("Cancel", role: .cancel) { pendingRoute = nil }
+        } message: {
+            Text("The current Controller connection will close before the selected route starts.")
         }
         .fullScreenCover(isPresented: terminalPresented) {
             if let terminal = viewModel.activeTerminal {
@@ -138,10 +163,13 @@ private struct ControllerHostRow: View {
 
 private struct ControllerSessionFleetView: View {
     let state: ControllerViewState
+    let routes: [AppleControllerRouteProjection]
+    let routeSelectionError: AppleControllerRouteCoordinatorError?
     let onRetry: () -> Void
     let onForget: () -> Void
     let onShowDetails: () -> Void
     let onOpenSession: (ControllerSessionSummary) -> Void
+    let onSelectRoute: (ControllerRemoteRouteKind) -> Void
 
     var body: some View {
         Group {
@@ -151,6 +179,20 @@ private struct ControllerSessionFleetView: View {
                 List {
                     Section {
                         ControllerStatusBanner(state: state, onRetry: onRetry)
+                    }
+                    Section("Connection Route") {
+                        ForEach(routes) { route in
+                            ControllerRouteRow(
+                                route: route,
+                                onSelect: { onSelectRoute(route.route) }
+                            )
+                        }
+                        if routeSelectionError != nil {
+                            Label("Route switch was not completed", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                .accessibilityAddTraits(.isStaticText)
+                        }
                     }
                     if state.sessions.isEmpty {
                         Section {
@@ -216,6 +258,41 @@ private struct ControllerSessionFleetView: View {
         state.isCachedReadOnly
             ? "No sessions were saved in the last complete snapshot."
             : "This Host is not currently reporting durable sessions."
+    }
+}
+
+private struct ControllerRouteRow: View {
+    let route: AppleControllerRouteProjection
+    let onSelect: () -> Void
+
+    var body: some View {
+        HStack(spacing: 12) {
+            Image(systemName: ControllerPresentation.routeIcon(route.route))
+                .foregroundStyle(route.selected ? Color.accentColor : .secondary)
+                .frame(width: 24, height: 24)
+            VStack(alignment: .leading, spacing: 3) {
+                Text(ControllerPresentation.routeTitle(route.route))
+                    .font(.body.weight(.semibold))
+                Text(ControllerPresentation.routeStatus(route))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer(minLength: 8)
+            if route.selected {
+                Image(systemName: "checkmark.circle.fill")
+                    .foregroundStyle(Color.accentColor)
+                    .accessibilityLabel("Selected route")
+            } else if route.available {
+                Button("Use", action: onSelect)
+                    .buttonStyle(.bordered)
+            } else {
+                Text("Not configured")
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .frame(minHeight: 48)
+        .accessibilityElement(children: .contain)
     }
 }
 

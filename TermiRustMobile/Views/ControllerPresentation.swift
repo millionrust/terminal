@@ -12,6 +12,39 @@ struct ControllerSessionGroup: Identifiable, Equatable, Sendable {
 }
 
 enum ControllerPresentation {
+    static func routeTitle(_ route: ControllerRemoteRouteKind) -> String {
+        switch route {
+        case .localIPC: "Local IPC"
+        case .privateNetwork: "Private network"
+        case .ssh: "SSH Controller"
+        case .selfHostedRelay: "Self-hosted relay"
+        }
+    }
+
+    static func routeIcon(_ route: ControllerRemoteRouteKind) -> String {
+        switch route {
+        case .localIPC: "desktopcomputer"
+        case .privateNetwork: "network"
+        case .ssh: "key.horizontal"
+        case .selfHostedRelay: "point.3.connected.trianglepath.dotted"
+        }
+    }
+
+    static func routeStatus(_ route: AppleControllerRouteProjection) -> String {
+        let status: String = switch route.phase {
+        case .disabled: "Disabled"
+        case .unavailable: "Not configured"
+        case .idle: "Ready"
+        case .connecting: "Connecting"
+        case .authenticating: "Authenticating"
+        case .online: "Online"
+        case .reconnecting: "Reconnecting"
+        case .degraded: "Needs attention"
+        case .revoked: "Authorization revoked"
+        }
+        return route.selected ? "Selected · \(status)" : status
+    }
+
     static func isolated(_ value: String) -> String {
         "\u{2068}\(value)\u{2069}"
     }

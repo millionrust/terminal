@@ -41,6 +41,7 @@
 		7146C0C03DB5F09728C36DFD /* UnifiedRouteLifecycleTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A401F88097A4050D1187C33 /* UnifiedRouteLifecycleTests.swift */; };
 		7260DCA394FE124E45312F4E /* MobileCrossRouteAcceptance.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9C91B500A1DCE6DC192402D /* MobileCrossRouteAcceptance.swift */; };
 		772A35B8595785DF03EE098E /* MobileVaultImporter.swift in Sources */ = {isa = PBXBuildFile; fileRef = AC21F9172941D89CFE3131A7 /* MobileVaultImporter.swift */; };
+		775848E92C529BF6B8B02838 /* AppleControllerRouteViewModelTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1E1408239ECD857465267C7 /* AppleControllerRouteViewModelTests.swift */; };
 		79A6A8B2381FB2C9319EFD99 /* ControllerReadOnlyAttach.swift in Sources */ = {isa = PBXBuildFile; fileRef = C71FF821F9BC71B9C9F14692 /* ControllerReadOnlyAttach.swift */; };
 		7A740E922F044472CD76815E /* controller-v1.json in Resources */ = {isa = PBXBuildFile; fileRef = 26B5CDEA33B10C29FDE1E103 /* controller-v1.json */; };
 		7F3B1423EA45161ABAA62A33 /* TerminalInteraction.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1E45128AD706AEC225C1F294 /* TerminalInteraction.swift */; };
@@ -143,6 +144,7 @@
 		961259E09EB8448FEC2BD91E /* ControllerFleetCacheTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerFleetCacheTests.swift; sourceTree = "<group>"; };
 		9D5283F9C9C5C0322F38E46C /* ControllerQRCodeScanner.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerQRCodeScanner.swift; sourceTree = "<group>"; };
 		A01D81A3386AE96F20F17AB5 /* TermiRustMobile.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = TermiRustMobile.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A1E1408239ECD857465267C7 /* AppleControllerRouteViewModelTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppleControllerRouteViewModelTests.swift; sourceTree = "<group>"; };
 		A4808B8FAD8D18B154844FEB /* ControllerRootView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerRootView.swift; sourceTree = "<group>"; };
 		A5EED30009CAECFDB014CB0F /* ControllerBindingConformanceTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ControllerBindingConformanceTests.swift; sourceTree = "<group>"; };
 		A9C91B500A1DCE6DC192402D /* MobileCrossRouteAcceptance.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MobileCrossRouteAcceptance.swift; sourceTree = "<group>"; };
@@ -333,6 +335,7 @@
 			isa = PBXGroup;
 			children = (
 				0BCC208C6B390FC18F2DF609 /* AppleControllerRouteTests.swift */,
+				A1E1408239ECD857465267C7 /* AppleControllerRouteViewModelTests.swift */,
 				F6E63D1988FD59BCF8486812 /* BoundedTerminalBufferTests.swift */,
 				A5EED30009CAECFDB014CB0F /* ControllerBindingConformanceTests.swift */,
 				961259E09EB8448FEC2BD91E /* ControllerFleetCacheTests.swift */,
@@ -524,6 +527,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				1C040B3614D84FCA01B8C6FA /* AppleControllerRouteTests.swift in Sources */,
+				775848E92C529BF6B8B02838 /* AppleControllerRouteViewModelTests.swift in Sources */,
 				90B03BA0136A9B4E35151F23 /* BoundedTerminalBufferTests.swift in Sources */,
 				8999D7D40482A28A2DC06AEE /* ControllerBindingConformanceTests.swift in Sources */,
 				E89E0397FB0D7FD81C595E09 /* ControllerFleetCacheTests.swift in Sources */,

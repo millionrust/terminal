@@ -10,11 +10,15 @@ final class ControllerViewModel: ObservableObject {
     @Published var pairingHostName = "My Mac"
     @Published var pairingDeviceName = UIDevice.current.name
     @Published private(set) var activeTerminal: ControllerTerminalViewModel?
+    @Published private(set) var routeProjections: [AppleControllerRouteProjection]
+    @Published private(set) var routeSelectionError: AppleControllerRouteCoordinatorError?
 
-    private let connectionActor: (any ControllerConnecting)?
+    private let routeConnections: AppleControllerRouteConnections
     private let hostStore: PairedHostStore?
     private let cacheStore: ControllerFleetCacheStore?
     private let retryPolicy: ControllerRetryPolicy
+    private let defaults: UserDefaults
+    private var routeCoordinator: AppleControllerRouteCoordinator
     private var hostRecords: [PairedHostRecord] = []
     private var cache = ControllerFleetCache()
     private let deviceID: UUID
@@ -22,6 +26,7 @@ final class ControllerViewModel: ObservableObject {
 
     init(
         connectionActor: (any ControllerConnecting)? = nil,
+        routeConnections: AppleControllerRouteConnections? = nil,
         hostStore: PairedHostStore? = nil,
         cacheStore: ControllerFleetCacheStore? = nil,
         defaults: UserDefaults = .standard,
@@ -29,17 +34,37 @@ final class ControllerViewModel: ObservableObject {
     ) {
         self.deviceID = Self.loadDeviceID(defaults: defaults)
         self.retryPolicy = retryPolicy
-        if let connectionActor, let hostStore, let cacheStore {
-            self.connectionActor = connectionActor
-            self.hostStore = hostStore
-            self.cacheStore = cacheStore
+        self.defaults = defaults
+        if let routeConnections {
+            self.routeConnections = routeConnections
+        } else if let connectionActor {
+            self.routeConnections = AppleControllerRouteConnections(
+                privateNetwork: connectionActor
+            )
         } else {
             let blobStore = ControllerKeychainBlobStore()
-            self.connectionActor = try? ControllerConnectionActor(blobStore: blobStore)
-            self.hostStore = try? PairedHostStore()
-            self.cacheStore = try? ControllerFleetCacheStore()
+            self.routeConnections = AppleControllerRouteConnections(
+                privateNetwork: try? ControllerConnectionActor(blobStore: blobStore)
+            )
         }
-        guard self.connectionActor != nil, self.hostStore != nil, self.cacheStore != nil else {
+        self.hostStore = hostStore ?? (try? PairedHostStore())
+        self.cacheStore = cacheStore ?? (try? ControllerFleetCacheStore())
+        var coordinator = AppleControllerRouteCoordinator(
+            availability: self.routeConnections.availability
+        )
+        if let rawRoute = defaults.string(forKey: Self.selectedRouteDefaultsKey),
+           let savedRoute = ControllerRemoteRouteKind(rawValue: rawRoute),
+           savedRoute != .localIPC {
+            _ = try? coordinator.restorePersistedSelection(savedRoute)
+        } else if self.routeConnections.privateNetwork != nil {
+            _ = try? coordinator.select(.privateNetwork, explicitlyConfirmed: true)
+        }
+        self.routeCoordinator = coordinator
+        self.routeProjections = coordinator.projections
+        self.routeSelectionError = nil
+        guard self.routeConnections.privateNetwork != nil,
+              self.hostStore != nil,
+              self.cacheStore != nil else {
             state = ControllerViewState(
                 hosts: [],
                 selectedHostID: nil,
@@ -61,8 +86,17 @@ final class ControllerViewModel: ObservableObject {
         hostRecords.first { $0.id == state.selectedHostID }
     }
 
+    var selectedRoute: ControllerRemoteRouteKind? {
+        routeCoordinator.selected
+    }
+
+    private var selectedConnection: (any ControllerConnecting)? {
+        guard let selectedRoute else { return nil }
+        return routeConnections.connection(for: selectedRoute)
+    }
+
     func beginPairing() {
-        guard let connectionActor else { return }
+        guard let connectionActor = routeConnections.privateNetwork else { return }
         operation?.cancel()
         pairingChallenge = nil
         state = replacing(connection: .pairing, sessions: state.sessions)
@@ -89,7 +123,7 @@ final class ControllerViewModel: ObservableObject {
     }
 
     func finishPairing(matches: Bool) {
-        guard let connectionActor, let hostStore else { return }
+        guard let connectionActor = routeConnections.privateNetwork, let hostStore else { return }
         operation?.cancel()
         state = replacing(connection: .pairing, sessions: state.sessions)
         operation = Task { [weak self] in
@@ -119,7 +153,7 @@ final class ControllerViewModel: ObservableObject {
         operation?.cancel()
         operation = nil
         pairingChallenge = nil
-        Task { await connectionActor?.cancel() }
+        Task { await routeConnections.privateNetwork?.cancel() }
         state = makeState(
             selectedHostID: state.selectedHostID,
             sessions: state.sessions,
@@ -151,11 +185,61 @@ final class ControllerViewModel: ObservableObject {
         operation = Task { [weak self] in await self?.refresh(host: selectedHost) }
     }
 
+    @discardableResult
+    func selectControllerRoute(
+        _ target: ControllerRemoteRouteKind,
+        explicitlyConfirmed: Bool
+    ) -> Bool {
+        let source = selectedRoute
+        do {
+            let plan = try routeCoordinator.select(
+                target,
+                explicitlyConfirmed: explicitlyConfirmed
+            )
+            routeSelectionError = nil
+            defaults.set(target.rawValue, forKey: Self.selectedRouteDefaultsKey)
+            syncRouteProjections()
+            operation?.cancel()
+            operation = nil
+            activeTerminal?.suspend()
+            activeTerminal = nil
+            let cached = state.selectedHostID.flatMap { cache.hosts[$0] }
+            state = makeState(
+                selectedHostID: state.selectedHostID,
+                sessions: cached?.sessions ?? state.sessions,
+                connection: hostRecords.isEmpty ? .unpaired : .pairedOffline,
+                cacheUpdatedAt: cached?.updatedAt,
+                isCached: cached != nil
+            )
+            guard let host = selectedHost else { return true }
+            operation = Task { [weak self] in
+                guard let self else { return }
+                if plan.disconnectTransport == source, let source {
+                    await routeConnections.connection(for: source)?.cancel()
+                }
+                guard !Task.isCancelled else { return }
+                await refresh(host: host)
+            }
+            return true
+        } catch let error as AppleControllerRouteCoordinatorError {
+            routeSelectionError = error
+            syncRouteProjections()
+            return false
+        } catch {
+            routeSelectionError = .transition(.invalidTransition)
+            syncRouteProjections()
+            return false
+        }
+    }
+
     func suspend() {
         activeTerminal?.suspend()
         operation?.cancel()
         operation = nil
-        Task { await connectionActor?.cancel() }
+        let connection = selectedConnection
+        _ = try? routeCoordinator.cancelSelected()
+        syncRouteProjections()
+        Task { await connection?.cancel() }
         let cached = state.selectedHostID.flatMap { cache.hosts[$0] }
         state = makeState(
             selectedHostID: state.selectedHostID,
@@ -180,7 +264,7 @@ final class ControllerViewModel: ObservableObject {
               !state.isCachedReadOnly,
               state.connection == .readyReadOnly,
               let host = selectedHost,
-              let connectionActor,
+              let connectionActor = selectedConnection,
               host.capabilityBits & (1 << 1) != 0,
               session.capabilities.isEmpty || session.capabilities.contains(.attachOutput),
               session.occupantGeneration != nil else { return }
@@ -199,7 +283,7 @@ final class ControllerViewModel: ObservableObject {
 
     func forgetSelectedHost() {
         guard let host = selectedHost,
-              let connectionActor,
+              let connectionActor = routeConnections.privateNetwork,
               let hostStore else { return }
         operation?.cancel()
         operation = Task { [weak self] in
@@ -246,7 +330,25 @@ final class ControllerViewModel: ObservableObject {
     }
 
     private func refresh(host: PairedHostRecord) async {
-        guard let connectionActor, let cacheStore else { return }
+        guard let route = selectedRoute,
+              let connectionActor = routeConnections.connection(for: route),
+              let cacheStore else {
+            state = replacing(connection: .failed(.networkUnavailable), sessions: state.sessions)
+            return
+        }
+        switch routePhase(route) {
+        case .idle:
+            _ = try? routeCoordinator.connectSelected()
+        case .degraded:
+            _ = try? routeCoordinator.retrySelected()
+        case nil, .disabled, .unavailable, .revoked:
+            state = replacing(connection: .failed(.networkUnavailable), sessions: state.sessions)
+            syncRouteProjections()
+            return
+        case .connecting, .authenticating, .online, .reconnecting:
+            break
+        }
+        syncRouteProjections()
         let startedAt = Date()
         var attempt = 1
 
@@ -254,9 +356,13 @@ final class ControllerViewModel: ObservableObject {
             state = replacing(connection: .connecting, sessions: state.sessions)
             do {
                 let snapshot = try await connectionActor.fetchSessions(host: host) { [weak self] progress in
-                    await self?.apply(progress: progress, forHostID: host.id)
+                    await self?.apply(progress: progress, route: route, forHostID: host.id)
                 }
                 guard !Task.isCancelled, state.selectedHostID == host.id else { return }
+                if routePhase(route) == .authenticating {
+                    _ = try? routeCoordinator.authenticated(route)
+                    syncRouteProjections()
+                }
                 if cache.hosts[host.id]?.revision != snapshot.revision
                     || cache.hosts[host.id]?.updateSequence != snapshot.updateSequence {
                     try cache.replace(
@@ -281,11 +387,22 @@ final class ControllerViewModel: ObservableObject {
             } catch {
                 guard !Task.isCancelled, state.selectedHostID == host.id else { return }
                 let elapsed = Date().timeIntervalSince(startedAt)
-                guard Self.shouldRetry(error),
-                      let delay = retryPolicy.delayAfterFailure(
+                let delay = Self.shouldRetry(error)
+                    ? retryPolicy.delayAfterFailure(
                           attempt: attempt,
                           elapsedSeconds: elapsed
-                      ) else {
+                      ) : nil
+                if Self.isRevocation(error) {
+                    _ = try? routeCoordinator.revokeSelected()
+                } else {
+                    _ = try? routeCoordinator.failed(
+                        route,
+                        retryable: delay != nil,
+                        mutationInFlight: false
+                    )
+                }
+                syncRouteProjections()
+                guard let delay else {
                     applyTerminalFailure(error, for: host)
                     return
                 }
@@ -299,12 +416,26 @@ final class ControllerViewModel: ObservableObject {
         }
     }
 
-    private func apply(progress: ControllerConnectionProgress, forHostID hostID: String) {
+    private func apply(
+        progress: ControllerConnectionProgress,
+        route: ControllerRemoteRouteKind,
+        forHostID hostID: String
+    ) {
         guard !Task.isCancelled, state.selectedHostID == hostID else { return }
-        let connection: ControllerConnectionState = switch progress {
-        case .authenticating: .authenticating
-        case .syncing: .syncing
+        let connection: ControllerConnectionState
+        switch progress {
+        case .authenticating:
+            if routePhase(route) == .connecting || routePhase(route) == .reconnecting {
+                _ = try? routeCoordinator.transportReady(route)
+            }
+            connection = .authenticating
+        case .syncing:
+            if routePhase(route) == .authenticating {
+                _ = try? routeCoordinator.authenticated(route)
+            }
+            connection = .syncing
         }
+        syncRouteProjections()
         state = replacing(connection: connection, sessions: state.sessions)
     }
 
@@ -360,6 +491,22 @@ final class ControllerViewModel: ObservableObject {
 
     private static func isRevocationCode(_ code: String) -> Bool {
         code.lowercased().contains("revok")
+    }
+
+    private static func isRevocation(_ error: Error) -> Bool {
+        guard let error = error as? ControllerConnectionError,
+              case .hostError(let code) = error else { return false }
+        return isRevocationCode(code)
+    }
+
+    private func routePhase(
+        _ route: ControllerRemoteRouteKind
+    ) -> ControllerRemoteRoutePhase? {
+        routeCoordinator.projections.first { $0.route == route }?.phase
+    }
+
+    private func syncRouteProjections() {
+        routeProjections = routeCoordinator.projections
     }
 
     private func replacing(
@@ -438,4 +585,6 @@ final class ControllerViewModel: ObservableObject {
         defaults.set(id.uuidString.lowercased(), forKey: key)
         return id
     }
+
+    private static let selectedRouteDefaultsKey = "termirust.controller.selected_route.v1"
 }

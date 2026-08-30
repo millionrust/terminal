@@ -103,6 +103,25 @@ final class AppleControllerRouteTests: XCTestCase {
         XCTAssertEqual(projection(.privateNetwork, in: coordinator).phase, .unavailable)
     }
 
+    func testPersistedUnavailableSelectionRemainsSelectedWithoutStartingFallback() throws {
+        var coordinator = AppleControllerRouteCoordinator(
+            availability: AppleControllerRouteAvailability(
+                privateNetwork: true,
+                ssh: false,
+                selfHostedRelay: false
+            )
+        )
+        try coordinator.restorePersistedSelection(.ssh)
+        XCTAssertEqual(coordinator.selected, .ssh)
+        XCTAssertEqual(projection(.ssh, in: coordinator).phase, .unavailable)
+        XCTAssertThrowsError(try coordinator.connectSelected())
+        XCTAssertEqual(
+            projection(.privateNetwork, in: coordinator).phase,
+            .idle,
+            "LAN must remain idle rather than becoming an implicit fallback"
+        )
+    }
+
     func testConfigurationChangesCannotEraseRevocationOrDisable() throws {
         var coordinator = AppleControllerRouteCoordinator(availability: .all)
         try connectOnline(.ssh, coordinator: &coordinator)

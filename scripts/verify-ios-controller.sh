@@ -61,11 +61,15 @@ xcrun xcstringstool compile \
 CONTROLLER_SOURCES=(
   TermiRustMobile/Generated/TermiRustControllerSecurity.swift
   TermiRustMobile/Models/ControllerModels.swift
+  TermiRustMobile/Models/ControllerRemoteRoute.swift
+  TermiRustMobile/Models/ControllerRemoteRouteConfiguration.swift
   TermiRustMobile/Models/MobileRouteContract.swift
   TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
   TermiRustMobile/Controller/ControllerFleetCache.swift
+  TermiRustMobile/Controller/AppleControllerRouteCoordinator.swift
   TermiRustMobile/Controller/PairedHostStore.swift
   TermiRustMobile/Security/ControllerKeychainBlobStore.swift
+  TermiRustMobile/Security/ControllerRouteCredentialStore.swift
   TermiRustMobile/Controller/ControllerRetryPolicy.swift
   TermiRustMobile/Controller/ControllerReadOnlyAttach.swift
   TermiRustMobile/Controller/ControllerWriterControl.swift
@@ -142,10 +146,14 @@ if [[ "$STAGE" == "terminal-acceptance" || "$STAGE" == "route-contract" ]]; then
     TermiRustMobileTests/Fixtures/terminal-acceptance-v1.json
 fi
 if [[ "$STAGE" == "route-contract" ]]; then
+  TEST_SOURCES+=(TermiRustMobileTests/AppleControllerRouteTests.swift)
+  TEST_SOURCES+=(TermiRustMobileTests/AppleControllerRouteViewModelTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/MobileRouteContractTests.swift)
   TEST_SOURCES+=(TermiRustMobileTests/MobileCrossRouteAcceptanceTests.swift)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/MobileRouteContractTests)
   RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/MobileCrossRouteAcceptanceTests)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/AppleControllerRouteTests)
+  RUNTIME_TESTS+=(-only-testing:TermiRustMobileTests/AppleControllerRouteViewModelTests)
   xcrun swiftc \
     -swift-version 6 \
     -strict-concurrency=complete \
@@ -154,6 +162,7 @@ if [[ "$STAGE" == "route-contract" ]]; then
     -o "$TEMP_MODULE/mobile-route-contract"
   "$TEMP_MODULE/mobile-route-contract" \
     TermiRustMobileTests/Fixtures/mobile-route-contract-v1.json
+  "$ROOT_DIR/scripts/verify-ios-controller-routes.sh"
 fi
 if [[ "$STAGE" == "universal-session" ]]; then
   TEST_SOURCES+=(TermiRustMobileTests/UniversalSessionGoldenPathTests.swift)

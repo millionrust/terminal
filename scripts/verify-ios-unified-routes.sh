@@ -37,6 +37,8 @@ required_sources=(
   TermiRustMobile/SSH/MobileSSHSession.swift
   TermiRustMobile/SSH/TmuxBootstrap.swift
   TermiRustMobile/ViewModels/HostListViewModel.swift
+  TermiRustMobile/Controller/AppleControllerRouteCoordinator.swift
+  TermiRustMobile/Models/ControllerRemoteRoute.swift
   TermiRustMobile/Views/ContentView.swift
   TermiRustMobile/Views/ControllerRootView.swift
 )
@@ -58,6 +60,10 @@ grep -Eq 'ControllerRootView\(viewModel: controllerViewModel\)' TermiRustMobile/
 }
 grep -Eq 'TabView\(selection: \$destination\)' TermiRustMobile/App/TermiRustMobileApp.swift || {
   printf 'Unified navigation is not bound to the canonical root destination.\n' >&2
+  exit 1
+}
+grep -q 'Section("Connection Route")' TermiRustMobile/Views/ControllerRootView.swift || {
+  printf 'Devices does not expose explicit Controller route selection.\n' >&2
   exit 1
 }
 
@@ -200,6 +206,19 @@ xcrun swiftc \
   -I "$SECURITY_HEADERS" \
   TermiRustMobileTests/AppleControllerRouteTests.swift
 
+xcrun swiftc \
+  -typecheck \
+  -swift-version 6 \
+  -strict-concurrency=complete \
+  -target arm64-apple-ios17.0 \
+  -sdk "$SDK" \
+  -F "$PLATFORM/Library/Frameworks" \
+  -I "$PLATFORM/usr/lib" \
+  -I "$TEMP_MODULE" \
+  -I "$CRYPTO_HEADERS" \
+  -I "$SECURITY_HEADERS" \
+  TermiRustMobileTests/AppleControllerRouteViewModelTests.swift
+
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
 
 BUILD_LOG="$TEMP_MODULE/xcodebuild.log"
@@ -226,4 +245,4 @@ else
 fi
 
 git diff --check
-printf 'Unified iOS target includes direct SSH Connections and paired Device Sessions.\n'
+printf 'Unified iOS target includes direct SSH Connections and explicit paired Device routes.\n'
