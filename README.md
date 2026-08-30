@@ -8,6 +8,8 @@ This folder contains the unified native TermiRust mobile application.
   device-local, known-host pins are mandatory, and optional remote tmux owns continuity.
 - **Devices** are paired TermiRust desktops. A paired Device lists durable Device Sessions;
   the desktop Host service owns replay, activity truth, and single-writer coordination.
+- Device access uses one explicit private-network, SSH Controller, or self-hosted relay
+  selection. Only a configured transport is selectable; route changes close the source first.
 - The route types use separate credential stores and never silently transfer credentials,
   terminal ownership, or replay guarantees between these two paths.
 
@@ -27,11 +29,16 @@ Implemented:
 - SwiftNIO SSH password and unencrypted OpenSSH Ed25519 private-key transport with pinned known-host verification, PTY shell startup, tmux bootstrap injection, terminal input, resize, and disconnect.
 - Transcript-level terminal buffering for common redraw/control sequences such as carriage return, backspace, ANSI SGR, line erase, cursor movement, and clear screen.
 - Canonical route, terminal, schema, tmux, and lifecycle verification.
+- Shared Controller route phases, trust/capability projection, persisted explicit selection,
+  route-scoped Keychain credential references, bounded same-route retry, and visible recovery.
 
 Not finished yet:
 
 - Encrypted private-key passphrase prompts and RSA/ECDSA private-key parsing.
 - Full terminal emulator integration. SwiftTerm is the right candidate, but this Xcode install is missing the Metal Toolchain needed to build SwiftTerm. Re-enable SwiftTerm after installing it with `xcodebuild -downloadComponent MetalToolchain` or through Xcode Settings > Components.
+- The production Device transport set currently installs private LAN/VPN only. Direct SSH
+  remains available under Connections; SSH Controller and self-hosted relay stay visibly
+  unconfigured until their dedicated native transport adapters are supplied.
 
 ## Build
 
