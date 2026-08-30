@@ -53,6 +53,7 @@ struct AppleControllerRoutePlan: Equatable, Sendable {
     var releaseWriter = false
     var retryIdempotentReads = false
     var mutationDisposition: ControllerRemoteMutationDisposition?
+    var requiresExplicitAction = false
 
     static let none = Self()
 }
@@ -319,7 +320,8 @@ struct AppleControllerRouteCoordinator: Sendable {
             releaseWriter: transition.releaseWriter,
             retryIdempotentReads: transition.retryIdempotentReads,
             mutationDisposition: transition.mutationDisposition == .none
-                ? nil : transition.mutationDisposition
+                ? nil : transition.mutationDisposition,
+            requiresExplicitAction: transition.requiresExplicitAction
         )
     }
 
