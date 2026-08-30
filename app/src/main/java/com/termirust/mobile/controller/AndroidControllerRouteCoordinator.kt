@@ -40,6 +40,7 @@ data class AndroidControllerRoutePlan(
     val releaseWriter: Boolean = false,
     val retryIdempotentReads: Boolean = false,
     val mutationDisposition: ControllerRemoteMutationDisposition? = null,
+    val requiresExplicitAction: Boolean = false,
 )
 
 enum class AndroidControllerRouteCoordinatorError {
@@ -199,6 +200,7 @@ class AndroidControllerRouteCoordinator(initialAvailability: AndroidControllerRo
         releaseWriter = transition.releaseWriter,
         retryIdempotentReads = transition.retryIdempotentReads,
         mutationDisposition = transition.mutationDisposition.takeUnless { it == ControllerRemoteMutationDisposition.NONE },
+        requiresExplicitAction = transition.requiresExplicitAction,
     )
 
     private fun inactivePhase(phase: ControllerRemoteRoutePhase, available: Boolean) = when (phase) {
