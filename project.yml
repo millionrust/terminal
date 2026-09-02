@@ -19,6 +19,7 @@ targets:
     platform: iOS
     sources:
       - TermiRustMobile/App/TermiRustMobileApp.swift
+      - TermiRustMobile/Assets.xcassets
       - TermiRustMobile/Controller
       - TermiRustMobile/Generated/TermiRustControllerSecurity.swift
       - TermiRustMobile/Models/ControllerModels.swift
