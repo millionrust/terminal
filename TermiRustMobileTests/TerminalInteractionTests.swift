@@ -201,6 +201,125 @@ final class TerminalInteractionTests: XCTestCase {
         )
     }
 
+    func testControllerFollowTargetStopsAtCursorOrLatestContentNotBlankPadding() {
+        XCTAssertEqual(
+            ControllerTerminalFollowTarget.row(
+                lines: ["prompt", "", "", ""],
+                cursorRow: 0,
+                scrollbackRows: 0
+            ),
+            0
+        )
+        XCTAssertEqual(
+            ControllerTerminalFollowTarget.row(
+                lines: ["old", "new", "", ""],
+                cursorRow: 1,
+                scrollbackRows: 1
+            ),
+            2
+        )
+        XCTAssertEqual(
+            ControllerTerminalFollowTarget.row(
+                lines: ["prompt", "later output", "", ""],
+                cursorRow: 0,
+                scrollbackRows: 0
+            ),
+            1
+        )
+        XCTAssertNil(
+            ControllerTerminalFollowTarget.row(
+                lines: [],
+                cursorRow: 0,
+                scrollbackRows: 0
+            )
+        )
+    }
+
+    func testControllerCursorMapsViewportRowAndWideCellContinuation() {
+        let cells = [
+            BoundedTerminalCell(text: "界", width: .wide, style: .init()),
+            BoundedTerminalCell.continuation(style: .init()),
+        ]
+        XCTAssertEqual(
+            ControllerTerminalCursor.column(
+                rowIndex: 4,
+                cells: cells,
+                cursorRow: 2,
+                cursorColumn: 1,
+                scrollbackRows: 2,
+                visible: true
+            ),
+            0
+        )
+        XCTAssertEqual(
+            ControllerTerminalCursor.column(
+                rowIndex: 4,
+                cells: cells,
+                cursorRow: 2,
+                cursorColumn: 5,
+                scrollbackRows: 2,
+                visible: true
+            ),
+            5
+        )
+        XCTAssertNil(
+            ControllerTerminalCursor.column(
+                rowIndex: 3,
+                cells: cells,
+                cursorRow: 2,
+                cursorColumn: 1,
+                scrollbackRows: 2,
+                visible: true
+            )
+        )
+        XCTAssertNil(
+            ControllerTerminalCursor.column(
+                rowIndex: 4,
+                cells: cells,
+                cursorRow: 2,
+                cursorColumn: 1,
+                scrollbackRows: 2,
+                visible: false
+            )
+        )
+    }
+
+    func testControllerTerminalUsesCompactChromeOnlyForFocusedLandscape() {
+        XCTAssertTrue(
+            ControllerTerminalLayout.usesFocusedLandscape(
+                verticalSizeClassIsCompact: true,
+                keyboardPresented: true
+            )
+        )
+        XCTAssertFalse(
+            ControllerTerminalLayout.usesFocusedLandscape(
+                verticalSizeClassIsCompact: false,
+                keyboardPresented: true
+            )
+        )
+        XCTAssertFalse(
+            ControllerTerminalLayout.usesFocusedLandscape(
+                verticalSizeClassIsCompact: true,
+                keyboardPresented: false
+            )
+        )
+    }
+
+    func testControllerTerminalDesktopWidthPreservesAtLeastEightyColumns() {
+        XCTAssertEqual(
+            ControllerTerminalWidth.columns(fitting: 39, usesDesktopWidth: false),
+            39
+        )
+        XCTAssertEqual(
+            ControllerTerminalWidth.columns(fitting: 39, usesDesktopWidth: true),
+            80
+        )
+        XCTAssertEqual(
+            ControllerTerminalWidth.columns(fitting: 96, usesDesktopWidth: true),
+            96
+        )
+    }
+
     private func pasteInput(_ item: PasteCase) throws -> String {
         if let input = item.input { return input }
         let repeated = try XCTUnwrap(item.inputRepeat)

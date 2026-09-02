@@ -211,7 +211,8 @@ enum ControllerWriterWireCodec {
         identity: ReadOnlyAttachIdentity
     ) throws {
         try identity.validate()
-        guard sessionGeneration > 0, deadlineMillis > 0 else {
+        // Early desktop authorities used zero as their exact initial generation.
+        guard deadlineMillis > 0 else {
             throw WriterControlFailure.invalidTransition
         }
     }

@@ -216,6 +216,7 @@ struct SessionSummaryPage: Codable, Equatable, Sendable {
 struct ControllerFleetSnapshot: Equatable, Sendable {
     let revision: UInt64
     let updateSequence: UInt64
+    let capabilityBits: UInt16
     let sessions: [ControllerSessionSummary]
 }
 

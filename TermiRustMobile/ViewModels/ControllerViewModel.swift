@@ -117,6 +117,7 @@ final class ControllerViewModel: ObservableObject {
                 state = replacing(connection: .sasReady(challenge.sas), sessions: state.sessions)
             } catch {
                 guard !Task.isCancelled else { return }
+                pairingOfferText = ""
                 state = replacing(connection: .failed(Self.failure(error)), sessions: state.sessions)
             }
         }
@@ -131,6 +132,7 @@ final class ControllerViewModel: ObservableObject {
             do {
                 let record = try await connectionActor.finishPairing(matches: matches)
                 hostRecords = try await hostStore.upsert(record)
+                defaults.set(record.id, forKey: Self.selectedHostDefaultsKey)
                 pairingChallenge = nil
                 pairingOfferText = ""
                 state = makeState(
@@ -144,6 +146,7 @@ final class ControllerViewModel: ObservableObject {
             } catch {
                 guard !Task.isCancelled else { return }
                 pairingChallenge = nil
+                pairingOfferText = ""
                 state = replacing(connection: .failed(Self.failure(error)), sessions: state.sessions)
             }
         }
@@ -166,6 +169,11 @@ final class ControllerViewModel: ObservableObject {
     func selectHost(id: String?) {
         guard state.selectedHostID != id else { return }
         operation?.cancel()
+        if let id {
+            defaults.set(id, forKey: Self.selectedHostDefaultsKey)
+        } else {
+            defaults.removeObject(forKey: Self.selectedHostDefaultsKey)
+        }
         let cached = id.flatMap { cache.hosts[$0] }
         state = makeState(
             selectedHostID: id,
@@ -293,7 +301,12 @@ final class ControllerViewModel: ObservableObject {
                 hostRecords = try await hostStore.remove(id: host.id)
                 cache.remove(hostFingerprint: host.id)
                 if let cacheStore { try await cacheStore.save(cache) }
-                let next = hostRecords.first
+                let next = hostRecords.max { $0.pairedAt < $1.pairedAt }
+                if let next {
+                    defaults.set(next.id, forKey: Self.selectedHostDefaultsKey)
+                } else {
+                    defaults.removeObject(forKey: Self.selectedHostDefaultsKey)
+                }
                 state = makeState(
                     selectedHostID: next?.id,
                     sessions: next.flatMap { cache.hosts[$0.id]?.sessions } ?? [],
@@ -314,7 +327,12 @@ final class ControllerViewModel: ObservableObject {
             async let loadedCache = cacheStore.load()
             hostRecords = try await loadedHosts
             cache = try await loadedCache
-            let selected = hostRecords.first
+            let savedHostID = defaults.string(forKey: Self.selectedHostDefaultsKey)
+            let selected = hostRecords.first(where: { $0.id == savedHostID })
+                ?? hostRecords.max { $0.pairedAt < $1.pairedAt }
+            if let selected {
+                defaults.set(selected.id, forKey: Self.selectedHostDefaultsKey)
+            }
             let cached = selected.flatMap { cache.hosts[$0.id] }
             state = makeState(
                 selectedHostID: selected?.id,
@@ -359,6 +377,22 @@ final class ControllerViewModel: ObservableObject {
                     await self?.apply(progress: progress, route: route, forHostID: host.id)
                 }
                 guard !Task.isCancelled, state.selectedHostID == host.id else { return }
+                if host.capabilityBits != snapshot.capabilityBits, let hostStore {
+                    let refreshedHost = try PairedHostRecord(
+                        id: host.id,
+                        displayName: host.displayName,
+                        route: host.route,
+                        hostStaticPublicKey: host.hostStaticPublicKey,
+                        deviceStaticKeyId: host.deviceStaticKeyId,
+                        deviceId: host.deviceId,
+                        identityGeneration: host.identityGeneration,
+                        revocationEpoch: host.revocationEpoch,
+                        sessionGeneration: host.sessionGeneration,
+                        capabilityBits: snapshot.capabilityBits,
+                        pairedAt: host.pairedAt
+                    )
+                    hostRecords = try await hostStore.upsert(refreshedHost)
+                }
                 if routePhase(route) == .authenticating {
                     _ = try? routeCoordinator.authenticated(route)
                     syncRouteProjections()
@@ -462,6 +496,28 @@ final class ControllerViewModel: ObservableObject {
 
     private static func shouldRetry(_ error: Error) -> Bool {
         if error is CancellationError || error is SecureBlobError { return false }
+        if let error = error as? ControllerPairingError {
+            switch error {
+            case .timedOut:
+                return true
+            case .invalidOffer, .expiredOrIncompatibleOffer, .publicRouteRejected,
+                 .invalidDeviceName, .randomUnavailable, .frameTooLarge,
+                 .connectionClosed, .cancelled, .noPairingInProgress, .rejected,
+                 .hostIdentityChanged, .invalidAcknowledgement,
+                 .acknowledgementUncertain:
+                return false
+            }
+        }
+        if let error = error as? ControllerFailure {
+            switch error {
+            case .networkUnavailable, .timedOut, .sequenceGap:
+                return true
+            case .cancelled, .invalidOffer, .offerExpired, .sasMismatch,
+                 .authenticationFailed, .keychainUnavailable, .malformedResponse,
+                 .resourceLimit, .storageUnavailable, .pairingUncertain:
+                return false
+            }
+        }
         if let error = error as? ControllerConnectionError {
             switch error {
             case .authenticationFailed, .capabilityDenied, .malformedResponse, .resourceLimit:
@@ -550,6 +606,7 @@ final class ControllerViewModel: ObservableObject {
 
     private static func failure(_ error: Error) -> ControllerFailure {
         if error is CancellationError { return .cancelled }
+        if let error = error as? ControllerFailure { return error }
         if let error = error as? ControllerPairingError {
             switch error {
             case .expiredOrIncompatibleOffer: return .offerExpired
@@ -587,4 +644,5 @@ final class ControllerViewModel: ObservableObject {
     }
 
     private static let selectedRouteDefaultsKey = "termirust.controller.selected_route.v1"
+    private static let selectedHostDefaultsKey = "termirust.controller.selected_host.v1"
 }

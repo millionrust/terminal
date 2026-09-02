@@ -320,10 +320,13 @@ private struct ErrorResponsePayload: Decodable {
 }
 
 actor ControllerConnectionActor: ControllerConnecting {
+    private static let observeCapability: UInt16 = 1
     private static let attachCapability: UInt16 = 1 << 1
     private static let inputCapability: UInt16 = 1 << 2
     private static let resizeCapability: UInt16 = 1 << 3
     private static let approvalCapability: UInt16 = 1 << 4
+    private static let supportedCapabilityBits = observeCapability
+        | attachCapability | inputCapability | resizeCapability | approvalCapability
     private static let maxOfferBytes = 4 * 1_024
     private static let maxHandshakeFrameBytes = 1_024
     private static let maxSecureFrameBytes = 64 * 1_024
@@ -557,7 +560,7 @@ actor ControllerConnectionActor: ControllerConnecting {
     ) async throws -> ControllerFleetSnapshot {
         await cancel()
         guard host.schemaVersion == PairedHostRecord.currentSchemaVersion,
-              host.capabilityBits & 1 == 1 else {
+              host.capabilityBits & Self.observeCapability == Self.observeCapability else {
             throw ControllerConnectionError.capabilityDenied
         }
         let network = try await withTimeout(Self.handshakeTimeout) {
@@ -572,7 +575,7 @@ actor ControllerConnectionActor: ControllerConnecting {
             hostStaticPublicKey: host.hostStaticPublicKey,
             identityGeneration: host.identityGeneration,
             revocationEpoch: host.revocationEpoch,
-            requestedCapabilityBits: 1,
+            requestedCapabilityBits: Self.supportedCapabilityBits,
             clientNonce: try Self.randomBytes(count: 32),
             nowMillis: started
         )
@@ -612,7 +615,8 @@ actor ControllerConnectionActor: ControllerConnecting {
         guard publicResult.hostStaticPublicKey == host.hostStaticPublicKey,
               publicResult.identityGeneration == host.identityGeneration,
               publicResult.revocationEpoch == host.revocationEpoch,
-              publicResult.grantedCapabilityBits & 1 == 1 else {
+              publicResult.grantedCapabilityBits & Self.observeCapability == Self.observeCapability,
+              publicResult.grantedCapabilityBits & ~Self.supportedCapabilityBits == 0 else {
             throw ControllerConnectionError.authenticationFailed
         }
 
@@ -622,7 +626,8 @@ actor ControllerConnectionActor: ControllerConnecting {
             try await Self.fetchStableSnapshot(
                 host: host,
                 session: authenticatedSession,
-                network: network
+                network: network,
+                capabilityBits: publicResult.grantedCapabilityBits
             )
         }
     }
@@ -1099,7 +1104,8 @@ actor ControllerConnectionActor: ControllerConnecting {
     private static func fetchStableSnapshot(
         host: PairedHostRecord,
         session: ControllerConnectionSession,
-        network: NWConnection
+        network: NWConnection,
+        capabilityBits: UInt16
     ) async throws -> ControllerFleetSnapshot {
         for _ in 0..<3 {
             var offset: UInt32 = 0
@@ -1201,6 +1207,7 @@ actor ControllerConnectionActor: ControllerConnecting {
             return ControllerFleetSnapshot(
                 revision: revision,
                 updateSequence: updateSequence,
+                capabilityBits: capabilityBits,
                 sessions: summaries
             )
         }
@@ -1220,7 +1227,10 @@ actor ControllerConnectionActor: ControllerConnecting {
             "session_id", "title", "lifecycle", "occupant_generation",
             "last_output_sequence", "has_writer",
         ]
-        let enrichedKeys = legacyKeys.union(["project", "group", "activity", "unread"])
+        let enrichedKeys = legacyKeys.union([
+            "host_instance_id", "origin", "runtime", "capabilities",
+            "project", "group", "activity", "unread",
+        ])
         guard let sessions = object["sessions"] as? [[String: Any]],
               sessions.allSatisfy({ summary in
                   let keys = Set(summary.keys)

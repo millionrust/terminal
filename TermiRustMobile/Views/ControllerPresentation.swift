@@ -12,6 +12,23 @@ struct ControllerSessionGroup: Identifiable, Equatable, Sendable {
 }
 
 enum ControllerPresentation {
+    static func isOpenTerminal(_ session: ControllerSessionSummary) -> Bool {
+        let liveLifecycles = ["live", "running", "running_app_attached"]
+        let canAttach = session.capabilities.isEmpty
+            || session.capabilities.contains(.attachOutput)
+        return liveLifecycles.contains(session.lifecycle)
+            && session.occupantGeneration != nil
+            && canAttach
+    }
+
+    static func openTerminals(_ sessions: [ControllerSessionSummary]) -> [ControllerSessionSummary] {
+        sessions.filter(isOpenTerminal)
+    }
+
+    static func previousSessions(_ sessions: [ControllerSessionSummary]) -> [ControllerSessionSummary] {
+        sessions.filter { !isOpenTerminal($0) }
+    }
+
     static func routeTitle(_ route: ControllerRemoteRouteKind) -> String {
         switch route {
         case .localIPC: "Local IPC"

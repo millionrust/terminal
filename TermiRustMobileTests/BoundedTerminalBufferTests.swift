@@ -44,11 +44,21 @@ final class BoundedTerminalBufferTests: XCTestCase {
             viewport: TerminalViewportState(columns: 20, rows: 2),
             limits: limits
         )
-        try terminal.process(Data("one\ntwo\nthree\nfour\nfive".utf8))
+        try terminal.process(Data("one\r\ntwo\r\nthree\r\nfour\r\nfive".utf8))
 
         let lines = terminal.snapshot().lines
         XCTAssertEqual(lines.count, 4)
         XCTAssertEqual(lines.suffix(2), ["four", "five"])
+    }
+
+    func testLineFeedPreservesCursorColumnWithoutCarriageReturn() throws {
+        var terminal = try BoundedTerminalBuffer(
+            viewport: TerminalViewportState(columns: 20, rows: 2)
+        )
+
+        try terminal.process(Data("one\ntwo".utf8))
+
+        XCTAssertEqual(terminal.snapshot().lines, ["one", "   two"])
     }
 
     func testFrameAndParserCarryCapsFailClosed() throws {

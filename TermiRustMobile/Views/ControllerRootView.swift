@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct ControllerRootView: View {
     @ObservedObject var viewModel: ControllerViewModel
@@ -180,24 +181,10 @@ private struct ControllerSessionFleetView: View {
                     Section {
                         ControllerStatusBanner(state: state, onRetry: onRetry)
                     }
-                    Section("Connection Route") {
-                        ForEach(routes) { route in
-                            ControllerRouteRow(
-                                route: route,
-                                onSelect: { onSelectRoute(route.route) }
-                            )
-                        }
-                        if routeSelectionError != nil {
-                            Label("Route switch was not completed", systemImage: "exclamationmark.triangle")
-                                .font(.caption)
-                                .foregroundStyle(.orange)
-                                .accessibilityAddTraits(.isStaticText)
-                        }
-                    }
                     if state.sessions.isEmpty {
                         Section {
                             ContentUnavailableView {
-                                Label("No Sessions", systemImage: "terminal")
+                                Label("No Open Terminals", systemImage: "terminal")
                             } description: {
                                 Text(emptyMessage)
                             }
@@ -205,9 +192,11 @@ private struct ControllerSessionFleetView: View {
                             .listRowBackground(Color.clear)
                         }
                     } else {
-                        ForEach(ControllerPresentation.sessionGroups(state.sessions)) { group in
-                            Section {
-                                ForEach(group.sessions) { session in
+                        let openTerminals = ControllerPresentation.openTerminals(state.sessions)
+                        let previousSessions = ControllerPresentation.previousSessions(state.sessions)
+                        if !openTerminals.isEmpty {
+                            Section("Open Terminals") {
+                                ForEach(openTerminals) { session in
                                     Button { onOpenSession(session) } label: {
                                         ControllerSessionRow(
                                             session: session,
@@ -218,16 +207,33 @@ private struct ControllerSessionFleetView: View {
                                     .disabled(
                                         state.isCachedReadOnly
                                             || state.connection != .readyReadOnly
-                                            || session.occupantGeneration == nil
                                     )
                                 }
-                            } header: {
-                                if let title = ControllerPresentation.sessionGroupTitle(group.id) {
-                                    Text(title)
-                                } else {
-                                    Text("Sessions")
+                            }
+                        }
+                        if !previousSessions.isEmpty {
+                            Section("Previous Sessions") {
+                                ForEach(previousSessions) { session in
+                                    ControllerSessionRow(
+                                        session: session,
+                                        cached: state.isCachedReadOnly
+                                    )
                                 }
                             }
+                        }
+                    }
+                    Section("Connection Route") {
+                        ForEach(routes.filter { $0.selected || $0.available }) { route in
+                            ControllerRouteRow(
+                                route: route,
+                                onSelect: { onSelectRoute(route.route) }
+                            )
+                        }
+                        if routeSelectionError != nil {
+                            Label("Route switch was not completed", systemImage: "exclamationmark.triangle")
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                .accessibilityAddTraits(.isStaticText)
                         }
                     }
                 }
@@ -256,8 +262,8 @@ private struct ControllerSessionFleetView: View {
 
     private var emptyMessage: LocalizedStringKey {
         state.isCachedReadOnly
-            ? "No sessions were saved in the last complete snapshot."
-            : "This Host is not currently reporting durable sessions."
+            ? "No terminals were saved in the last complete snapshot."
+            : "Open a local or SSH terminal in TermiRust Desktop, then refresh."
     }
 }
 
@@ -367,7 +373,7 @@ private struct ControllerStatusBanner: View {
         } else {
             switch state.connection {
             case .readyReadOnly:
-                Text("Session status is current. Terminal content is never downloaded.")
+                Text("Open terminals are ready to view securely.")
             case .connecting, .authenticating, .syncing:
                 Text("Authenticating directly with the selected Host.")
             case .failed(let failure):
@@ -418,6 +424,11 @@ private struct ControllerSessionRow: View {
                     sessionContent
                     Spacer(minLength: 8)
                     freshnessBadge
+                    if canOpen {
+                        Image(systemName: "chevron.right")
+                            .font(.caption.weight(.semibold))
+                            .foregroundStyle(.tertiary)
+                    }
                 }
             }
         }
@@ -475,13 +486,27 @@ private struct ControllerSessionRow: View {
     }
 
     private var freshnessBadge: some View {
-        Text(cached ? LocalizedStringKey("Cached") : LocalizedStringKey("Live"))
+        Text(freshnessText)
             .font(.caption2.weight(.semibold))
-            .foregroundStyle(cached ? .orange : .green)
+            .foregroundStyle(freshnessColor)
             .padding(.horizontal, 7)
             .padding(.vertical, 4)
-            .background((cached ? Color.orange : Color.green).opacity(0.12))
+            .background(freshnessColor.opacity(0.12))
             .clipShape(Capsule())
+    }
+
+    private var freshnessText: LocalizedStringKey {
+        if cached { return "Cached" }
+        return canOpen ? "Live" : "Closed"
+    }
+
+    private var freshnessColor: Color {
+        if cached { return .orange }
+        return canOpen ? .green : .secondary
+    }
+
+    private var canOpen: Bool {
+        !cached && ControllerPresentation.isOpenTerminal(session)
     }
 
     private var metadata: String {
@@ -509,6 +534,7 @@ private struct PairHostView: View {
     @Binding var isPresented: Bool
     @State private var showingScanner = false
     @State private var scannerFailure: ControllerScannerFailure?
+    @State private var pairingOfferPasteError: String?
 
     var body: some View {
         NavigationStack {
@@ -564,6 +590,23 @@ private struct PairHostView: View {
                         }
                     }
                 } else {
+                    if let pairingRecoveryMessage {
+                        Section {
+                            Label {
+                                VStack(alignment: .leading, spacing: 4) {
+                                    Text("A New Pairing Offer Is Required")
+                                        .font(.headline)
+                                    Text(pairingRecoveryMessage)
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                }
+                            } icon: {
+                                Image(systemName: "arrow.clockwise.circle.fill")
+                                    .foregroundStyle(.orange)
+                            }
+                            .accessibilityElement(children: .combine)
+                        }
+                    }
                     Section("Names") {
                         TextField("Host name", text: $viewModel.pairingHostName)
                             .textContentType(.name)
@@ -579,11 +622,59 @@ private struct PairHostView: View {
                                 .frame(maxWidth: .infinity)
                         }
                         .buttonStyle(.bordered)
-                        TextEditor(text: $viewModel.pairingOfferText)
-                            .font(.system(.footnote, design: .monospaced))
+                        VStack(alignment: .leading, spacing: 10) {
+                            ZStack(alignment: .topLeading) {
+                                if viewModel.pairingOfferText.isEmpty {
+                                    Text("Paste pairing offer here")
+                                        .font(.footnote)
+                                        .foregroundStyle(.secondary)
+                                        .padding(.horizontal, 12)
+                                        .padding(.vertical, 14)
+                                        .allowsHitTesting(false)
+                                }
+                                TextEditor(text: $viewModel.pairingOfferText)
+                                    .font(.system(.footnote, design: .monospaced))
+                                    .scrollContentBackground(.hidden)
+                                    .padding(4)
+                                    .textInputAutocapitalization(.never)
+                                    .autocorrectionDisabled()
+                                    .accessibilityLabel("Pairing offer")
+                            }
                             .frame(minHeight: 150)
-                            .textInputAutocapitalization(.never)
-                            .autocorrectionDisabled()
+                            .background(Color(uiColor: .secondarySystemBackground))
+                            .clipShape(RoundedRectangle(cornerRadius: 8, style: .continuous))
+                            .overlay {
+                                RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                    .stroke(Color(uiColor: .separator), lineWidth: 1)
+                            }
+                            HStack(spacing: 10) {
+                                Button {
+                                    pastePairingOffer()
+                                } label: {
+                                    Label("Paste Offer", systemImage: "doc.on.clipboard")
+                                        .frame(maxWidth: .infinity)
+                                }
+                                .buttonStyle(.borderedProminent)
+                                Button {
+                                    viewModel.pairingOfferText = ""
+                                    pairingOfferPasteError = nil
+                                } label: {
+                                    Label("Clear", systemImage: "xmark.circle")
+                                }
+                                .buttonStyle(.bordered)
+                                .disabled(viewModel.pairingOfferText.isEmpty)
+                            }
+                            if let pairingOfferPasteError {
+                                Label(pairingOfferPasteError, systemImage: "exclamationmark.triangle")
+                                    .font(.footnote)
+                                    .foregroundStyle(.orange)
+                                    .fixedSize(horizontal: false, vertical: true)
+                            } else if !viewModel.pairingOfferText.isEmpty {
+                                Label("Pairing offer ready", systemImage: "checkmark.circle.fill")
+                                    .font(.footnote.weight(.semibold))
+                                    .foregroundStyle(.green)
+                            }
+                        }
                         Text("In TermiRust Desktop, open Settings, Remote Devices, Add Controller, then copy the pairing offer here.")
                             .font(.footnote)
                             .foregroundStyle(.secondary)
@@ -647,6 +738,34 @@ private struct PairHostView: View {
                 }
                 .ignoresSafeArea()
             }
+        }
+    }
+
+    private func pastePairingOffer() {
+        guard let offer = UIPasteboard.general.string?
+            .trimmingCharacters(in: .whitespacesAndNewlines),
+              !offer.isEmpty else {
+            pairingOfferPasteError = "The clipboard does not contain a pairing offer."
+            return
+        }
+        viewModel.pairingOfferText = offer
+        pairingOfferPasteError = nil
+    }
+
+    private var pairingRecoveryMessage: String? {
+        guard viewModel.pairingOfferText.isEmpty,
+              case .failed(let failure) = viewModel.state.connection else {
+            return nil
+        }
+        switch failure {
+        case .offerExpired:
+            return "The previous offer expired or was already used. Generate a fresh offer on the Host, then paste it below."
+        case .timedOut, .networkUnavailable:
+            return "The previous attempt could not finish. Check that both devices are on the same LAN or VPN, generate a fresh offer, and try again."
+        case .pairingUncertain:
+            return "Confirmation was interrupted. Check the Host's device list first; if this phone is absent, generate a fresh offer and pair again."
+        default:
+            return "The previous attempt did not complete and its one-use offer was discarded. Generate a fresh offer on the Host, then paste it below."
         }
     }
 }

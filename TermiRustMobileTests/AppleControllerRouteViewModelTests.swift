@@ -141,7 +141,12 @@ private actor RouteFixtureConnection: ControllerConnecting {
         await progress(.authenticating)
         if let failure { throw failure }
         await progress(.syncing)
-        return ControllerFleetSnapshot(revision: 1, updateSequence: 1, sessions: [])
+        return ControllerFleetSnapshot(
+            revision: 1,
+            updateSequence: 1,
+            capabilityBits: host.capabilityBits,
+            sessions: []
+        )
     }
 
     func forgetDeviceSecret(host: PairedHostRecord) async throws {}

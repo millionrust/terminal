@@ -295,7 +295,8 @@ enum ControllerReadOnlyWireCodec {
     ) throws -> Data {
         try cursor.identity.validate()
         try limits.validate(viewport: viewport)
-        guard sessionGeneration > 0, deadlineMillis > 0 else {
+        // Early desktop authorities used zero as their exact initial generation.
+        guard deadlineMillis > 0 else {
             throw ControllerReadOnlyWireError.malformedResponse
         }
         return try JSONEncoder().encode(ReadOnlyAttachCommandEnvelope(

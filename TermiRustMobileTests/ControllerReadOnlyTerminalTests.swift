@@ -29,6 +29,16 @@ final class ControllerReadOnlyTerminalTests: XCTestCase {
         XCTAssertEqual((command["rows"] as? NSNumber)?.uint32Value, 40)
     }
 
+    func testAttachCodecAcceptsLegacyInitialSessionGeneration() throws {
+        XCTAssertNoThrow(try ControllerReadOnlyWireCodec.encodeAttach(
+            commandID: UUID(),
+            sessionGeneration: 0,
+            deadlineMillis: 30_000,
+            cursor: try makeReducer().cursor,
+            viewport: TerminalViewportState(columns: 120, rows: 40)
+        ))
+    }
+
     func testAttachCodecDecodesBoundReplayBarrierAndOutput() throws {
         let commandID = UUID(uuidString: "10000000-0000-0000-0000-000000000001")!
         let identity = try makeReducer().cursor.identity

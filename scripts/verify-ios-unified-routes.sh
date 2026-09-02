@@ -3,6 +3,7 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 REQUIRE_RUNTIME="${REQUIRE_IOS_RUNTIME:-0}"
+CONFIGURATION="Debug"
 
 while [[ $# -gt 0 ]]; do
   case "$1" in
@@ -12,6 +13,7 @@ while [[ $# -gt 0 ]]; do
       ;;
     --configuration)
       [[ $# -ge 2 ]] || { printf 'Missing configuration value.\n' >&2; exit 2; }
+      CONFIGURATION="$2"
       shift 2
       ;;
     *)
@@ -76,148 +78,13 @@ for marker in MobileSSHSession TmuxBootstrap HostListViewModel ControllerRootVie
   }
 done
 
-SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-CRYPTO_HEADERS="Frameworks/TermiRustMobileCrypto.xcframework/ios-arm64/Headers"
-SECURITY_HEADERS="Frameworks/TermiRustControllerSecurity.xcframework/ios-arm64/Headers"
-PLATFORM="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
 TEMP_MODULE="$(mktemp -d "${TMPDIR:-/tmp}/termirust-ios-unified.XXXXXX")"
 trap 'find "$TEMP_MODULE" -depth -delete 2>/dev/null || true' EXIT
-
-cat >"$TEMP_MODULE/DirectSSHCompileStub.swift" <<'SWIFT'
-import Foundation
-
-enum TerminalConnectionState: Equatable {
-    case disconnected
-    case connecting
-    case connected
-    case failed(String)
-}
-
-protocol MobileSSHConnecting: Sendable {
-    func connect(
-        host: MobileHost,
-        knownHost: MobileKnownHost?,
-        onOutput: @escaping @Sendable (Data) -> Void
-    ) async throws
-    func send(_ bytes: Data) async throws
-    func resize(columns: Int, rows: Int) async throws
-    func disconnect() async
-}
-
-final class DirectSSHSessionClient: MobileSSHConnecting, @unchecked Sendable {
-    init(secretStore: SecretStoring? = nil) {}
-    func connect(
-        host: MobileHost,
-        knownHost: MobileKnownHost?,
-        onOutput: @escaping @Sendable (Data) -> Void
-    ) async throws {}
-    func send(_ bytes: Data) async throws {}
-    func resize(columns: Int, rows: Int) async throws {}
-    func disconnect() async {}
-}
-SWIFT
-
-UNIFIED_SOURCES=(
-  TermiRustMobile/App/TermiRustMobileApp.swift
-  TermiRustMobile/Generated/TermiRustControllerSecurity.swift
-  TermiRustMobile/Models/ControllerModels.swift
-  TermiRustMobile/Models/ControllerRemoteRoute.swift
-  TermiRustMobile/Models/ControllerRemoteRouteConfiguration.swift
-  TermiRustMobile/Models/MobileRouteContract.swift
-  TermiRustMobile/Models/MobileCrossRouteAcceptance.swift
-  TermiRustMobile/Models/MobileVaultModels.swift
-  TermiRustMobile/Security/ControllerKeychainBlobStore.swift
-  TermiRustMobile/Security/ControllerRouteCredentialStore.swift
-  TermiRustMobile/Security/KeychainSecretStore.swift
-  TermiRustMobile/Security/MobileDeviceIdentityStore.swift
-  TermiRustMobile/SSH/TmuxBootstrap.swift
-  TermiRustMobile/Terminal/BoundedTerminalBuffer.swift
-  TermiRustMobile/Terminal/GeneratedTerminalCellWidth.swift
-  TermiRustMobile/Terminal/TerminalInteraction.swift
-  TermiRustMobile/Terminal/TerminalAcceptance.swift
-  TermiRustMobile/Terminal/TerminalBuffer.swift
-  TermiRustMobile/Terminal/TerminalGrid.swift
-  TermiRustMobile/Terminal/TerminalInputEncoding.swift
-  TermiRustMobile/ViewModels/ControllerTerminalViewModel.swift
-  TermiRustMobile/ViewModels/ControllerViewModel.swift
-  TermiRustMobile/ViewModels/HostListViewModel.swift
-  TermiRustMobile/Vault/EncryptedVaultStore.swift
-  TermiRustMobile/Vault/MobileVaultImporter.swift
-  TermiRustMobile/Vault/NativeMobileVaultDecryptor.swift
-  TermiRustMobile/Controller/ControllerFleetCache.swift
-  TermiRustMobile/Controller/AppleControllerRouteCoordinator.swift
-  TermiRustMobile/Controller/PairedHostStore.swift
-  TermiRustMobile/Controller/ControllerRetryPolicy.swift
-  TermiRustMobile/Controller/ControllerReadOnlyAttach.swift
-  TermiRustMobile/Controller/ControllerWriterControl.swift
-  TermiRustMobile/Controller/ControllerConnectionActor.swift
-  TermiRustMobile/Views/ContentView.swift
-  TermiRustMobile/Views/ControllerPresentation.swift
-  TermiRustMobile/Views/ControllerQRCodeScanner.swift
-  TermiRustMobile/Views/ControllerReadOnlyTerminalView.swift
-  TermiRustMobile/Views/ControllerRootView.swift
-  TermiRustMobile/Views/ControllerTerminalInputView.swift
-  TermiRustMobile/Views/HostListView.swift
-  TermiRustMobile/Views/TerminalSessionView.swift
-  "$TEMP_MODULE/DirectSSHCompileStub.swift"
-)
 
 xcrun xcstringstool compile \
   TermiRustMobile/Localizable.xcstrings \
   --output-directory "$TEMP_MODULE/localization" \
   --dry-run >/dev/null
-xcrun swiftc \
-  -emit-module \
-  -parse-as-library \
-  -enable-testing \
-  -module-name TermiRustMobile \
-  -swift-version 6 \
-  -strict-concurrency=complete \
-  -target arm64-apple-ios17.0 \
-  -sdk "$SDK" \
-  -I "$CRYPTO_HEADERS" \
-  -I "$SECURITY_HEADERS" \
-  -emit-module-path "$TEMP_MODULE/TermiRustMobile.swiftmodule" \
-  "${UNIFIED_SOURCES[@]}"
-
-xcrun swiftc \
-  -typecheck \
-  -swift-version 6 \
-  -strict-concurrency=complete \
-  -target arm64-apple-ios17.0 \
-  -sdk "$SDK" \
-  -F "$PLATFORM/Library/Frameworks" \
-  -I "$PLATFORM/usr/lib" \
-  -I "$TEMP_MODULE" \
-  -I "$CRYPTO_HEADERS" \
-  -I "$SECURITY_HEADERS" \
-  TermiRustMobileTests/UnifiedRouteLifecycleTests.swift
-
-xcrun swiftc \
-  -typecheck \
-  -swift-version 6 \
-  -strict-concurrency=complete \
-  -target arm64-apple-ios17.0 \
-  -sdk "$SDK" \
-  -F "$PLATFORM/Library/Frameworks" \
-  -I "$PLATFORM/usr/lib" \
-  -I "$TEMP_MODULE" \
-  -I "$CRYPTO_HEADERS" \
-  -I "$SECURITY_HEADERS" \
-  TermiRustMobileTests/AppleControllerRouteTests.swift
-
-xcrun swiftc \
-  -typecheck \
-  -swift-version 6 \
-  -strict-concurrency=complete \
-  -target arm64-apple-ios17.0 \
-  -sdk "$SDK" \
-  -F "$PLATFORM/Library/Frameworks" \
-  -I "$PLATFORM/usr/lib" \
-  -I "$TEMP_MODULE" \
-  -I "$CRYPTO_HEADERS" \
-  -I "$SECURITY_HEADERS" \
-  TermiRustMobileTests/AppleControllerRouteViewModelTests.swift
 
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
 
@@ -226,7 +93,7 @@ set +e
 xcodebuild build \
   -project TermiRustMobile.xcodeproj \
   -scheme TermiRustMobile \
-  -configuration Debug \
+  -configuration "$CONFIGURATION" \
   -destination 'generic/platform=iOS' \
   CODE_SIGNING_ALLOWED=NO >"$BUILD_LOG" 2>&1
 BUILD_STATUS=$?
@@ -242,6 +109,33 @@ elif grep -Eq 'Unable to find a destination|Found no destinations' "$BUILD_LOG";
 else
   cat "$BUILD_LOG" >&2
   exit "$BUILD_STATUS"
+fi
+
+IOS_DESTINATION="${TERMIRUST_IOS_DESTINATION:-}"
+if [[ -z "$IOS_DESTINATION" ]]; then
+  simulator_id="$(
+    xcrun simctl list devices available 2>/dev/null \
+      | awk -F '[()]' '/iPhone/ { print $2; exit }'
+  )"
+  if [[ -n "$simulator_id" ]]; then
+    IOS_DESTINATION="platform=iOS Simulator,id=$simulator_id"
+  fi
+fi
+if [[ -n "$IOS_DESTINATION" ]]; then
+  xcodebuild test -quiet \
+    -project TermiRustMobile.xcodeproj \
+    -scheme TermiRustMobile \
+    -configuration "$CONFIGURATION" \
+    -destination "$IOS_DESTINATION" \
+    -only-testing:TermiRustMobileTests/UnifiedRouteLifecycleTests \
+    -only-testing:TermiRustMobileTests/AppleControllerRouteTests \
+    -only-testing:TermiRustMobileTests/AppleControllerRouteViewModelTests
+  printf 'Unified production lifecycle tests passed on %s.\n' "$IOS_DESTINATION"
+elif [[ "$REQUIRE_RUNTIME" == "1" ]]; then
+  printf 'No eligible iOS destination is installed; runtime verification is required.\n' >&2
+  exit 1
+else
+  printf 'Unified production target compiled; runtime lifecycle tests were SKIPPED.\n'
 fi
 
 git diff --check

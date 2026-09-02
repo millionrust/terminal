@@ -37,6 +37,10 @@ final class ControllerTerminalViewModelTests: XCTestCase {
             viewport: TerminalViewportState(columns: 40, rows: 4)
         )
 
+        viewModel.updateViewport(columns: 32, rows: 6, final: true)
+        XCTAssertEqual(viewModel.screen.cells.first?.count, 32)
+        XCTAssertEqual(viewModel.screen.lines.count, 6)
+
         viewModel.start()
         try await waitUntil {
             viewModel.attachState == .live

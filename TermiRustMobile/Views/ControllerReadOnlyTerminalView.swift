@@ -3,19 +3,24 @@ import SwiftUI
 struct ControllerReadOnlyTerminalView: View {
     @Environment(\.openURL) private var openURL
     @Environment(\.dynamicTypeSize) private var dynamicTypeSize
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
     @ObservedObject var viewModel: ControllerTerminalViewModel
     let onClose: () -> Void
     @AppStorage("controllerTerminalFontSize") private var terminalFontSize = 14.0
+    @AppStorage("controllerTerminalDesktopWidth") private var usesDesktopWidth = false
     @State private var followsOutput = true
-    @State private var keyboardFocusRequest: UInt64 = 0
+    @State private var keyboardPresented = false
     @State private var displayedTerminalFontSize = 14.0
+    @State private var displayedTerminalColumns = 40
 
     var body: some View {
         NavigationStack {
             VStack(spacing: 0) {
-                statusBar
+                if !usesFocusedLandscapeLayout { statusBar }
                 terminalSurface
-                if viewModel.canSendInput { inputBar }
+                if viewModel.canSendInput, usesFocusedLandscapeLayout {
+                    focusedLandscapeInputBar
+                }
             }
             .background(Color.black)
             .navigationTitle(ControllerPresentation.isolated(viewModel.sessionTitle))
@@ -23,52 +28,27 @@ struct ControllerReadOnlyTerminalView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button(action: onClose) {
-                        Label("Detach", systemImage: "xmark")
+                        Image(systemName: "xmark")
                     }
+                    .accessibilityLabel("Detach")
                 }
                 ToolbarItemGroup(placement: .primaryAction) {
-                    Menu {
-                        Button("Decrease Text Size", systemImage: "minus") {
-                            terminalFontSize = max(
-                                TerminalAcceptance.minimumFontSize,
-                                terminalFontSize - 1
-                            )
-                        }
-                        .disabled(terminalFontSize <= TerminalAcceptance.minimumFontSize)
-                        Button("Increase Text Size", systemImage: "plus") {
-                            terminalFontSize = min(
-                                TerminalAcceptance.maximumFontSize,
-                                terminalFontSize + 1
-                            )
-                        }
-                        .disabled(terminalFontSize >= TerminalAcceptance.maximumFontSize)
-                    } label: {
-                        Label("Terminal Text Size", systemImage: "textformat.size")
-                    }
-                    .accessibilityValue("\(Int(terminalFontSize)) points")
-                    if !viewModel.visibleHTTPURLs.isEmpty {
-                        Menu {
-                            ForEach(viewModel.visibleHTTPURLs, id: \.absoluteString) { url in
-                                Button(url.absoluteString) { openURL(url) }
-                            }
-                        } label: {
-                            Label("Open Link", systemImage: "link")
-                        }
-                    }
                     if viewModel.canSendInput {
-                        Button { keyboardFocusRequest &+= 1 } label: {
-                            Label("Show Keyboard", systemImage: "keyboard")
+                        Button { keyboardPresented.toggle() } label: {
+                            Image(systemName: keyboardPresented
+                                ? "keyboard.chevron.compact.down" : "keyboard")
                         }
-                    }
-                    Button { followsOutput.toggle() } label: {
-                        Label(
-                            followsOutput ? "Following Output" : "Follow Output",
-                            systemImage: followsOutput
-                                ? "arrow.down.to.line.compact" : "arrow.down"
+                        .accessibilityLabel(
+                            keyboardPresented ? "Hide Keyboard" : "Show Keyboard"
                         )
                     }
+                    terminalMenu
                 }
             }
+            .toolbar(
+                usesFocusedLandscapeLayout ? .hidden : .visible,
+                for: .navigationBar
+            )
         }
         .tint(.green)
         .onAppear { viewModel.start() }
@@ -89,10 +69,10 @@ struct ControllerReadOnlyTerminalView: View {
     }
 
     private var statusBar: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 0) {
             ViewThatFits(in: .horizontal) {
-                HStack(spacing: 10) { primaryStatusContent }
-                VStack(alignment: .leading, spacing: 8) { primaryStatusContent }
+                statusRow(compact: false)
+                statusRow(compact: true)
             }
             if let message = viewModel.writerMessage {
                 Label(message, systemImage: "exclamationmark.triangle")
@@ -100,54 +80,165 @@ struct ControllerReadOnlyTerminalView: View {
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
                     .accessibilityLabel("Terminal control warning. \(message)")
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 7)
+            }
+            if let message = viewModel.connectionMessage {
+                Label(message, systemImage: "wifi.exclamationmark")
+                    .font(.caption)
+                    .foregroundStyle(.orange)
+                    .fixedSize(horizontal: false, vertical: true)
+                    .accessibilityLabel("Terminal connection warning. \(message)")
+                    .padding(.horizontal, 10)
+                    .padding(.bottom, 7)
             }
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 10)
         .frame(maxWidth: .infinity, alignment: .leading)
         .background(Color(uiColor: .secondarySystemBackground))
         .overlay(alignment: .bottom) { Divider() }
     }
 
     @ViewBuilder
-    private var primaryStatusContent: some View {
-        Label(writerLabel, systemImage: writerIcon)
-            .font(.caption.weight(.bold))
-            .foregroundStyle(writerColor)
-            .padding(.horizontal, 8)
-            .padding(.vertical, 5)
-            .background(writerColor.opacity(0.12), in: Capsule())
-            .accessibilityLabel("Terminal control status: \(writerLabel)")
-        VStack(alignment: .leading, spacing: 2) {
+    private func statusRow(compact: Bool) -> some View {
+        HStack(spacing: compact ? 7 : 9) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 7, height: 7)
+                .accessibilityHidden(true)
             Text(ControllerPresentation.isolated(viewModel.hostTitle))
                 .font(.subheadline.weight(.semibold))
-            Text(statusText)
-                .font(.caption)
-                .foregroundStyle(statusColor)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .layoutPriority(1)
+            if !compact {
+                Text(shortStatusText)
+                    .font(.caption)
+                    .foregroundStyle(statusColor)
+                    .lineLimit(1)
+            }
+            Spacer(minLength: 2)
+            if compact {
+                Label(writerLabel, systemImage: writerIcon)
+                    .labelStyle(.iconOnly)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(writerColor)
+                    .accessibilityLabel("Terminal control status: \(writerLabel)")
+            } else {
+                Label(writerLabel, systemImage: writerIcon)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(writerColor)
+                    .lineLimit(1)
+                    .accessibilityLabel("Terminal control status: \(writerLabel)")
+            }
+            controlAction(compact: compact)
         }
-        Spacer(minLength: 4)
-        Text("Seq \(viewModel.outputSequence)")
-            .font(.caption.monospacedDigit())
-            .foregroundStyle(.secondary)
+        .padding(.horizontal, 10)
+        .frame(height: TerminalAcceptance.minimumTouchTarget)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel(
+            "\(viewModel.hostTitle), \(statusText), sequence \(viewModel.outputSequence)"
+        )
+    }
+
+    @ViewBuilder
+    private func controlAction(compact: Bool) -> some View {
         if viewModel.writerLease == .held {
-            Button("Release") { viewModel.releaseControl() }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .frame(minHeight: TerminalAcceptance.minimumTouchTarget)
-                .accessibilityHint("Returns this terminal to view-only mode")
+            Button(action: viewModel.releaseControl) {
+                if compact {
+                    Image(systemName: "hand.raised")
+                } else {
+                    Label("Release", systemImage: "hand.raised")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .frame(minWidth: 44, minHeight: TerminalAcceptance.minimumTouchTarget)
+            .accessibilityLabel("Release Control")
+            .accessibilityHint("Returns this terminal to view-only mode")
         } else if viewModel.canRequestControl {
-            Button("Request Control") { viewModel.requestControl() }
-                .buttonStyle(.borderedProminent)
-                .controlSize(.small)
-                .frame(minHeight: TerminalAcceptance.minimumTouchTarget)
-                .accessibilityHint("Requests the single writer lease for this exact session")
+            Button(action: viewModel.requestControl) {
+                if compact {
+                    Image(systemName: "hand.tap")
+                } else {
+                    Label("Control", systemImage: "hand.tap")
+                }
+            }
+            .buttonStyle(.borderedProminent)
+            .controlSize(.small)
+            .frame(minWidth: 44, minHeight: TerminalAcceptance.minimumTouchTarget)
+            .accessibilityLabel("Request Control")
+            .accessibilityHint("Requests the single writer lease for this exact session")
         }
         if showsRetry {
-            Button("Retry") { viewModel.retry() }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .frame(minHeight: TerminalAcceptance.minimumTouchTarget)
+            Button(action: viewModel.retry) {
+                if compact {
+                    Image(systemName: "arrow.clockwise")
+                } else {
+                    Label("Retry", systemImage: "arrow.clockwise")
+                }
+            }
+            .buttonStyle(.bordered)
+            .controlSize(.small)
+            .frame(minWidth: 44, minHeight: TerminalAcceptance.minimumTouchTarget)
+            .accessibilityLabel("Retry Connection")
         }
+    }
+
+    private var terminalMenu: some View {
+        Menu {
+            Section("Text Size") {
+                Button("Decrease", systemImage: "minus") {
+                    terminalFontSize = max(
+                        TerminalAcceptance.minimumFontSize,
+                        terminalFontSize - 1
+                    )
+                }
+                .disabled(terminalFontSize <= TerminalAcceptance.minimumFontSize)
+                Button("Increase", systemImage: "plus") {
+                    terminalFontSize = min(
+                        TerminalAcceptance.maximumFontSize,
+                        terminalFontSize + 1
+                    )
+                }
+                .disabled(terminalFontSize >= TerminalAcceptance.maximumFontSize)
+            }
+            Section("Terminal Width") {
+                Button {
+                    usesDesktopWidth = false
+                } label: {
+                    Label(
+                        "Phone Width",
+                        systemImage: usesDesktopWidth ? "rectangle" : "checkmark"
+                    )
+                }
+                Button {
+                    usesDesktopWidth = true
+                } label: {
+                    Label(
+                        "Desktop Width",
+                        systemImage: usesDesktopWidth ? "checkmark" : "rectangle.wide"
+                    )
+                }
+            }
+            Button { followsOutput.toggle() } label: {
+                Label(
+                    followsOutput ? "Stop Following Output" : "Follow Output",
+                    systemImage: followsOutput
+                        ? "arrow.down.to.line.compact" : "arrow.down"
+                )
+            }
+            if !viewModel.visibleHTTPURLs.isEmpty {
+                Menu("Open Link", systemImage: "link") {
+                    ForEach(viewModel.visibleHTTPURLs, id: \.absoluteString) { url in
+                        Button(url.absoluteString) { openURL(url) }
+                    }
+                }
+            }
+        } label: {
+            Image(systemName: "ellipsis.circle")
+        }
+        .accessibilityLabel("Terminal Options")
+        .accessibilityValue("Text size \(Int(terminalFontSize)) points")
     }
 
     private var terminalSurface: some View {
@@ -157,53 +248,10 @@ struct ControllerReadOnlyTerminalView: View {
                     privacyCover
                 } else {
                     ZStack(alignment: .bottomTrailing) {
-                        ScrollViewReader { reader in
-                            ScrollView([.horizontal, .vertical]) {
-                                LazyVStack(alignment: .leading, spacing: 0) {
-                                    if viewModel.screen.lines.allSatisfy(\.isEmpty) {
-                                        Text(emptyText)
-                                            .foregroundStyle(Color.white.opacity(0.55))
-                                            .padding(16)
-                                    } else {
-                                        ForEach(
-                                            Array(viewModel.screen.contentCells.enumerated()),
-                                            id: \.offset
-                                        ) { index, row in
-                                            Text(attributedRow(row))
-                                                .frame(
-                                                    minHeight: CGFloat(
-                                                        displayedTerminalFontSize * 1.35
-                                                    )
-                                                )
-                                                .id(index)
-                                        }
-                                    }
-                                    Color.clear.frame(width: 1, height: 1)
-                                        .id("terminal-bottom")
-                                }
-                                .textSelection(.enabled)
-                                .padding(12)
-                                .frame(maxWidth: .infinity, alignment: .leading)
-                            }
-                            .background(Color.black)
-                            .accessibilityElement(children: .ignore)
-                            .accessibilityLabel("Terminal output for \(viewModel.sessionTitle)")
-                            .accessibilityValue(accessibleTerminalOutput)
-                            .accessibilityHint(
-                                followsOutput
-                                    ? "Following the latest output"
-                                    : "Output following is paused"
-                            )
-                            .onChange(of: viewModel.renderRevision) { _, _ in
-                                guard followsOutput else { return }
-                                withAnimation(.none) {
-                                    reader.scrollTo("terminal-bottom", anchor: .bottom)
-                                }
-                            }
-                        }
+                        terminalOutput(availableWidth: geometry.size.width)
                         ControllerTerminalInputView(
                             enabled: viewModel.canSendInput,
-                            focusRequest: keyboardFocusRequest,
+                            isFocused: $keyboardPresented,
                             applicationCursor: viewModel.screen.applicationCursor,
                             onBytes: viewModel.sendKeyboardBytes,
                             onPaste: viewModel.requestPaste
@@ -217,28 +265,150 @@ struct ControllerReadOnlyTerminalView: View {
             .onAppear { updateViewport(for: geometry.size) }
             .onChange(of: geometry.size) { _, size in updateViewport(for: size) }
             .onChange(of: terminalFontSize) { _, _ in updateViewport(for: geometry.size) }
+            .onChange(of: usesDesktopWidth) { _, _ in
+                updateViewport(for: geometry.size, final: true)
+            }
             .onChange(of: dynamicTypeSize) { _, _ in updateViewport(for: geometry.size) }
             .accessibilityElement(children: .contain)
         }
     }
 
-    private var inputBar: some View {
+    @ViewBuilder
+    private func terminalOutput(availableWidth: CGFloat) -> some View {
+        Group {
+            if usesDesktopWidth {
+                ScrollViewReader { horizontalReader in
+                    ScrollView(.horizontal) {
+                        verticalTerminalOutput(
+                            availableWidth: availableWidth,
+                            showsCursorAnchor: true
+                        )
+                    }
+                    .onChange(of: viewModel.renderRevision) { _, _ in
+                        guard followsOutput,
+                              viewModel.screen.cursorVisible else { return }
+                        withAnimation(.none) {
+                            horizontalReader.scrollTo(
+                                ControllerTerminalCursor.anchorID,
+                                anchor: .trailing
+                            )
+                        }
+                    }
+                }
+            } else {
+                verticalTerminalOutput(
+                    availableWidth: availableWidth,
+                    showsCursorAnchor: false
+                )
+            }
+        }
+        .clipped()
+        .background(Color.black)
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel("Terminal output for \(viewModel.sessionTitle)")
+        .accessibilityValue(accessibleTerminalOutput)
+        .accessibilityHint(
+            followsOutput
+                ? "Following the latest output"
+                : "Output following is paused"
+        )
+        .scrollBounceBehavior(.basedOnSize)
+    }
+
+    private func verticalTerminalOutput(
+        availableWidth: CGFloat,
+        showsCursorAnchor: Bool
+    ) -> some View {
+        ScrollViewReader { reader in
+            ScrollView(.vertical) {
+                terminalRows(
+                    availableWidth: availableWidth,
+                    showsCursorAnchor: showsCursorAnchor
+                )
+            }
+            .onChange(of: viewModel.renderRevision) { _, _ in
+                guard followsOutput,
+                      let row = ControllerTerminalFollowTarget.row(
+                        lines: viewModel.screen.lines,
+                        cursorRow: viewModel.screen.cursorRow,
+                        scrollbackRows: viewModel.screen.scrollbackRows
+                      ) else { return }
+                withAnimation(.none) {
+                    reader.scrollTo(row, anchor: .bottom)
+                }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func terminalRows(
+        availableWidth: CGFloat,
+        showsCursorAnchor: Bool
+    ) -> some View {
+        LazyVStack(alignment: .leading, spacing: 0) {
+            if viewModel.screen.lines.allSatisfy(\.isEmpty) {
+                Text(emptyText)
+                    .foregroundStyle(Color.white.opacity(0.55))
+                    .padding(16)
+            } else {
+                ForEach(
+                    Array(viewModel.screen.contentCells.enumerated()),
+                    id: \.offset
+                ) { index, row in
+                    ZStack(alignment: .leading) {
+                        Text(attributedRow(row, rowIndex: index))
+                            .lineLimit(1)
+                            .fixedSize(horizontal: true, vertical: false)
+                        if showsCursorAnchor,
+                           let column = cursorColumn(for: row, rowIndex: index) {
+                            Color.clear
+                                .frame(width: 1, height: cursorLineHeight)
+                                .offset(x: CGFloat(column) * terminalCellWidth)
+                                .id(ControllerTerminalCursor.anchorID)
+                                .allowsHitTesting(false)
+                        }
+                    }
+                    .frame(minHeight: cursorLineHeight)
+                    .id(index)
+                }
+            }
+        }
+        .textSelection(.enabled)
+        .padding(12)
+        .frame(
+            width: terminalContentWidth(available: availableWidth),
+            alignment: .leading
+        )
+    }
+
+    private var focusedLandscapeInputBar: some View {
         HStack(spacing: 10) {
-            Label("You control this session", systemImage: "hand.tap")
-                .font(.caption.weight(.semibold))
+            Label("You Control", systemImage: "hand.tap.fill")
+                .font(.caption.weight(.bold))
                 .foregroundStyle(.green)
-            Spacer()
-            Button { keyboardFocusRequest &+= 1 } label: {
-                Label("Keyboard", systemImage: "keyboard")
+            Spacer(minLength: 8)
+            Button("Release") { viewModel.releaseControl() }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .frame(minHeight: 44)
+            Button { keyboardPresented = false } label: {
+                Label("Hide Keyboard", systemImage: "keyboard.chevron.compact.down")
             }
             .buttonStyle(.borderedProminent)
             .controlSize(.small)
             .frame(minHeight: 44)
         }
-        .padding(.horizontal, 14)
-        .padding(.vertical, 6)
+        .padding(.horizontal, 10)
+        .padding(.vertical, 2)
         .background(Color(uiColor: .secondarySystemBackground))
         .overlay(alignment: .top) { Divider() }
+    }
+
+    private var usesFocusedLandscapeLayout: Bool {
+        ControllerTerminalLayout.usesFocusedLandscape(
+            verticalSizeClassIsCompact: verticalSizeClass == .compact,
+            keyboardPresented: keyboardPresented
+        )
     }
 
     private var privacyCover: some View {
@@ -253,24 +423,75 @@ struct ControllerReadOnlyTerminalView: View {
         .accessibilityLabel("Terminal content hidden for privacy")
     }
 
-    private func updateViewport(for size: CGSize) {
+    private func updateViewport(for size: CGSize, final: Bool = false) {
         let layout = TerminalAcceptance.layout(
             width: size.width,
             height: size.height,
             requestedFontSize: terminalFontSize,
             textScale: terminalTextScale
         )
+        let columns = ControllerTerminalWidth.columns(
+            fitting: layout.columns,
+            usesDesktopWidth: usesDesktopWidth
+        )
         displayedTerminalFontSize = layout.displayedFontSize
-        viewModel.updateViewport(columns: layout.columns, rows: layout.rows)
+        displayedTerminalColumns = columns
+        viewModel.updateViewport(columns: columns, rows: layout.rows, final: final)
     }
 
-    private func attributedRow(_ cells: [BoundedTerminalCell]) -> AttributedString {
+    private func terminalContentWidth(available: CGFloat) -> CGFloat {
+        guard usesDesktopWidth else { return available }
+        let gridWidth = CGFloat(displayedTerminalColumns)
+            * CGFloat(displayedTerminalFontSize * 0.62)
+            + 24
+        return max(available, gridWidth)
+    }
+
+    private var terminalCellWidth: CGFloat {
+        CGFloat(displayedTerminalFontSize * 0.62)
+    }
+
+    private var cursorLineHeight: CGFloat {
+        CGFloat(displayedTerminalFontSize * 1.35)
+    }
+
+    private func cursorColumn(
+        for cells: [BoundedTerminalCell],
+        rowIndex: Int
+    ) -> Int? {
+        ControllerTerminalCursor.column(
+            rowIndex: rowIndex,
+            cells: cells,
+            cursorRow: viewModel.screen.cursorRow,
+            cursorColumn: viewModel.screen.cursorColumn,
+            scrollbackRows: viewModel.screen.scrollbackRows,
+            visible: viewModel.screen.cursorVisible
+        )
+    }
+
+    private func attributedRow(
+        _ cells: [BoundedTerminalCell],
+        rowIndex: Int
+    ) -> AttributedString {
         var row = AttributedString()
-        for cell in cells where cell.width != .continuation {
+        let cursorColumn = cursorColumn(for: cells, rowIndex: rowIndex)
+        var displayCells = cells
+        if let cursorColumn {
+            while displayCells.count <= cursorColumn {
+                displayCells.append(.blank())
+            }
+        }
+        for (column, cell) in displayCells.enumerated()
+            where cell.width != .continuation {
             var segment = AttributedString(cell.text)
             let colors = resolvedColors(for: cell.style)
-            segment.foregroundColor = colors.foreground
-            segment.backgroundColor = colors.background
+            if column == cursorColumn {
+                segment.foregroundColor = .black
+                segment.backgroundColor = Color.green.opacity(0.9)
+            } else {
+                segment.foregroundColor = colors.foreground
+                segment.backgroundColor = colors.background
+            }
             var font = Font.system(
                 size: CGFloat(displayedTerminalFontSize),
                 design: .monospaced
@@ -417,6 +638,18 @@ struct ControllerReadOnlyTerminalView: View {
         }
     }
 
+    private var shortStatusText: String {
+        switch viewModel.attachState {
+        case .authenticating: "Connecting"
+        case .snapshot, .replaying: "Restoring"
+        case .gap, .failed: "Needs attention"
+        case .exited: "Exited"
+        case .offline: "Offline"
+        case .detached: "Detached"
+        case .live: "Live"
+        }
+    }
+
     private var emptyText: String {
         switch viewModel.attachState {
         case .authenticating, .snapshot, .replaying: "Waiting for terminal output..."
@@ -425,5 +658,59 @@ struct ControllerReadOnlyTerminalView: View {
         case .failed: "Terminal output could not be rendered safely."
         default: "No terminal output."
         }
+    }
+}
+
+enum ControllerTerminalFollowTarget {
+    static func row(lines: [String], cursorRow: Int, scrollbackRows: Int) -> Int? {
+        guard !lines.isEmpty else { return nil }
+        let cursor = min(
+            lines.count - 1,
+            max(0, scrollbackRows + cursorRow)
+        )
+        let lastContent = lines.lastIndex {
+            !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+        } ?? 0
+        return max(cursor, lastContent)
+    }
+}
+
+enum ControllerTerminalCursor {
+    static let anchorID = "controller-terminal-cursor"
+
+    static func column(
+        rowIndex: Int,
+        cells: [BoundedTerminalCell],
+        cursorRow: Int,
+        cursorColumn: Int,
+        scrollbackRows: Int,
+        visible: Bool
+    ) -> Int? {
+        guard visible,
+              rowIndex == max(0, scrollbackRows + cursorRow) else {
+            return nil
+        }
+        let column = max(0, cursorColumn)
+        if cells.indices.contains(column), cells[column].width == .continuation {
+            return max(0, column - 1)
+        }
+        return column
+    }
+}
+
+enum ControllerTerminalLayout {
+    static func usesFocusedLandscape(
+        verticalSizeClassIsCompact: Bool,
+        keyboardPresented: Bool
+    ) -> Bool {
+        verticalSizeClassIsCompact && keyboardPresented
+    }
+}
+
+enum ControllerTerminalWidth {
+    static let desktopColumns = 80
+
+    static func columns(fitting columns: Int, usesDesktopWidth: Bool) -> Int {
+        usesDesktopWidth ? max(columns, desktopColumns) : columns
     }
 }

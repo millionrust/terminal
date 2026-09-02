@@ -49,7 +49,7 @@ command -v xcodegen >/dev/null || {
 xcodegen generate --spec project.yml >/dev/null
 
 SDK="$(xcrun --sdk iphoneos --show-sdk-path)"
-HEADERS="Frameworks/TermiRustControllerSecurity.xcframework/ios-arm64/Headers"
+FRAMEWORKS="Frameworks/TermiRustControllerSecurity.xcframework/ios-arm64"
 PLATFORM="/Applications/Xcode.app/Contents/Developer/Platforms/iPhoneOS.platform/Developer"
 TEMP_MODULE="$(mktemp -d "${TMPDIR:-/tmp}/termirust-ios-controller.XXXXXX")"
 trap 'find "$TEMP_MODULE" -depth -delete 2>/dev/null || true' EXIT
@@ -178,7 +178,7 @@ xcrun swiftc \
   -strict-concurrency=complete \
   -target arm64-apple-ios17.0 \
   -sdk "$SDK" \
-  -I "$HEADERS" \
+  -F "$FRAMEWORKS" \
   -emit-module-path "$TEMP_MODULE/TermiRustMobile.swiftmodule" \
   "${CONTROLLER_SOURCES[@]}"
 
@@ -191,7 +191,7 @@ xcrun swiftc \
   -F "$PLATFORM/Library/Frameworks" \
   -I "$PLATFORM/usr/lib" \
   -I "$TEMP_MODULE" \
-  -I "$HEADERS" \
+  -F "$FRAMEWORKS" \
   "${TEST_SOURCES[@]}"
 
 xcrun swiftc -frontend -parse $(find TermiRustMobile TermiRustMobileTests -name '*.swift' -print)
@@ -221,18 +221,23 @@ if [[ "$STAGE" == "terminal-conformance" || "$STAGE" == "terminal-interaction" |
     TermiRustMobileTests/Fixtures/terminal-conformance-v2.json
 fi
 
-SIMULATOR_NAME="$(
-  xcrun simctl list devices available 2>/dev/null \
-    | awk -F '[()]' '/iPhone/ { name=$1; sub(/^[[:space:]]+/, "", name); sub(/[[:space:]]+$/, "", name); print name; exit }'
-)"
-if [[ -n "$SIMULATOR_NAME" ]]; then
-  xcodebuild test \
+IOS_DESTINATION="${TERMIRUST_IOS_DESTINATION:-}"
+if [[ -z "$IOS_DESTINATION" ]]; then
+  simulator_id="$(
+    xcrun simctl list devices available 2>/dev/null \
+      | awk -F '[()]' '/iPhone/ { print $2; exit }'
+  )"
+  if [[ -n "$simulator_id" ]]; then
+    IOS_DESTINATION="platform=iOS Simulator,id=$simulator_id"
+  fi
+fi
+if [[ -n "$IOS_DESTINATION" ]]; then
+  xcodebuild test -quiet \
     -project TermiRustMobile.xcodeproj \
     -scheme TermiRustMobile \
-    -destination "platform=iOS Simulator,name=$SIMULATOR_NAME,OS=latest" \
-    "${RUNTIME_TESTS[@]}" \
-    CODE_SIGNING_ALLOWED=NO
-  printf 'Controller iOS runtime tests passed on %s.\n' "$SIMULATOR_NAME"
+    -destination "$IOS_DESTINATION" \
+    "${RUNTIME_TESTS[@]}"
+  printf 'Controller iOS runtime tests passed on %s.\n' "$IOS_DESTINATION"
 elif [[ "$REQUIRE_RUNTIME" == "1" ]]; then
   printf 'No available iPhone simulator runtime. Runtime verification is required.\n' >&2
   exit 1

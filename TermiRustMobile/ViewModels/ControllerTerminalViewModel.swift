@@ -1,11 +1,13 @@
 import Foundation
+@preconcurrency import Network
+import OSLog
 import SwiftUI
 
-private enum ControllerTerminalMutation: Sendable {
+private enum ControllerTerminalMutation: Equatable, Sendable {
     case acquire
     case release
     case input
-    case resize
+    case resize(TerminalViewportState)
 }
 
 @MainActor
@@ -21,8 +23,10 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     @Published private(set) var hasWriterElsewhere = false
     @Published private(set) var writerLease: WriterLeaseState = .none
     @Published private(set) var writerMessage: String?
+    @Published private(set) var connectionMessage: String?
     @Published private(set) var pendingPasteByteCount = 0
     @Published private(set) var privacyCovered = false
+    @Published private(set) var writerViewportReady = false
 
     private let host: PairedHostRecord
     private let identity: ReadOnlyAttachIdentity
@@ -39,17 +43,24 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     private var intentionallyDetached = false
     private var interactiveConnection = false
     private var acquireAfterAttach = false
+    private var reacquireControlOnResume = false
     private var pendingMutations: [UUID: ControllerTerminalMutation] = [:]
     private var inputInFlight: UUID?
     private var pendingPaste: Data?
     private var pendingResize: TerminalViewportState?
+    private var hasMeasuredViewport = false
+    private var inputBlockedForResize = false
     private let sessionCapabilities: [ControllerSessionCapability]
+    private static let logger = Logger(
+        subsystem: "com.termirust.mobile",
+        category: "controller-terminal"
+    )
 
     init(
         host: PairedHostRecord,
         session: ControllerSessionSummary,
         connection: any ControllerConnecting,
-        viewport: TerminalViewportState = TerminalViewportState(columns: 120, rows: 40)
+        viewport: TerminalViewportState = TerminalViewportState(columns: 40, rows: 24)
     ) throws {
         guard let generation = session.occupantGeneration, generation > 0 else {
             throw ReadOnlyAttachFailure.invalidIdentity
@@ -104,7 +115,10 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     }
 
     var canSendInput: Bool {
-        writerLease == .held && !privacyCovered && attachState == .live
+        writerLease == .held
+            && writerViewportReady
+            && !privacyCovered
+            && attachState == .live
     }
 
     func start() {
@@ -132,6 +146,7 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
 
     func releaseControl() {
         guard writerLease == .held else { return }
+        reacquireControlOnResume = false
         let commandID = UUID()
         pendingMutations[commandID] = .release
         writerReducer.releaseLocally()
@@ -196,8 +211,24 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
             writerMessage = "Terminal size was outside the Host safety limits."
             return
         }
+        if outputSequence == 0, next != viewport {
+            do {
+                try terminal.resize(next)
+                screen = terminal.snapshot()
+                renderRevision &+= 1
+            } catch {
+                writerMessage = "Terminal size was outside the Host safety limits."
+                return
+            }
+        }
+        let shouldScheduleResize = !hasMeasuredViewport || next != viewport
+        hasMeasuredViewport = true
         viewport = next
+        guard shouldScheduleResize else { return }
         pendingResize = next
+        if writerLease == .held, supportsResize {
+            inputBlockedForResize = true
+        }
         resizeTask?.cancel()
         let delay: Duration = final ? .zero : .milliseconds(50)
         resizeTask = Task { [weak self] in
@@ -209,6 +240,7 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
 
     func suspend() {
         let decision = TerminalAcceptance.backgroundDecision(writerHeld: writerLease == .held)
+        reacquireControlOnResume = reacquireControlOnResume || decision.releaseWriter
         privacyCovered = decision.coverPrivacy
         resizeTask?.cancel()
         resizeTask = nil
@@ -237,14 +269,21 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
 
     func resume() {
         guard attachState == .offline else { return }
+        let shouldReacquireControl = reacquireControlOnResume
+        reacquireControlOnResume = false
+        acquireAfterAttach = shouldReacquireControl
         privacyCovered = false
         writerReducer.setForeground(true)
         publishWriterState()
-        launch(interactive: interactiveConnection, cancelExisting: true)
+        launch(
+            interactive: interactiveConnection || shouldReacquireControl,
+            cancelExisting: true
+        )
     }
 
     func detach() {
         intentionallyDetached = true
+        reacquireControlOnResume = false
         privacyCovered = false
         resizeTask?.cancel()
         resizeTask = nil
@@ -276,6 +315,7 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     }
 
     private func launch(interactive: Bool, cancelExisting: Bool) {
+        connectionMessage = nil
         operationID = UUID()
         let launchID = operationID
         operation?.cancel()
@@ -442,6 +482,7 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     private func drainInputQueue() {
         guard inputInFlight == nil,
               canSendInput,
+              !inputBlockedForResize,
               let pending = writerReducer.dequeue() else { return }
         inputInFlight = pending.commandID
         pendingMutations[pending.commandID] = .input
@@ -461,10 +502,15 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
     }
 
     private func sendPendingResize() {
-        guard canSendInput, supportsResize, let next = pendingResize else { return }
+        guard writerLease == .held,
+              !privacyCovered,
+              attachState == .live,
+              supportsResize,
+              !resizeInFlight,
+              let next = pendingResize else { return }
         pendingResize = nil
         let commandID = UUID()
-        pendingMutations[commandID] = .resize
+        pendingMutations[commandID] = .resize(next)
         Task { [weak self, connection, host, identity] in
             do {
                 try await connection.sendResize(
@@ -484,12 +530,18 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
             loseWriter(message: "Control response did not match a pending action.")
             return
         }
+        var shouldSynchronizeViewport = false
         switch mutation {
         case .acquire:
             do {
                 try writerReducer.finishAcquire(commandID: commandID, applied: applied)
                 hasWriterElsewhere = !applied
                 writerMessage = applied ? nil : "This session is controlled from another client."
+                if applied {
+                    writerViewportReady = !supportsResize || pendingResize == nil
+                    shouldSynchronizeViewport = supportsResize && pendingResize != nil
+                    inputBlockedForResize = shouldSynchronizeViewport
+                }
             } catch {
                 loseWriter(message: "Control response was stale.")
                 return
@@ -506,11 +558,29 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
                 loseWriter(message: "The Host rejected terminal input.")
                 return
             }
-        case .resize:
-            if !applied { writerMessage = "The Host rejected the terminal resize." }
+        case .resize(let appliedViewport):
+            if applied {
+                do {
+                    try terminal.resize(appliedViewport)
+                    screen = terminal.snapshot()
+                    renderRevision &+= 1
+                    let hasAnotherResize = pendingResize != nil
+                    writerViewportReady = !hasAnotherResize
+                    inputBlockedForResize = hasAnotherResize
+                    shouldSynchronizeViewport = hasAnotherResize
+                } catch {
+                    loseWriter(message: "Terminal resize could not be applied safely.")
+                    return
+                }
+            } else {
+                writerMessage = "The Host rejected the terminal resize."
+            }
         }
         publishWriterState()
-        if mutation == .input { drainInputQueue() }
+        if shouldSynchronizeViewport { sendPendingResize() }
+        if mutation == .input || (!inputBlockedForResize && writerViewportReady) {
+            drainInputQueue()
+        }
     }
 
     private func failMutation(
@@ -548,6 +618,8 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
 
     private func loseWriter(message: String) {
         writerReducer.markLeaseLost()
+        writerViewportReady = false
+        inputBlockedForResize = false
         pendingMutations.removeAll()
         inputInFlight = nil
         writerMessage = message
@@ -556,6 +628,17 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
 
     private func publishWriterState() {
         writerLease = writerReducer.lease
+        if writerLease != .held {
+            writerViewportReady = false
+            inputBlockedForResize = false
+        }
+    }
+
+    private var resizeInFlight: Bool {
+        pendingMutations.values.contains { mutation in
+            if case .resize = mutation { return true }
+            return false
+        }
     }
 
     private func finish(error: Error, id: UUID) {
@@ -568,17 +651,93 @@ final class ControllerTerminalViewModel: ObservableObject, Identifiable {
         if error is CancellationError {
             reducer.markOffline()
             attachState = .offline
+            connectionMessage = "The terminal connection was interrupted. Tap Retry."
         } else if case ControllerReadOnlyWireError.hostError(let code) = error,
                   code.lowercased().contains("exit") {
             reducer.markExited()
             attachState = .exited
+            connectionMessage = nil
         } else if let failure = error as? ReadOnlyAttachFailure {
             attachState = .failed(failure)
+            connectionMessage = Self.connectionMessage(for: failure)
         } else {
             reducer.markOffline()
             attachState = .offline
+            connectionMessage = Self.connectionMessage(for: error)
         }
+        let diagnosticCode = Self.diagnosticCode(for: error)
+        Self.logger.error(
+            "Controller terminal attach ended: \(diagnosticCode, privacy: .public)"
+        )
+#if DEBUG
+        print("[controller-terminal] attach ended: \(diagnosticCode)")
+#endif
         scheduleRender()
+    }
+
+    private static func connectionMessage(for error: Error) -> String {
+        if let error = error as? ControllerConnectionError {
+            switch error {
+            case .capabilityDenied:
+                return "This phone is not allowed to open this terminal. Re-pair it or update its permissions on the Mac."
+            case .authenticationFailed:
+                return "The Host could not verify this phone. Re-pair the Host and try again."
+            case .malformedResponse:
+                return "The Host returned an incompatible terminal response. Update both apps and retry."
+            case .sequenceGap:
+                return "Some terminal output is missing. Tap Retry to restore the latest screen."
+            case .resourceLimit:
+                return "This terminal exceeded a mobile safety limit. Reduce its output and retry."
+            case .hostError(let code):
+                return "The Host rejected the terminal request (\(code)). Tap Retry."
+            }
+        }
+        if let error = error as? ReadOnlyAttachFailure {
+            return connectionMessage(for: error)
+        }
+        return "Could not reach this terminal. Keep TermiRust open on the Mac, check Wi-Fi, then tap Retry."
+    }
+
+    private static func connectionMessage(for error: ReadOnlyAttachFailure) -> String {
+        switch error {
+        case .invalidIdentity, .sessionMismatch:
+            return "This terminal changed since the list was loaded. Close it, refresh Open Terminals, and try again."
+        case .invalidLimits, .invalidViewport, .frameTooLarge, .queueFull,
+             .queueBytesExceeded, .sequenceOverflow:
+            return "This terminal exceeded a mobile safety limit. Reduce its output and retry."
+        case .invalidTransition, .emptyFrame, .conflictingDuplicate, .snapshotOrder:
+            return "The Host returned an incompatible terminal response. Update both apps and retry."
+        }
+    }
+
+    private static func diagnosticCode(for error: Error) -> String {
+        if error is CancellationError { return "cancelled" }
+        if let error = error as? ControllerConnectionError {
+            switch error {
+            case .capabilityDenied: return "capability_denied"
+            case .authenticationFailed: return "authentication_failed"
+            case .malformedResponse: return "malformed_response"
+            case .sequenceGap: return "sequence_gap"
+            case .resourceLimit: return "resource_limit"
+            case .hostError(let code): return "host_error:\(code)"
+            }
+        }
+        if let error = error as? ReadOnlyAttachFailure {
+            return "attach_reducer:\(String(describing: error))"
+        }
+        if let error = error as? ControllerReadOnlyWireError {
+            switch error {
+            case .malformedResponse: return "wire:malformed_response"
+            case .hostError(let code): return "wire:host_error:\(code)"
+            }
+        }
+        if let error = error as? NWError {
+            return "network:\(String(describing: error))"
+        }
+        if let error = error as? ControllerPairingError {
+            return "connection_setup:\(String(describing: error))"
+        }
+        return "network_or_unknown:\(String(describing: type(of: error)))"
     }
 
     private func scheduleRender() {

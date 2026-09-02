@@ -3,13 +3,17 @@ import UIKit
 
 struct ControllerTerminalInputView: UIViewRepresentable {
     let enabled: Bool
-    let focusRequest: UInt64
+    @Binding var isFocused: Bool
     let applicationCursor: Bool
     let onBytes: (Data) -> Void
     let onPaste: (String) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onBytes: onBytes, onPaste: onPaste)
+        Coordinator(
+            onBytes: onBytes,
+            onPaste: onPaste,
+            onFocusChange: { isFocused = $0 }
+        )
     }
 
     func makeUIView(context: Context) -> TerminalInputTextView {
@@ -36,13 +40,13 @@ struct ControllerTerminalInputView: UIViewRepresentable {
     func updateUIView(_ view: TerminalInputTextView, context: Context) {
         context.coordinator.onBytes = onBytes
         context.coordinator.onPaste = onPaste
+        context.coordinator.onFocusChange = { isFocused = $0 }
         context.coordinator.applicationCursor = applicationCursor
         view.isEditable = enabled
         view.isUserInteractionEnabled = enabled
-        if enabled, context.coordinator.focusRequest != focusRequest {
-            context.coordinator.focusRequest = focusRequest
+        if enabled, isFocused, !view.isFirstResponder {
             DispatchQueue.main.async { view.becomeFirstResponder() }
-        } else if !enabled, view.isFirstResponder {
+        } else if (!enabled || !isFocused), view.isFirstResponder {
             view.resignFirstResponder()
         }
     }
@@ -51,7 +55,7 @@ struct ControllerTerminalInputView: UIViewRepresentable {
     final class Coordinator: NSObject, UITextViewDelegate, TerminalInputCommandHandling {
         var onBytes: (Data) -> Void
         var onPaste: (String) -> Void
-        var focusRequest: UInt64 = 0
+        var onFocusChange: (Bool) -> Void
         var applicationCursor = false
         private var controlLatched = false
         private var optionLatched = false
@@ -59,9 +63,22 @@ struct ControllerTerminalInputView: UIViewRepresentable {
         private weak var controlButton: UIButton?
         private weak var optionButton: UIButton?
 
-        init(onBytes: @escaping (Data) -> Void, onPaste: @escaping (String) -> Void) {
+        init(
+            onBytes: @escaping (Data) -> Void,
+            onPaste: @escaping (String) -> Void,
+            onFocusChange: @escaping (Bool) -> Void
+        ) {
             self.onBytes = onBytes
             self.onPaste = onPaste
+            self.onFocusChange = onFocusChange
+        }
+
+        func textViewDidBeginEditing(_ textView: UITextView) {
+            onFocusChange(true)
+        }
+
+        func textViewDidEndEditing(_ textView: UITextView) {
+            onFocusChange(false)
         }
 
         func textViewDidChange(_ textView: UITextView) {

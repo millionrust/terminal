@@ -103,14 +103,34 @@ final class ControllerWriterTests: XCTestCase {
             connection: fixture,
             viewport: TerminalViewportState(columns: 40, rows: 5)
         )
+        viewModel.updateViewport(columns: 36, rows: 8, final: true)
 
         viewModel.start()
         try await waitUntil { viewModel.attachState == .live }
         viewModel.requestControl()
-        try await waitUntil { viewModel.writerLease == .held }
+        try await waitUntil { viewModel.canSendInput }
+        let resizeViewports = await fixture.resizeViewports()
+        XCTAssertEqual(
+            resizeViewports,
+            [TerminalViewportState(columns: 36, rows: 8)]
+        )
+
+        viewModel.updateViewport(columns: 36, rows: 4, final: true)
+        viewModel.sendKeyboardBytes(Data("queued during resize".utf8))
+        try await Task.sleep(for: .milliseconds(10))
+        let inputCountDuringResize = await fixture.inputCount()
+        XCTAssertEqual(inputCountDuringResize, 0)
+        try await waitUntil {
+            await fixture.inputs() == [Data("queued during resize".utf8)]
+        }
 
         viewModel.sendKeyboardBytes(Data("echo ok\n".utf8))
-        try await waitUntil { await fixture.inputs() == [Data("echo ok\n".utf8)] }
+        try await waitUntil {
+            await fixture.inputs() == [
+                Data("queued during resize".utf8),
+                Data("echo ok\n".utf8),
+            ]
+        }
 
         viewModel.suspend()
         XCTAssertEqual(viewModel.writerLease, .lost)
@@ -147,6 +167,7 @@ private actor FixtureWriterConnection: ControllerConnecting {
     private var eventHandler: (@Sendable (ControllerReadOnlyWireEvent) async throws -> Void)?
     private var written: [Data] = []
     private var releases = 0
+    private var resizeRequests: [TerminalViewportState] = []
 
     func beginPairing(
         offerText: String,
@@ -230,8 +251,22 @@ private actor FixtureWriterConnection: ControllerConnecting {
         try await eventHandler?(.completed(commandID: commandID, applied: true))
     }
 
+    func sendResize(
+        host: PairedHostRecord,
+        identity: ReadOnlyAttachIdentity,
+        commandID: UUID,
+        viewport: TerminalViewportState
+    ) async throws {
+        _ = (host, identity)
+        resizeRequests.append(viewport)
+        try await Task.sleep(for: .milliseconds(50))
+        try await eventHandler?(.completed(commandID: commandID, applied: true))
+    }
+
     func forgetDeviceSecret(host: PairedHostRecord) async throws { _ = host }
     func cancel() async {}
     func inputs() -> [Data] { written }
     func releaseCount() -> Int { releases }
+    func resizeViewports() -> [TerminalViewportState] { resizeRequests }
+    func inputCount() -> Int { written.count }
 }
