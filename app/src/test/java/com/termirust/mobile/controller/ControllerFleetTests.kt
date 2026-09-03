@@ -3,11 +3,36 @@ package com.termirust.mobile.controller
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertThrows
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.util.Base64
 import java.util.UUID
 
 class ControllerFleetTests {
+    @Test
+    fun openTerminalRequiresLiveAttachableOccupant() {
+        val open = ControllerSessionSummary(
+            id = "00000000-0000-0000-0000-000000000020",
+            origin = ControllerSessionOrigin.TERMINAL,
+            runtime = "local_shell",
+            capabilities = listOf(
+                ControllerSessionCapability.OBSERVE_SESSIONS,
+                ControllerSessionCapability.ATTACH_OUTPUT,
+                ControllerSessionCapability.SEND_INPUT,
+            ),
+            title = "Local Terminal",
+            lifecycle = "live",
+            occupantGeneration = 1,
+            lastOutputSequence = 2,
+            hasWriter = false,
+            unreadCount = 0,
+        )
+
+        assertTrue(open.isOpenTerminal())
+        assertFalse(open.copy(lifecycle = "exited", occupantGeneration = null).isOpenTerminal())
+        assertFalse(open.copy(capabilities = listOf(ControllerSessionCapability.OBSERVE_SESSIONS)).isOpenTerminal())
+    }
+
     @Test
     fun sessionAndHostBoundsFailClosed() {
         val host = host("host-a")

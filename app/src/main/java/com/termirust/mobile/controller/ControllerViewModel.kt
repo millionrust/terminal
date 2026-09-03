@@ -135,6 +135,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
                             .apply()
                     }
                     hosts = hostStore.upsert(host)
+                    routePreferences.edit().putString(SELECTED_HOST_KEY, host.id).apply()
                     pairingOffer.value = ""
                     _state.value = makeState(
                         selectedHostId = host.id,
@@ -162,6 +163,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     fun selectHost(hostId: String) {
         if (hosts.none { it.id == hostId }) return
         operation?.cancel()
+        routePreferences.edit().putString(SELECTED_HOST_KEY, hostId).apply()
         _state.value = makeState(hostId, ControllerConnectionState.PairedOffline)
         operation = viewModelScope.launch { refreshSelected(retry = true) }
     }
@@ -369,8 +371,12 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
             runCatching { secureBlobs.delete(host.deviceStaticKeyId) }
             hosts = hostStore.remove(host.id)
             cache = cacheStore.remove(cache, host.id)
+            val next = hosts.maxByOrNull(PairedHostRecord::pairedAtMillis)
+            routePreferences.edit().apply {
+                if (next == null) remove(SELECTED_HOST_KEY) else putString(SELECTED_HOST_KEY, next.id)
+            }.apply()
             _state.value = makeState(
-                selectedHostId = hosts.firstOrNull()?.id,
+                selectedHostId = next?.id,
                 connectionState = if (hosts.isEmpty()) {
                     ControllerConnectionState.Unpaired
                 } else {
@@ -391,9 +397,12 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
     private suspend fun restore() {
         hosts = hostStore.load()
         cache = cacheStore.load()
-        val selected = hosts.firstOrNull()?.id
+        val savedHostId = routePreferences.getString(SELECTED_HOST_KEY, null)
+        val selected = hosts.firstOrNull { it.id == savedHostId }
+            ?: hosts.maxByOrNull(PairedHostRecord::pairedAtMillis)
+        selected?.let { routePreferences.edit().putString(SELECTED_HOST_KEY, it.id).apply() }
         _state.value = makeState(
-            selectedHostId = selected,
+            selectedHostId = selected?.id,
             connectionState = if (selected == null) {
                 ControllerConnectionState.Unpaired
             } else {
@@ -862,6 +871,7 @@ class ControllerViewModel(application: Application) : AndroidViewModel(applicati
 
     private companion object {
         const val SELECTED_ROUTE_KEY = "selected_route"
+        const val SELECTED_HOST_KEY = "selected_host"
     }
 }
 

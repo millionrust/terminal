@@ -395,27 +395,59 @@ private fun FleetDetail(
     onSelectRoute: (ControllerRemoteRouteKind) -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    val openTerminals = state.sessions.filter(ControllerSessionSummary::isOpenTerminal)
+    val previousSessions = state.sessions.filterNot(ControllerSessionSummary::isOpenTerminal)
     Column(modifier.fillMaxSize()) {
         ConnectionBanner(state, onRetry)
         ControllerRouteSelector(state, onSelectRoute)
-        if (state.sessions.isEmpty()) {
-            Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-                Text(
-                    if (state.connection.isBusy()) stringResource(com.termirust.mobile.R.string.loading_sessions) else stringResource(com.termirust.mobile.R.string.no_durable_sessions),
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+        LazyColumn(
+            Modifier.fillMaxSize().padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            if (openTerminals.isEmpty()) {
+                item(key = "no-open-terminals") {
+                    Box(
+                        Modifier.fillMaxWidth().heightIn(min = 140.dp),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            if (state.connection.isBusy()) {
+                                stringResource(com.termirust.mobile.R.string.loading_sessions)
+                            } else {
+                                stringResource(com.termirust.mobile.R.string.no_open_terminals)
+                            },
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            } else {
+                item(key = "open-terminals-header") {
+                    SessionSectionHeader(stringResource(com.termirust.mobile.R.string.open_terminals))
+                }
+                items(openTerminals, key = { it.id }) { session ->
+                    SessionRow(session, state.cachedReadOnly) { onOpenSession(session.id) }
+                }
             }
-        } else {
-            LazyColumn(
-                Modifier.fillMaxSize().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                items(state.sessions, key = { it.id }) { session ->
+            if (previousSessions.isNotEmpty()) {
+                item(key = "previous-sessions-header") {
+                    SessionSectionHeader(stringResource(com.termirust.mobile.R.string.previous_sessions))
+                }
+                items(previousSessions, key = { it.id }) { session ->
                     SessionRow(session, state.cachedReadOnly) { onOpenSession(session.id) }
                 }
             }
         }
     }
+}
+
+@Composable
+private fun SessionSectionHeader(title: String) {
+    Text(
+        title,
+        style = MaterialTheme.typography.titleSmall,
+        fontWeight = FontWeight.SemiBold,
+        modifier = Modifier.padding(horizontal = 4.dp, vertical = 6.dp),
+    )
 }
 
 @Composable
@@ -441,7 +473,7 @@ private fun ControllerRouteSelector(
                 )
             }
         }
-        state.routeProjections.forEach { projection ->
+        state.routeProjections.filter { it.selected || it.available }.forEach { projection ->
             ControllerRouteRow(projection, onSelect)
         }
         state.routeError?.let { error ->

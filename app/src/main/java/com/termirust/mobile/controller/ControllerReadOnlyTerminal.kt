@@ -116,7 +116,8 @@ object ControllerReadOnlyWireCodec {
     ): ByteArray {
         cursor.identity.validate()
         limits.validate(viewport)
-        require(sessionGeneration > 0 && deadlineMillis > 0)
+        // Early desktop authorities used zero as their exact initial generation.
+        require(sessionGeneration >= 0 && deadlineMillis > 0)
         return json.encodeToString(
             AttachEnvelope(
                 commandId = commandId.toString(),

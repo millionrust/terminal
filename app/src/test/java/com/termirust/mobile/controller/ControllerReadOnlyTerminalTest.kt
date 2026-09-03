@@ -36,6 +36,17 @@ class ControllerReadOnlyTerminalTest {
     }
 
     @Test
+    fun attachCodecAcceptsLegacyInitialSessionGeneration() {
+        ControllerReadOnlyWireCodec.encodeAttach(
+            UUID.randomUUID(),
+            sessionGeneration = 0,
+            deadlineMillis = 30_000,
+            cursor = TerminalStreamCursor(identity, 0),
+            viewport = TerminalViewport(120, 40),
+        )
+    }
+
+    @Test
     fun codecRejectsUnknownAndCrossSessionOutput() {
         val commandId = UUID.randomUUID()
         val unknown = """{"kind":"output","session_id":"$sessionId","sequence":1,"bytes":[65],"extra":true}"""

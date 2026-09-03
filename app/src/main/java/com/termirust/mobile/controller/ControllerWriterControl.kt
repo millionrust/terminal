@@ -116,7 +116,8 @@ object ControllerWriterWireCodec {
 
     private fun validateEnvelope(sessionGeneration: Long, deadlineMillis: Long, identity: ReadOnlyAttachIdentity) {
         identity.validate()
-        require(sessionGeneration > 0 && deadlineMillis > 0)
+        // Early desktop authorities used zero as their exact initial generation.
+        require(sessionGeneration >= 0 && deadlineMillis > 0)
     }
 
     private const val MAX_CONTROL_PAYLOAD_BYTES = 64 * 1_024

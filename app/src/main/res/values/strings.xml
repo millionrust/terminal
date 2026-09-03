@@ -15,6 +15,9 @@
     <string name="controller_selected">Selected</string>
     <string name="loading_sessions">Loading sessions…</string>
     <string name="no_durable_sessions">No durable sessions found.</string>
+    <string name="open_terminals">Open Terminals</string>
+    <string name="previous_sessions">Previous Sessions</string>
+    <string name="no_open_terminals">Open a local or SSH terminal in TermiRust Desktop, then refresh.</string>
     <string name="cached_updated">Cached read-only data · updated %1$s</string>
     <string name="retry">Retry</string>
     <string name="cached">Cached</string>

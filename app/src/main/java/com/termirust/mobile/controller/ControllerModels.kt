@@ -44,7 +44,7 @@ data class PairedHostRecord(
         require(id.isNotBlank() && id.toByteArray().size <= 256)
         require(displayName.codePointCount() in 1..ControllerLimits.MAX_TITLE_CODE_POINTS)
         require(deviceStaticKeyId.toByteArray().size in 1..128)
-        require(identityGeneration > 0 && revocationEpoch >= 0 && sessionGeneration > 0)
+        require(identityGeneration > 0 && revocationEpoch >= 0 && sessionGeneration >= 0)
         require(capabilityBits in 0..0x1f)
     }
 }
@@ -96,6 +96,13 @@ data class ControllerSessionSummary(
         require(occupantGeneration == null || occupantGeneration > 0)
         require(lastOutputSequence >= 0 && unreadCount >= 0)
     }
+}
+
+fun ControllerSessionSummary.isOpenTerminal(): Boolean {
+    val canAttach = capabilities.isEmpty() || ControllerSessionCapability.ATTACH_OUTPUT in capabilities
+    return lifecycle in setOf("live", "running", "running_app_attached") &&
+        occupantGeneration != null &&
+        canAttach
 }
 
 @Serializable
